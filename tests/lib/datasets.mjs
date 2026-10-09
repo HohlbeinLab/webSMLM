@@ -84,6 +84,8 @@ export const DATASETS = Object.freeze({
     parameters: { pxnm: 100, gain: 1 / 6, camoffset: 100, calStep: 10, calRef: 76 },
     scenarios: ['calibration', 'load'],
     scientificValidation: true,
+    // Of the extracted file (the archive itself has no registered checksum); trust-on-first-use from a local copy.
+    extracted: { sha256: 'a4c2fb4ce2d483aed8e1710c6dd4403bd67954b7e18bfc0ddb46b2102acdc685', bytes: 6815435 },
     download: {
       type: 'zip-file',
       url: 'https://bigwww.epfl.ch/srm/Data/challenge-3D-simulation/beads/Data/z-stack-Beads-AS-Exp-as-stack.zip',
@@ -103,6 +105,8 @@ export const DATASETS = Object.freeze({
     scenarios: ['localize-cpu', 'localize-gpu', 'ground-truth'],
     benchmark: 'bench-dataset-localize.mjs',
     scientificValidation: true,
+    // Of the extracted file (the archive itself has no registered checksum); trust-on-first-use from a local copy.
+    extracted: { sha256: '7a3aff3fdffde322c094d9c86c34dd26da9c79cecc7fab4bccf868eb46f78e60', bytes: 20822904 },
     download: {
       type: 'zip-file',
       url: 'https://bigwww.epfl.ch/srm/Data/challenge-3D-simulation/MT0.N1.HD/Data/sequence-MT0.N1.HD-AS-Exp-as-stack.zip',
@@ -126,6 +130,8 @@ export const DATASETS = Object.freeze({
     scenarios: ['localize-cpu', 'localize-gpu', 'ground-truth'],
     benchmark: 'bench-dataset-localize.mjs',
     scientificValidation: true,
+    // Of the extracted file (the archive itself has no registered checksum); trust-on-first-use from a local copy.
+    extracted: { sha256: '324724e4d8015614c88e674cd7438fb0f5e1092b3d5b53ece033c6e774c01977', bytes: 166584580 },
     download: {
       type: 'zip-file',
       url: 'https://bigwww.epfl.ch/srm/Data/challenge-3D-simulation/MT0.N1.LD/Data/sequence-MT0.N1.LD-AS-Exp-as-stack.zip',

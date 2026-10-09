@@ -56,6 +56,7 @@ if (dataset.download.type === 'zip') {
   const output = join(destination, dataset.download.file);
   if (zipReady && !force) {
     console.log(`${key} already exists at ${destination}\nUse --force to download it again.`);
+    if (dataset.extracted) await verifyFile(output, dataset.extracted.sha256, dataset.extracted.bytes, false);
     process.exit(0);
   }
   mkdirSync(destination, { recursive: true });
@@ -71,6 +72,7 @@ if (dataset.download.type === 'zip') {
       if (existsSync(output)) unlinkSync(output);
       renameSync(found, output);
     }
+    if (dataset.extracted) await verifyFile(output, dataset.extracted.sha256, dataset.extracted.bytes, false);
   }
   for (const remote of dataset.download.files || []) {
     if (!remote?.url || !remote.name || basename(remote.name) !== remote.name) throw new Error(`Invalid file download entry for ${key}.`);
