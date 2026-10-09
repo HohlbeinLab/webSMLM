@@ -31,7 +31,7 @@ const SUITE_INFO = {
   test: ['All correctness tests', 'Runs tests only; benchmarks are excluded.'],
   all: ['Standard run', 'Runs every automated test and bounded benchmark. Optional data and tools may skip.'],
   'all:full': ['Standard run (full workloads)', 'The standard run with full-size benchmark workloads.'],
-  everything: ['Everything available', 'The standard run plus independent, same-seed simulator, and available EPFL ground-truth comparisons with Picasso.'],
+  everything: ['Everything available', 'The standard run plus the physical simulation regime matrix and, with Picasso, independent, same-seed simulator, and available EPFL ground-truth comparisons.'],
   'everything:full': ['Everything available (full)', 'Everything available with full workloads, including the EPFL low-density comparison when downloaded.'],
   'bench:all': ['All bounded benchmarks', 'Runs benchmarks only with their normal bounded workloads.'],
   'gpu:all': ['GPU group', 'Runs all GPU tests and bounded GPU benchmarks.'],
@@ -39,6 +39,8 @@ const SUITE_INFO = {
   'io:all': ['File loading and saving group', 'Runs all automated input/output checks.'],
   'livestream:all': ['Livestream group', 'Runs simulated livestream checks; live hardware stays manual.'],
   'validation:all': ['Built-in validation group', 'Runs validation that does not require Picasso.'],
+  'validation:bench:regimes': ['Physical simulation accuracy matrix', 'Scores webSMLM against the simulator\'s ground truth across physical regimes (density, photons, background, PSF).'],
+  'validation:bench:regimes:full': ['Physical simulation accuracy matrix (full)', 'The regime matrix with full-size workloads.'],
 };
 
 function readCommandSources(command) {
