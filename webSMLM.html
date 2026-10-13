@@ -57,6 +57,23 @@
   fdlibm-derived maths (BSD-style); the repository's THIRD_PARTY_NOTICES.md
   lists them with their notices:
     https://github.com/kjamartens/inSiliScope/blob/main/THIRD_PARTY_NOTICES.md
+
+  The 2D H_Watershed segmentation is a JavaScript port of Interactive-H-Watershed
+  at commit 03dd86585ecb1bd44a8bd3c96be3f924c15c4e76:
+    https://github.com/mpicbg-scicomp/Interactive-H-Watershed
+  Its BSD-3-Clause copyright notice and licence are retained here:
+
+      Copyright 2017 Max Planck Institute of Molecular Cell Biology and Genetics, Dresden, Germany
+
+      Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+      1 - Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+      2 - Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+      3 - Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+      THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   ============================================================================
   Algorithm references (phasor, drift/AIM, NeNA, FRC, FTM, sSMLM, …) are not
   repeated here — see docs/DOCUMENTATION.md §9 "References & further
@@ -68,26 +85,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params             PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out             TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation         synthetic stack generator ("Simulate movie")
-    validation         ground-truth scoring for simulated data ("Compare to GT")
-    detect             band-pass (wavelet/DoG/box) + local-maxima detection
-    fit                phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render             super-resolution accumulation, view, colour maps, plots
-    workers           frame-parallel detect/fit worker pool
-    gpu               WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export            ThunderSTORM-compatible CSV, plot/image export
-    3D calibration    astigmatic width-vs-z bead calibration
-    drift             AIM and cross-correlation drift correction
-    locprecision      NeNA and FRC
-    sSMLM             spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET            sites of interest, time traces, pairing, E(S) (experimental)
-    spt               single-particle tracking and diffusion coefficients
-    pipeline          *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming     Micro-Manager/pycromanager bridge (experimental)
-    table             localizations table, filters, histograms, clustering
-    headless API      window.webSMLM.analyze()/analyzeBatch()
+    params           2769  PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out           3784  TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation       4012  synthetic stack generator ("Simulate movie")
+    validation       7075  ground-truth scoring for simulated data ("Compare to GT")
+    detect           8058  band-pass (wavelet/DoG/box) + local-maxima detection
+    fit              8314  phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render           8971  super-resolution accumulation, view, colour maps, plots
+    workers         11023  frame-parallel detect/fit worker pool
+    gpu             11667  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          14013  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  14362  astigmatic width-vs-z bead calibration
+    drift           14774  AIM and cross-correlation drift correction
+    locprecision    15805  NeNA and FRC
+    sSMLM           16972  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          17578  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             19686  single-particle tracking and diffusion coefficients
+    pipeline        21179  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   22263  Micro-Manager/pycromanager bridge (experimental)
+    table           25044  localizations table, filters, histograms, clustering
+    headless API    25735  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1744,7 +1761,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-09a</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-13d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1784,6 +1801,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <div class="bar" id="bar"><i id="prog"></i></div>
       <input type="file" id="file" accept=".tif,.tiff,.nd2,.fits,.fit,.csv,.json" multiple hidden>
       <input type="file" id="segFile" accept=".tif,.tiff,.nd2,.fits,.fit" hidden>
+      <input type="file" id="segSourceFile" accept=".tif,.tiff,.nd2,.fits,.fit" hidden>
       <input type="file" id="setFile" accept=".json" hidden>
       <!-- Hidden conduit for tools/webSMLM-cli.mjs: Playwright's setInputFiles()
            stashes a File here for analyze(); separate from #file so its change
@@ -2539,18 +2557,31 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       </details>
       <details class="sim" id="sptBox">
         <summary title="Link localizations into tracks and compute a diffusion coefficient per track, optionally per segmented cell. (Caution!): one specific method with real assumptions">(Caution!) Single-particle tracking</summary>
-        <label class="row" title="Load a cell mask and track each cell separately (tracks never cross cell borders)">Apply segmentation <input type="checkbox" id="applySegmentation"></label>
+        <label class="row" title="Generate a watershed cell mask from the loaded image or movie projection, then track each cell separately">Apply segmentation <input type="checkbox" id="applySegmentation"></label>
+        <label class="row" title="Choose how to segment the source image">Segmentation method <select id="segMethod" class="sel"><option value="watershed">Watershed</option></select></label>
+        <div class="btnrow" style="margin-top:2px">
+          <button id="segSourceBtn" disabled title="Load a separate single image for watershed; it takes priority over the loaded data">Load source image</button>
+          <button id="segLoadBtn" disabled title="Load an integer-labelled segmentation image (0 = background, 1/2/3/… = cell number) — same file types as Load data">Load segm. image</button>
+        </div>
+        <div id="segSourceInfo" role="status" style="font-size:11px;color:var(--muted);margin:2px 0 6px">Source: loaded image/movie (when available)</div>
         <div id="segLoadRow" style="display:none">
           <div class="btnrow" style="margin-top:2px">
-            <button id="segLoadBtn" title="Load an integer-labelled segmentation image (0 = background, 1/2/3/… = cell number) — same file types as Load data">Load segm. image</button>
-            <button id="segShowBtn" disabled title="Show the segmentation image or its cell-area histogram (Segmentation image shown first; toggle next to the raw panel title switches between the two)">Show image</button>
+          <button id="segShowBtn" disabled style="grid-column:1 / -1" title="Hold to compare the source image with localizations in the reconstruction; release to restore the segmentation overlay">Show image</button>
+          </div>
+          <div id="segOpacityRow" style="margin:6px 0" title="Opacity of segmented cells over the source image and SMLM reconstruction; 0% hides the cells, 100% makes them opaque">
+            <label for="segOpacity" style="display:flex;justify-content:space-between;font-size:12px">Segmentation opacity <span id="segOpacityValue">50%</span></label>
+            <input type="range" id="segOpacity" class="scrubslider" min="0" max="100" step="1" value="50" aria-label="Segmentation opacity">
           </div>
         </div>
+        <label class="row" id="segHMinRow" style="display:none;padding-left:40px" title="Fiji H_Watershed seed dynamics; larger values merge nearby cells">Seed dynamics (H) <input type="number" id="segHMin" min="0" step="any" class="num"></label>
+        <label class="row" id="segThresholdRow" style="display:none;padding-left:40px" title="Fiji H_Watershed intensity threshold in the image's own pixel units">Intensity threshold <input type="number" id="segThreshold" step="any" class="num"></label>
+        <label class="row" id="segPeakFloodingRow" style="display:none;padding-left:40px" title="Fiji H_Watershed peak flooding percentage; 100% reaches the intensity threshold">Peak flooding (%) <input type="number" id="segPeakFlooding" min="0" max="100" step="1" class="num"></label>
+        <label class="row" id="segInvertRow" style="display:none;padding-left:40px" title="Invert intensity before watershed for images whose cells are darker than their surroundings">Invert intensity <input type="checkbox" id="segInvert"></label>
         <!-- A direct child of details.sim (not inside #segLoadRow), so the
              indent rule applies; the extra padding-left:40px marks them as
              sub-rows of "Apply segmentation", toggled by the same handler. -->
-        <label class="row" id="segAreaMinRow" style="display:none;padding-left:40px" title="Cells smaller than this (mask pixels) are ignored">Min. cell area (px) <input type="number" id="segAreaMin" value="50" min="0" step="1" class="num"></label>
-        <label class="row" id="segAreaMaxRow" style="display:none;padding-left:40px">Max. cell area (px) <input type="number" id="segAreaMax" min="0" step="1" class="num" title="Blank = no upper limit"></label>
+        <label class="row" id="segAreaMinRow" style="display:none;padding-left:40px" title="Track only cells at least this large (mask pixels); all cells remain visible in the preview">Min. cell area (px) <input type="number" id="segAreaMin" value="50" min="0" step="1" class="num"></label>
+        <label class="row" id="segAreaMaxRow" style="display:none;padding-left:40px" title="Track only cells no larger than this (mask pixels); blank = no upper limit">Max. cell area (px) <input type="number" id="segAreaMax" min="0" step="1" class="num" title="Blank = no upper limit"></label>
         <label class="row" title="Largest step between frames that can link two localizations into a track">Search range (nm) <input type="number" id="sptSearchRange" value="800" min="10" max="5000" step="10" class="num"></label>
         <label class="row" title="Frames a particle may go undetected and still continue its track; 0 = no gaps">Memory (frames) <input type="number" id="sptMemory" value="0" min="0" max="20" step="1" class="num"></label>
         <label class="row" title="Localization precision subtracted when computing D; Get from NeNA fills it in">Localization error (nm) <input type="number" id="sptLocError" value="35" min="0" max="500" step="1" class="num"></label>
@@ -2575,8 +2606,11 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         </div>
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-spt"><span class="pill">module: spt</span>
-          <p><b>Apply segmentation</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load data</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show image</b> re-shows it later without reloading the file, opening on the segmentation image by default; a toggle next to the raw panel's own title switches to a histogram of the cell-area distribution (px) and back — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
-          <p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — swaps the panel to the segmented cells (opaque, same colours as the raw-panel view) with the same reconstruction drawn on top, its black background made highly transparent (sparse localizations get a minimum visible brightness so they don't disappear against a bright cell colour), so you can check localizations line up with their cells before tracking (click again, now <b>Show recon.</b>, to go back). If you correct <b>Pixel size (nm)</b> after loading the segmentation image, the segmentation's on-screen size rescales relative to the (unmoving) localizations — using its value at load time as the reference, since localization positions themselves never depend on it: correcting it upward grows the segmentation's apparent coverage, downward shrinks it.</p>
+          <p>Load a movie or CSV for localizations. In <b>Single-particle tracking</b>, check <b>Apply segmentation</b> to make a labelled mask with <b>Watershed</b> and enable the two image-loading buttons. By default a single loaded image or the movie's average Data projection supplies the pixels. <b>Load source image</b> uses a separate single image instead, even while localizations come from the movie or CSV; its width and height must match a loaded movie. A separate image always takes priority until loading another dataset, rotating or cropping clears the source and mask.</p>
+           <p><b>Seed dynamics (H)</b> suppresses shallow peaks; larger values tend to merge cells. <b>Intensity threshold</b> excludes dim pixels in the source's own units. <b>Peak flooding</b> sets how far peaks grow toward that threshold (100% reaches it). <b>Invert intensity</b> makes dark cells bright peaks. Each source starts with H at 5% of its intensity range, threshold at its minimum, flooding at 100%, and inversion off. At that minimum, watershed may assign visible background to cells; raise the threshold or load a mask with 0-valued background if it should be excluded from Track. Changing a control regenerates the mask without rereading the source.</p>
+            <p><b>Load segm. image</b>, beside <b>Load source image</b>, overrides watershed with an integer-labelled mask (0 = background, positive integers = cells). Changing a watershed control generates from the selected source again without changing opacity. Replacing the mask clears earlier Track results; click <b>Track</b> again. <b>Segmentation opacity</b> blends cell colours over the grayscale source and the reconstruction: 0% shows the source or ordinary reconstruction alone; 100% gives opaque cell colours while localization signal remains visible. Hold <b>Show image</b> to see the original source in both panels, with reconstruction localizations over it; release to restore the segmentation at the same opacity and zoom. This display scaling does not change watershed pixel values. An imported mask with no matching source remains an opaque mask; the hold preview needs a matching source. The raw-panel toggle on the segmentation view shows the cell-area histogram. <b>Min./Max. cell area (px)</b> select cells for the next <b>Track</b> run; the preview and histogram show every cell in the full mask. Blank Max. means no upper limit. <b>Track</b> reports an invalid area range or a missing mask.</p>
+            <p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — the full mask is blended over the ordinary reconstruction at the same opacity as the raw panel, with sparse localization signal kept visible (click again, now <b>Show recon.</b>, to go back). Both panels use the same image-pixel coordinates, and per-cell tracking reads those mask pixels. For CSV data, <b>Pixel size (nm)</b> converts positions in nm to image pixels; use the acquisition's camera calibration. Changing it moves localizations relative to the fixed image, but does not trim the mask, change cell areas or delete CSV rows. The reconstruction keeps all CSV points visible, including those outside the mask. Their count is reported, and <b>Track</b> stops until the coordinates are calibrated. After changing Pixel size, click <b>Track</b> again to recompute previous per-cell results. Watershed itself needs only image pixels; sparse localization bounds cannot establish the camera pixel size exactly.</p>
+            <p>CSV detections can leave an empty rim inside the image when localization fitting needs space near its edges. The mask still covers the source image's real pixels; an edge without detections cannot create tracks. The app reports the observed rim when it spans every edge. Keep the image mask at its native size rather than trimming it to the outermost detection.</p>
           <p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save localisations**/the table.</p>
           <p>Links each frame's localizations onto the previous frames' active tracks — a trackpy-<b>inspired</b> variant (same <code>search_range</code>/<code>memory</code> terminology and linking philosophy as the Python <code>trackpy</code> package), not a literal port of its source, since there's no way to call real Python trackpy from a static HTML page. Frame-to-frame candidates within <b>Search range</b> are grouped into small connected clusters and each solved via an optimal (minimum total squared displacement) assignment, which keeps crossing trajectories from swapping identity in the common case. <b>Memory</b> lets a track skip up to that many frames with no detection and still be relinked when it reappears.</p>
           <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
@@ -2585,9 +2619,6 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p><b>Show tracks</b> plots a subset of tracks as lines directly on the <b>SMLM reconstruction</b> (thickness = one reconstruction pixel's own on-screen size at the current zoom, capped so zooming in a long way can't blow a track up into an oversized shape), a filled circle marking each track's own start point (diameter = 2x the line thickness, same colour as the line), and its track number in white on a semi-transparent grey backing box (matching the scale bar's own) for legibility — growing larger the further you zoom in — legible tracks require zooming in, since real data is usually dense. Only tracks meeting <b>Min track length</b> are eligible (the same threshold Track's own D estimate uses); <b>Show tracks (%)</b> (default 10%) then samples a fixed, reproducible percentage of those, so a dense dataset stays plottable — raising it never reshuffles the tracks already shown, it only reveals more, and the exact same track identities come up every time for a given dataset. <b>Colour tracks by mean D</b> (checked by default) colours each track by its own mean diffusion coefficient (the same colour ramp as <b>Fire (hot)</b>, normalised against <b>D plot min/max</b>, with a colour-scale legend centred along the panel's right edge while it's checked — a track with no qualifying D estimate, e.g. too short, is drawn a neutral grey instead); uncheck it for plain magenta tracks instead. Click a track (anywhere along its own line) to select it — it highlights magenta in colour-by-D mode, or the same green the raw panel's own ROI boxes use otherwise; click it again, or a different track, to change the selection. Turning the overlay on also switches the reconstruction to the <b>Grey</b> colour map, so the tracks' own colouring doesn't compete with a coloured density map. A toggle next to the <b>SMLM reconstruction</b> title (<b>Show tracks</b>/<b>Hide tracks</b>) switches the overlay on and off without re-plotting.</p>
           <p><b>Show track data</b> opens a sortable, filterable table of the per-track summary — one row per track (<code>track_id</code>, <code>n_locs</code>, <code>D_coeff</code>, mean x/y, first/last frame), the same rows <b>Save track data</b> writes to CSV, not one row per localization (see <b>View data/filtering</b> for that). Click a column header to sort by it; type a filter (e.g. <code>n_locs &gt; 10</code>, joinable with <code>and</code>/<code>or</code>) and press Enter to apply it — cumulative, removable filter chips, same grammar as the main table. A v1 kept deliberately simple for now (no histogram-of-column, no link back to the reconstruction yet).</p>
           <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
-          <p><b>Apply segmentation</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load data</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show image</b> re-shows it later without reloading the file, opening on the segmentation image by default; a toggle next to the raw panel's own title switches to a histogram of the cell-area distribution (px) and back — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
-          <p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — swaps the panel to the segmented cells (opaque, same colours as the raw-panel view) with the same reconstruction drawn on top, its black background made highly transparent (sparse localizations get a minimum visible brightness so they don't disappear against a bright cell colour), so you can check localizations line up with their cells before tracking (click again, now <b>Show recon.</b>, to go back). If you correct <b>Pixel size (nm)</b> after loading the segmentation image, the segmentation's on-screen size rescales relative to the (unmoving) localizations — using its value at load time as the reference, since localization positions themselves never depend on it: correcting it upward grows the segmentation's apparent coverage, downward shrinks it.</p>
-          <p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save localisations**/the table.</p>
         </div>
       </details>
     </div>
@@ -2650,7 +2681,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <h4><span id="srTitle">SMLM reconstruction</span></h4>
         <div class="panel-body">
           <canvas id="sr"></canvas>
-          <h4><span style="display:flex;align-items:center;gap:6px"><button id="view3dBtn" class="logbtn" style="display:none" title="Tilt and rotate the 3D reconstruction of what is in the current field of view (frozen at activation); Tilt 0° is the top view, 90° the side view">Tilt/rotate view</button><button id="srProjToggleBtn" class="logbtn" style="display:none" title="Switch the panel to the Data projection (the averaged raw frames) and back, keeping the same field of view; the reconstruction is kept, not re-rendered">Show data projection</button><button id="alexProjToggleBtn" class="logbtn" style="display:none" title="Before Localize SOI: toggles the Data projection between averaging only direct donor- and only direct acceptor-excitation frames. Once sites of interest exist: cycles the reconstruction panel between the DD+DA composite, the AA composite, and — once Get traces has produced real DD+DA data — the E (or E vs S) histogram. Without Alternating-laser excitation: switches between the E histogram and the SOI composite.">Show acceptor dir. exc.</button><button id="sSmlmColorBtn" class="logbtn" style="display:none" title="Swap between the standard reconstruction and the spectral view (colour = inter-order distance) — also switches the Colour map between whichever you had on Standard and the spectral convention (HSV blue loop)">Show spectral</button><button id="smfretAlignOverlayBtn" class="logbtn" style="display:none" title="Swap between the SOI composite and a registration check: the donor channel (green) warped through the fitted transform, overlaid on the acceptor/DA channel (magenta) — genuine overlap reads white, a real misalignment shows as separated green/magenta fringes.">Show alignment</button><button id="srSegOverlayBtn" class="logbtn" style="display:none" title="Show the segmented cells (opaque, same colours as Show segm. image) with the reconstruction on top, its black background made highly transparent">Show segm.</button><button id="srTracksOverlayBtn" class="logbtn" style="display:none" title="Toggle the SPT tracks overlay on the reconstruction">Show tracks</button><button id="calViewBtn" class="logbtn" style="display:none" title="Switch the calibration graph between PSF width σ(z) and phasor magnitude(z)">Show phasor mag.</button><button id="measureBtn" class="linetool" disabled title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button><button id="cropBtn" class="linetool" disabled title="Crop to a region — click two opposite corners in this window (adds an x/y filter, same as the data table)"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
+          <h4><span style="display:flex;align-items:center;gap:6px"><button id="view3dBtn" class="logbtn" style="display:none" title="Tilt and rotate the 3D reconstruction of what is in the current field of view (frozen at activation); Tilt 0° is the top view, 90° the side view">Tilt/rotate view</button><button id="srProjToggleBtn" class="logbtn" style="display:none" title="Switch the panel to the Data projection (the averaged raw frames) and back, keeping the same field of view; the reconstruction is kept, not re-rendered">Show data projection</button><button id="alexProjToggleBtn" class="logbtn" style="display:none" title="Before Localize SOI: toggles the Data projection between averaging only direct donor- and only direct acceptor-excitation frames. Once sites of interest exist: cycles the reconstruction panel between the DD+DA composite, the AA composite, and — once Get traces has produced real DD+DA data — the E (or E vs S) histogram. Without Alternating-laser excitation: switches between the E histogram and the SOI composite.">Show acceptor dir. exc.</button><button id="sSmlmColorBtn" class="logbtn" style="display:none" title="Swap between the standard reconstruction and the spectral view (colour = inter-order distance) — also switches the Colour map between whichever you had on Standard and the spectral convention (HSV blue loop)">Show spectral</button><button id="smfretAlignOverlayBtn" class="logbtn" style="display:none" title="Swap between the SOI composite and a registration check: the donor channel (green) warped through the fitted transform, overlaid on the acceptor/DA channel (magenta) — genuine overlap reads white, a real misalignment shows as separated green/magenta fringes.">Show alignment</button><button id="srSegOverlayBtn" class="logbtn" style="display:none" title="Show segmented cells over the ordinary reconstruction at the opacity set in Single-particle tracking">Show segm.</button><button id="srTracksOverlayBtn" class="logbtn" style="display:none" title="Toggle the SPT tracks overlay on the reconstruction">Show tracks</button><button id="calViewBtn" class="logbtn" style="display:none" title="Switch the calibration graph between PSF width σ(z) and phasor magnitude(z)">Show phasor mag.</button><button id="measureBtn" class="linetool" disabled title="Measure a line profile — click a start then an end point in this window"><svg width="15" height="11" viewBox="0 0 15 11" aria-hidden="true"><line x1="2" y1="9" x2="13" y2="2" stroke="currentColor" stroke-width="1.6"/><circle cx="2" cy="9" r="1.7" fill="currentColor"/><circle cx="13" cy="2" r="1.7" fill="currentColor"/></svg></button><button id="cropBtn" class="linetool" disabled title="Crop to a region — click two opposite corners in this window (adds an x/y filter, same as the data table)"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 0 V9 H12" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9 12 V3 H0" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></span> <small id="srInfo">— run localization to reconstruct</small></h4>
+          <div id="segAlignmentNote" role="status" style="display:none;color:var(--accent2);font-size:12px;margin-top:4px"></div>
           <div id="view3dCtl" style="display:none;flex-wrap:nowrap;align-items:center;gap:6px 10px;margin-top:6px" title="Turntable view of the localizations inside the field of view frozen at activation. Shift-drag the image to orbit.">
             <label style="display:flex;flex:1 1 0;min-width:0;align-items:center;gap:6px;font-size:12px" title="Tilt about the horizontal axis: 0° top view, 90° side view, 180° from below">Tilt <input type="range" id="view3dTilt" class="scrubslider" min="0" max="180" step="1" value="0" style="flex:1;min-width:40px;width:auto"><span id="view3dTiltVal" style="min-width:34px">0°</span></label>
             <label style="display:flex;flex:1 1 0;min-width:0;align-items:center;gap:6px;font-size:12px" title="Rotation about the vertical (z) axis through the centre of the field of view">Rotate <input type="range" id="view3dRot" class="scrubslider" min="0" max="360" step="1" value="0" style="flex:1;min-width:40px;width:auto"><span id="view3dRotVal" style="min-width:34px">0°</span></label>
@@ -2994,6 +3026,12 @@ const PARAMS = {
   // apply_cell_segmentation_sptPALM.py). segAreaMax Infinity = no limit.
   segAreaMin: { type:'number', id:'segAreaMin', label:'Min. cell area (px)', min:0, max:null, step:1, default:50, int:true },
   segAreaMax: { type:'number', id:'segAreaMax', label:'Max. cell area (px)', min:0, max:null, step:1, default:Infinity, int:true },
+  segMethod: { type:'enum', id:'segMethod', label:'Segmentation method', default:'watershed' },
+  segHMin: { type:'number', id:'segHMin', label:'Watershed seed dynamics (H)', min:0, max:null, step:'any', default:0, int:false },
+  segThreshold: { type:'number', id:'segThreshold', label:'Watershed intensity threshold', min:null, max:null, step:'any', default:0, int:false },
+  segPeakFlooding: { type:'number', id:'segPeakFlooding', label:'Watershed peak flooding (%)', min:0, max:100, step:1, default:100, int:false },
+  segInvert: { type:'bool', id:'segInvert', label:'Watershed invert intensity', default:false },
+  segOpacity: { type:'number', id:'segOpacity', label:'Segmentation opacity (%)', min:0, max:100, step:1, default:50, int:true },
 
   // ---- memory / streaming ----
   // memBudgetGB: opt-in total-memory ceiling for the memory guards (default
@@ -9842,7 +9880,7 @@ async function requestSrPatch(){
 }
 // Draws the srFull-px rect (sx,sy,sw,sh) over the DW×DH panel: srFull itself,
 // or for a viewport reconstruction its overview with the patch on top.
-// transparent: black made transparent (segmentation overlay).
+// transparent: black made transparent (segmentation or source overlay).
 function srDrawImage(ctx,sx,sy,sw,sh,DW,DH,transparent){
   const f=srFull, t=transparent?buildTransparentReconCanvas:(c=>c);
   if(!f._viewport){ ctx.drawImage(t(f), sx,sy,sw,sh, 0,0,DW,DH); return; }
@@ -10069,22 +10107,34 @@ function drawView(){
   $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none';   // E/E-S-plot-only rows — a real reconstruction/composite reclaiming this panel supersedes them
   ctx.fillStyle='#000'; ctx.fillRect(0,0,DW,DH);
   syncSaveImg();
+  const alignment=srSegOverlayOn ? segmentationAlignmentNote() : '';
+  $('segAlignmentNote').textContent=alignment;
+  $('segAlignmentNote').style.display=alignment?'block':'none';
   if(!srFull) return;
   ctx.imageSmoothingEnabled=false;
   const sw=DW/view.zoom, sh=DH/view.zoom, sx=view.cx-sw/2, sy=view.cy-sh/2;
-  // Segmentation overlay (srSegOverlayBtn): opaque cells below, the
-  // reconstruction on top with its black background made transparent.
+  // Segmentation overlay (srSegOverlayBtn): start with the ordinary
+  // reconstruction, blend cells over it, then restore visible signal on top.
   // The cell canvas is at camera-pixel resolution (divide the sub-rect by mag);
   // the transparent reconstruction is in srFull px. Both top-left
-  // aligned; a mask a few px off in size is drawn anyway (warned at load).
-  // segScale = pxnm / refPxNm (pxnm at load): loc positions are camera px and
-  // don't change with Pixel size, so after correcting Pixel size the mask is
-  // rescaled to cover the same physical area (larger for a larger pxnm).
-  if(srSegOverlayOn && srIsRecon && !view3d.on && segmentedImageLabels && lastResult){
-    const segOverlay=buildSegOverlayCanvas(), mag=lastResult.mag||1;
-    const segScale=(paramValue('pxnm')||1)/(segmentedImageLabels.refPxNm||paramValue('pxnm'));
-    ctx.drawImage(segOverlay, sx/mag/segScale,sy/mag/segScale,sw/mag/segScale,sh/mag/segScale, 0,0,DW,DH);
+  // aligned; per-cell tracking uses these same mask pixels.
+  if(segSourceShowing && srIsRecon && !view3d.on && segmentedImageLabels && lastResult &&
+     rawFull?.width===segmentedImageLabels.w && rawFull.height===segmentedImageLabels.h){
+    // The held source is the exact canvas shown in the left panel. Draw it in
+    // the same camera-pixel coordinates as the mask, with localizations on top.
+    const mag=lastResult.mag||1;
+    ctx.drawImage(rawFull, sx/mag,sy/mag,sw/mag,sh/mag, 0,0,DW,DH);
     srDrawImage(ctx, sx,sy,sw,sh, DW,DH, true);
+  } else if(srSegOverlayOn && srIsRecon && !view3d.on && segmentedImageLabels && lastResult){
+    const segOverlay=buildSegOverlayCanvas(), mag=lastResult.mag||1;
+    srDrawImage(ctx, sx,sy,sw,sh, DW,DH, false);
+    const opacity=paramValue('segOpacity')/100;
+    if(opacity){
+      ctx.globalAlpha=opacity;
+      ctx.drawImage(segOverlay, sx/mag,sy/mag,sw/mag,sh/mag, 0,0,DW,DH);
+      ctx.globalAlpha=1;
+      srDrawImage(ctx, sx,sy,sw,sh, DW,DH, true);
+    }
   } else srDrawImage(ctx, sx,sy,sw,sh, DW,DH, false);
   scheduleSrPatch();
   if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH, srLocs===smfretSOI, srLocs===smfretSOI?smfretPairedSoiKeys:null);   // numbering and paired colours only for the smFRET SOI composite
@@ -14373,7 +14423,7 @@ async function averageFramesByParity(st,first,last,parity,cap,checkStack=true){
 }
 // Last whole-stack projection, keyed to stack and range, reused by
 // locateBeadsForCalib() when the range matches.
-let _projCache=null;   // {stack, first, last, img, used}
+let _projCache=null;   // {stack, first, last, cap, img, used}
 let alexProjChannel='dirDonorExc';   // which half of an ALEX Data projection is currently shown
 // Per-channel manual Contrast for the composite toggle ({black,white,max}, or
 // null = auto-estimate), so toggling DD+DA <-> AA keeps a manual adjustment.
@@ -14393,7 +14443,7 @@ async function locateBeadsForCalib(){
         exactBP=paramValue('detection_DoG_exactbp'), mode=paramValue('detFilter'), border=(win-1)/2+1;
   try{
     let proj,used;
-    if(_projCache && _projCache.stack===stack && _projCache.first===first-1 && _projCache.last===last){
+    if(_projCache && _projCache.stack===stack && _projCache.first===first-1 && _projCache.last===last && _projCache.cap===paramValue('stackProjCap')){
       ({img:proj,used}=_projCache);
     }else{
       const r=await averageFrames(stack, first-1, last, paramValue('stackProjCap'));
@@ -19764,11 +19814,16 @@ async function linkTracks(locs, px, config, onProgress=()=>{}){
 // Cell id of a loc from the segmentation labels, only for cells within
 // [areaMin, areaMax]; -1 = no (qualifying) cell, as in the reference pipeline
 // and like track_id's -1 (0 may be a real label).
+// Source and reconstruction masks paint pixel (x,y) over [x,x+1)×[y,y+1).
+// Use the pixel containing the localization in both display and analysis.
+function segIndexForLoc(L,w,h){
+  if(!Number.isFinite(L.x)||!Number.isFinite(L.y)||L.x<0||L.y<0||L.x>=w||L.y>=h) return -1;
+  return Math.floor(L.y)*w+Math.floor(L.x);
+}
 function cellIdForLoc(L, segLabels){
-  const {arr,w,h}=segLabels;
-  const px_=Math.round(L.x), py_=Math.round(L.y);
-  if(px_<0||py_<0||px_>=w||py_>=h) return -1;
-  const v=Math.round(arr[py_*w+px_]);
+  const {arr,w,h}=segLabels, i=segIndexForLoc(L,w,h);
+  if(i<0) return -1;
+  const v=Math.round(arr[i]);
   return v>0 ? v : -1;
 }
 // Tracks each qualifying cell separately so no track crosses a cell boundary,
@@ -19954,6 +20009,17 @@ let lastSpt=null;
 // the result in lastSpt, and shows the default (MSD-vs-lag) histogram.
 async function runSptTrack(){
   if(!lastResult||!lastResult.locs.length){ log('!!! Track: no localisations — run Localize or load them with Load data.'); return; }
+  if($('applySegmentation').checked && (segPending || !segmentedImageLabels)){ log('!!! Track: Apply segmentation is checked, but no segmentation mask is ready. Load an image or import a mask.'); return; }
+  if($('applySegmentation').checked && paramValue('segAreaMin')>paramValue('segAreaMax')){
+    log('!!! Track: Min. cell area cannot exceed Max. cell area.'); return;
+  }
+  if($('applySegmentation').checked && lastResult.fromCsv && segmentedImageLabels.csvOutside){
+    log(`!!! Track: ${segmentedImageLabels.csvOutside} CSV localizations fall outside the segmentation image. Check Pixel size (nm) against the acquisition calibration; CSV rows remain loaded.`); return;
+  }
+  if($('applySegmentation').checked && lastResult.fromCsv && lastResult.csvCoordinatePx!==undefined
+      && lastResult.csvCoordinatePx!==lastResult.px){
+    log('!!! Track: Pixel size and CSV coordinates differ. Change Pixel size in the sidebar to update the loaded CSV.'); return;
+  }
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   $('sptTrackBtn').disabled=true;
   try{
@@ -19964,7 +20030,7 @@ async function runSptTrack(){
     const segCtx = ($('applySegmentation').checked&&segmentedImageLabels)
       ? { labels:segmentedImageLabels, areaMin:paramValue('segAreaMin'), areaMax:paramValue('segAreaMax') }
       : null;
-    if($('applySegmentation').checked && !segmentedImageLabels) log('!!! Apply segmentation is checked but no segmentation image is loaded — tracking the whole field of view instead.');
+    const maskAtStart=segmentedImageLabels, applyAtStart=$('applySegmentation').checked;
     // Logged before sptCore(), as runSptTrack() (tracks the existing locs; the
     // analyze() form would re-Localize). The segmentation mask isn't in the
     // command.
@@ -19973,8 +20039,8 @@ async function runSptTrack(){
     const r=await sptCore(lastResult.locs, lastResult.px, cfg, {onLog:log, onProgress:setProg}, segCtx);
     // Superseded while sptCore() was running — `lastResult` may now be a
     // DIFFERENT object; see newEpoch()'s own comment.
-    if(staleEpoch(myEpoch)) return;
-    lastResult.locs=r.locs; lastSpt=r;
+    if(staleEpoch(myEpoch) || segmentedImageLabels!==maskAtStart || $('applySegmentation').checked!==applyAtStart) return;
+    lastResult.locs=r.locs; lastSpt=r; lastSpt.usedSegmentation=!!segCtx;
     clearTableState();   // reset filters, as for every action that replaces locs
     // A fresh Track opens on the MSD plot; falls back to D, then to the
     // track-length histogram when there's no data for the former.
@@ -20344,15 +20410,346 @@ $('sptLocErrorFromNenaBtn').addEventListener('click', async ()=>{
 });
 
 // ---------------------------------------------------------------------------
+// 2D port of MPI-CBG Interactive-H-Watershed (BSD-3-Clause; notice in the
+// page's head banner). The source's
+// FACE connectivity, integer-valued hierarchy and FIFO tie order matter for
+// matching the masks made by sptPALM's ImageJ macro.
+// https://github.com/mpicbg-scicomp/Interactive-H-Watershed/tree/03dd86585ecb1bd44a8bd3c96be3f924c15c4e76/src/main/java/de/mpicbg/scf/InteractiveWatershed
+function hWatershedLabels(src,w,h,{hMin,threshold,peakFlooding,invert=false}){
+  if(!Number.isSafeInteger(w)||!Number.isSafeInteger(h)||w<1||h<1||src.length!==w*h)
+    throw new Error('Watershed needs a non-empty 2D image.');
+  if(!Number.isFinite(hMin)||hMin<0||!Number.isFinite(threshold)||!Number.isFinite(peakFlooding)||peakFlooding<0||peakFlooding>100)
+    throw new Error('Watershed settings must be finite; seed dynamics ≥ 0 and peak flooding 0–100%.');
+  const n=w*h, raw=new Float32Array(n), value=new Int32Array(n);
+  let lo=Infinity, hi=-Infinity;
+  for(let i=0;i<n;i++){
+    const v=Math.fround(src[i]);
+    if(!Number.isFinite(v)) throw new Error('Watershed image contains a non-finite pixel.');
+    if(v<lo) lo=v; if(v>hi) hi=v;
+  }
+  if(lo===hi) return new Int32Array(n);
+  let min=Infinity, max=-Infinity;
+  for(let i=0;i<n;i++){
+    const v=Math.fround(invert ? lo+hi-Math.fround(src[i]) : src[i]);
+    raw[i]=v; value[i]=Math.trunc(v); // Fiji converts to FloatType, then IntType before flooding.
+    if(value[i]<min) min=value[i]; if(value[i]>max) max=value[i];
+  }
+  // Fiji's LocalMaximaLabeling: eight-neighbor plateau union, followed by
+  // reverse raster labeling. Flooding itself uses four neighbors below.
+  const maximaDirs=[[-1,-1],[0,-1],[1,-1],[-1,0]], faceDirs=[[0,-1],[-1,0],[1,0],[0,1]];
+  const seed=new Int32Array(n), isMax=new Uint8Array(n);
+  seed.fill(-1);
+  const rootPixel=p=>{ while(seed[p]!==p) p=seed[p]; return p; };
+  for(let p=0;p<n;p++){
+    const pv=value[p]; if(pv<=min) continue;
+    seed[p]=p; isMax[p]=1;
+    const x=p%w, y=(p/w)|0;
+    for(const [dx,dy] of maximaDirs){
+      const nx=x+dx, ny=y+dy;
+      if(nx<0||ny<0||nx>=w||ny>=h) continue;
+      const q=ny*w+nx, qv=value[q]; if(qv<=min) continue;
+      if(pv>=qv){
+        const r=rootPixel(q); if(r===p) continue;
+        if(pv===qv){ seed[r]=p; isMax[p] &= isMax[r]; }
+        isMax[r]=0;
+      }else isMax[p]=0;
+    }
+  }
+  let leaves=0;
+  for(let p=n-1;p>=0;p--) if(seed[p]>=0){
+    if(seed[p]===p) seed[p]=isMax[p] ? ++leaves : 0;
+    else seed[p]=seed[seed[p]];
+  }
+  if(!leaves) return new Int32Array(n);
+
+  // The original hierarchical FIFO is represented by a max-heap of occupied
+  // intensity levels and a FIFO within each level; this avoids a huge array
+  // of empty buckets for sparse 32-bit intensity ranges.
+  const heap=[], buckets=new Map();
+  const add=(p,level)=>{
+    let b=buckets.get(level);
+    if(!b){ b={items:[],head:0}; buckets.set(level,b); }
+    if(b.head===b.items.length){
+      let i=heap.length; heap.push(level);
+      while(i>0){ const j=(i-1)>>1; if(heap[j]>=level) break; heap[i]=heap[j]; i=j; }
+      heap[i]=level;
+    }
+    b.items.push(p);
+  };
+  const pop=()=>{
+    const level=heap[0], b=buckets.get(level), p=b.items[b.head++];
+    if(b.head===b.items.length){
+      buckets.delete(level);
+      const tail=heap.pop();
+      if(heap.length){
+        let i=0;
+        while(2*i+1<heap.length){
+          let j=2*i+1; if(j+1<heap.length && heap[j+1]>heap[j]) j++;
+          if(heap[j]<=tail) break; heap[i]=heap[j]; i=j;
+        }
+        heap[i]=tail;
+      }
+    }
+    return {p,level};
+  };
+  const cap=2*leaves, parent=new Int32Array(cap), left=new Int32Array(cap), right=new Int32Array(cap);
+  const dynamics=new Float64Array(cap), peak=new Float64Array(cap);
+  const leafAt=new Int32Array(n), queued=new Uint8Array(n), done=new Uint8Array(n);
+  left.fill(-1); right.fill(-1); peak.fill(min);
+  for(let i=0;i<cap;i++) parent[i]=i;
+  for(let p=0;p<n;p++) if(seed[p]>0){ add(p,value[p]); leafAt[p]=seed[p]; queued[p]=1; peak[seed[p]]=value[p]; }
+  const rootNode=id=>{ while(parent[id]!==id) id=parent[id]; return id; };
+  const merge=(a,b,id)=>{
+    const pa=parent[a], pb=parent[b];
+    if(pa!==a){ if(left[pa]===a) left[pa]=id; else right[pa]=id; parent[id]=pa; }
+    if(pb!==b){ if(left[pb]===b) left[pb]=id; else right[pb]=id; parent[id]=pb; }
+    parent[a]=id; parent[b]=id; left[id]=a; right[id]=b;
+  };
+  let next=leaves;
+  while(heap.length){
+    const {p,level}=pop(), pLeaf=leafAt[p];
+    let pNode=rootNode(pLeaf); done[p]=1;
+    const x=p%w, y=(p/w)|0;
+    for(const [dx,dy] of faceDirs){
+      const nx=x+dx, ny=y+dy;
+      if(nx<0||ny<0||nx>=w||ny>=h) continue;
+      const q=ny*w+nx;
+      if(done[q]){
+        const qLeaf=leafAt[q], qNode=rootNode(qLeaf);
+        if(qNode!==pNode){
+          const id=++next, hq=peak[qNode]-level, hp=peak[pNode]-level;
+          dynamics[qNode]=hq; dynamics[pNode]=hp;
+          let a,b;
+          if(hp===hq){ a=pNode; b=qNode; }
+          else{
+            const lowP=hp<hq;
+            a=lowP ? pNode : qNode;
+            b=lowP ? qLeaf : pLeaf;
+            const hLow=lowP ? hp : hq;
+            while(dynamics[b]<=hLow && parent[b]!==b) b=parent[b];
+            let hMerge=parent[b]===b ? Infinity : Math.min(dynamics[left[parent[b]]],dynamics[right[parent[b]]]);
+            while(hLow>hMerge){
+              b=parent[b];
+              hMerge=parent[b]===b ? Infinity : Math.min(dynamics[left[parent[b]]],dynamics[right[parent[b]]]);
+            }
+          }
+          merge(a,b,id);
+          pNode=rootNode(id);
+          peak[id]=Math.max(peak[a],peak[b]);
+          dynamics[id]=Math.max(dynamics[a],dynamics[b]);
+        }
+      }
+      if(!queued[q] && value[q]>=min){ add(q,value[q]); leafAt[q]=pLeaf; queued[q]=1; }
+    }
+  }
+  for(let i=0;i<cap;i++) if(dynamics[i]>0 && parent[i]===i) dynamics[i]=peak[i]-min;
+
+  // HTreeLabeling: cut the region hierarchy by seed dynamics, then apply
+  // threshold and peak flooding to the retained regions (splitting enabled).
+  const roots=[];
+  for(let i=0;i<cap;i++) if(parent[i]===i) roots.push(i);
+  const treeQueue=roots.slice();
+  for(let head=0;head<treeQueue.length;head++){
+    const id=treeQueue[head], a=left[id], b=right[id];
+    if(a<0) continue;
+    if(peak[a]===peak[b]){ peak[b]-=1e-9; dynamics[b]-=1e-9; }
+    treeQueue.push(a,b);
+  }
+  const minLevel=new Float64Array(cap), criterion=new Float64Array(cap), peakThreshold=new Float64Array(cap);
+  const frac=1-peakFlooding/100;
+  for(let i=0;i<cap;i++){
+    minLevel[i]=peak[i]-dynamics[i];
+    criterion[i]=left[i]<0 ? 0 : Math.min(dynamics[left[i]],dynamics[right[i]]);
+    peakThreshold[i]=threshold+(peak[i]-threshold)*frac;
+  }
+  const labelRoot=new Int32Array(cap), labels=new Int32Array(cap), selected=[];
+  const pending=roots.slice();
+  for(let head=0;head<pending.length;head++){
+    const id=pending[head];
+    if(criterion[id]<=hMin){ labelRoot[id]=id; selected.push(id); }
+    else if(left[id]>=0) pending.push(left[id],right[id]);
+  }
+  for(let head=0;head<selected.length;head++){
+    const id=selected[head], own=labelRoot[id];
+    if(own){
+      if(peak[id]<threshold) labelRoot[id]=0;
+      else if(threshold>minLevel[id] && peak[own]>peak[id]) labelRoot[id]=id;
+      else if(threshold<=minLevel[id] && peakThreshold[own]>minLevel[id] && peak[own]>peak[id]) labelRoot[id]=id;
+    }
+    if(left[id]>=0){ labelRoot[left[id]]=labelRoot[id]; labelRoot[right[id]]=labelRoot[id]; selected.push(left[id],right[id]); }
+  }
+  let label=0;
+  for(let i=1;i<cap;i++) if(labelRoot[i]===i) labels[i]=++label;
+  const out=new Int32Array(n);
+  for(let p=0;p<n;p++){
+    const leaf=leafAt[p], root=labelRoot[leaf];
+    if(leaf && root && raw[p]>=threshold && raw[p]>=peakThreshold[root]) out[p]=labels[root];
+  }
+  return out;
+}
+
 // Segmentation image (for per-cell SPT): an integer-labelled image (0 =
 // background, n = cell n), shown in the raw panel with distinct colours;
 // segmentedImageData = one row per cell (id, centre of mass, area in px).
 let segmentedImageData=null, segmentedImageLabels=null;
-// srSegOverlayBtn: SR panel shows the segmented cells (opaque) with the
-// reconstruction on top, its black background made transparent (drawView()).
+let segSource=null, segSourceLoading=null, segSourceImage=null, segDefaultsFor=null, segJob=0, segPending=false;
+let segSourceShowing=false, segImageHeld=false;
+function cachedSegDisplaySource(){
+  return segSourceImage || (stack && segSource?.stack===stack && segSource.key===currentSegSourceKey(stack) ? segSource : null);
+}
+function currentSegSourceKey(st){
+  return `${paramValue('stackProjCap')}:${paramValue('alexEnabled') ? paramValue('alexFirstFrame')+':'+alexProjChannel : 'all'}`;
+}
+function currentWatershedSourceKey(st){ return segSourceImage || currentSegSourceKey(st); }
+function setSegmentationDefaults(img,key){
+  if(segDefaultsFor===key) return;
+  let lo=Infinity,hi=-Infinity;
+  for(const v of img){ if(v<lo)lo=v; if(v>hi)hi=v; }
+  $('segHMin').value=String((hi-lo)*0.05);
+  $('segThreshold').value=String(lo);
+  $('segPeakFlooding').value='100';
+  $('segInvert').checked=false;
+  segDefaultsFor=key;
+}
+// Cache the Data projection for the overview and default watershed source;
+// adjusting a control never rereads the movie.
+async function ensureSegSource(st){
+  const key=currentSegSourceKey(st);
+  if(segSource?.stack===st && segSource.key===key){
+    if(!segSourceImage) setSegmentationDefaults(segSource.img,st);
+    return segSource;
+  }
+  if(segSourceLoading?.stack===st && segSourceLoading.key===key) return segSourceLoading.promise;
+  const promise=(async()=>{
+    const r=await computeStackProjection(st);
+    if(!r || stack!==st || currentSegSourceKey(st)!==key) return null;
+    const source={stack:st,key,img:r.img,used:r.used,w:st.w,h:st.h};
+    segSource=source;
+    if(!segSourceImage) setSegmentationDefaults(source.img,st);
+    return source;
+  })();
+  segSourceLoading={stack:st,key,promise};
+  try{ return await promise; }
+  finally{ if(segSourceLoading?.promise===promise) segSourceLoading=null; }
+}
+function clearSegmentationResult(restoreRaw=false){
+  const wasOn=srSegOverlayOn;
+  segmentedImageData=null; segmentedImageLabels=null; rawSegView=false; segSourceShowing=false; segImageHeld=false;
+  $('segShowBtn').disabled=true; $('segShowModeBtn').style.display='none'; segShowMode='image';
+  srSegOverlayOn=false; _segOverlayCanvas=null; _segOverlayForLabels=null;
+  $('srSegOverlayBtn').style.display='none'; $('srSegOverlayBtn').textContent='Show segm.';
+  if(!restoreRaw) return;
+  if(wasOn && srFull) drawView();
+  if(stack){ $('rawCropBtn').disabled=false; showFrame(+$('scrub').value||0); }
+  else{
+    rawFull=null; rawPixelData=null;
+    const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame';
+    $('rawInfo').textContent='— detected spots overlaid in green';
+    drawRawView(); syncSaveImg();
+  }
+}
+function clearSegmentationForNewData(){
+  segJob++; segPending=false; segSource=null; segSourceLoading=null; segSourceImage=null; segDefaultsFor=null;
+  $('segSourceInfo').textContent='Source: loaded image/movie (when available)';
+  $('applySegmentation').checked=false;
+  $('segSourceBtn').disabled=true; $('segLoadBtn').disabled=true;
+  for(const id of ['segLoadRow','segHMinRow','segThresholdRow','segPeakFloodingRow','segInvertRow','segAreaMinRow','segAreaMaxRow']) $(id).style.display='none';
+  clearSegmentationResult();
+  $('segAreaMax').value='';
+}
+function acceptSegmentation(img,w,h,source,resetAreaMax=true){
+  const hadSpt=!!lastSpt, hadCellIds=!!lastResult?.locs.some(L=>L.cell_id!==undefined);
+  if(hadSpt || hadCellIds){
+    for(const L of lastResult.locs){
+      delete L.cell_id; delete L.cell_area;
+      if(hadSpt){ delete L.track_id; delete L.D_coeff; }
+    }
+    clearDerivedSptState();
+    if(hadSpt) log('Segmentation changed; click Track to recompute tracks and cell assignments.');
+  }
+  drawSegmentedImage(img,w,h,source);
+  if(updateCsvSegmentationField()) rerender();
+  log(`Segmented image: ${segmentedImageData.length} cell(s), ${w}×${h}.`);
+  const alignment=segmentationAlignmentNote();
+  if(alignment) log(alignment);
+  segShowMode='image'; syncSegShowModeBtn();
+  $('segShowBtn').disabled=false;
+  $('srSegOverlayBtn').style.display='';
+  if(srSegOverlayOn && srFull) drawView();
+  if(resetAreaMax && segmentedImageData.length) $('segAreaMax').value=Math.max(...segmentedImageData.map(c=>c.areaPx));
+}
+function clearDerivedSptState(){
+  lastSpt=null; sptMsdData=null; sptMsdView=null;
+  for(const id of ['sptHistBtn','sptSaveBtn','sptShowTracksBtn','sptShowTrackDataBtn']) $(id).disabled=true;
+  $('sptHistModeBtn').style.display='none';
+  srTracksOverlayOn=false; _tracksOverlayForLocs=null; _visTracksForLocs=null;
+  $('srTracksOverlayBtn').style.display='none'; $('srTracksOverlayBtn').textContent='Show tracks';
+  clearTableState();
+}
+function updateCsvSegmentationField(){
+  if(!lastResult?.fromCsv || !segmentedImageLabels) return false;
+  const {w,h}=segmentedImageLabels;
+  let outside=0, minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  for(const L of lastResult.locs){
+    if(segIndexForLoc(L,w,h)<0) outside++;
+    if(Number.isFinite(L.x)){ minX=Math.min(minX,L.x); maxX=Math.max(maxX,L.x); }
+    if(Number.isFinite(L.y)){ minY=Math.min(minY,L.y); maxY=Math.max(maxY,L.y); }
+  }
+  segmentedImageLabels.csvOutside=outside;
+  segmentedImageLabels.csvBounds={minX,maxX,minY,maxY};
+  // Keep the CSV's nonnegative extent visible, while the image and mask retain
+  // their actual camera-pixel footprint. Outside points get no cell label.
+  const fieldW=Math.max(w,Number.isFinite(maxX)?Math.floor(maxX)+1:0);
+  const fieldH=Math.max(h,Number.isFinite(maxY)?Math.floor(maxY)+1:0);
+  if(lastResult.w===fieldW && lastResult.h===fieldH) return false;
+  lastResult.w=fieldW; lastResult.h=fieldH;
+  setFrameAspect(fieldW,fieldH);
+  return true;
+}
+async function runAutoSegmentation(resetAreaMax=false){
+  const st=stack, job=++segJob;
+  if(!st && !segSourceImage){ segPending=false; clearSegmentationResult(true); log('!!! Watershed needs a loaded image, movie, or separate source image. Load one, or import a segmentation mask.'); return; }
+  segPending=true;
+  let committed=false;
+  try{
+    const source=segSourceImage
+      ? {key:segSourceImage,img:segSourceImage.img,w:segSourceImage.w,h:segSourceImage.h}
+      : await ensureSegSource(st);
+    await tick(); // let the pending state paint before a large watershed calculation
+    if(!source || job!==segJob || stack!==st || !$('applySegmentation').checked || source.key!==currentWatershedSourceKey(st)) return;
+    const img=hWatershedLabels(source.img,source.w,source.h,{
+      hMin:paramValue('segHMin'), threshold:paramValue('segThreshold'),
+      peakFlooding:paramValue('segPeakFlooding'), invert:paramValue('segInvert')
+    });
+    if(job!==segJob || stack!==st || !$('applySegmentation').checked || source.key!==currentWatershedSourceKey(st)) return;
+    acceptSegmentation(img,source.w,source.h,'watershed',resetAreaMax || !segmentedImageLabels || segmentedImageLabels.source==='imported');
+    committed=true;
+  }catch(err){ if(job===segJob) log(`!!! Watershed failed: ${err.message}`); }
+  finally{ if(job===segJob){ segPending=false; if(!committed) clearSegmentationResult(true); } }
+}
+// srSegOverlayBtn: SR panel blends cells over the reconstruction (drawView()).
 // Caches: _segOverlayCanvas keyed on segmentedImageLabels identity (rebuilt
 // only for a new image); the transparent-recon canvas keyed on srFull.
 let srSegOverlayOn=false, _segOverlayCanvas=null, _segOverlayForLabels=null;
+function segmentationAlignmentNote(){
+  if(!segmentedImageLabels) return '';
+  const notes=[];
+  if(!stack && lastResult?.fromCsv){
+    if(lastResult.csvCoordinatePx!==undefined && lastResult.csvCoordinatePx!==lastResult.px)
+      notes.push('Pixel size and CSV coordinates differ; change Pixel size in the sidebar to update the loaded CSV.');
+    if(segmentedImageLabels.csvOutside)
+      notes.push(`${segmentedImageLabels.csvOutside} CSV localizations fall outside the segmentation image. Check Pixel size (nm) against the acquisition calibration. Points to the right or below the image remain visible; the mask stays at its real size and Track is blocked.`);
+    else if(segmentedImageLabels.csvBounds){
+      const {minX,maxX,minY,maxY}=segmentedImageLabels.csvBounds;
+      const edge=Math.min(minX,segmentedImageLabels.w-maxX,minY,segmentedImageLabels.h-maxY);
+      if(Number.isFinite(edge) && edge>=2)
+        notes.push(`CSV detections leave at least ${edge.toFixed(1)} image pixels around every edge. The mask covers the full source image; edge pixels without detections cannot form tracks.`);
+    }
+  }
+  if(segmentedImageLabels.coversField)
+    notes.push('The mask labels every image pixel. Any source-image background will also be assigned to cells; raise Intensity threshold or import a mask with 0-valued background before tracking.');
+  return notes.join(' ');
+}
 
 // HSV (h in degrees, s/v in [0,1]) to RGB (each channel in [0,1]).
 function hsvToRgb(h,s,v){
@@ -20389,20 +20786,16 @@ function computeSegmentedImageData(labelArr,w,h){
 }
 // Drawn through the rawFull/rawView frame machinery (pan/zoom, raster PNG
 // export), not as a plot.
-function drawSegmentedImage(labelArr,w,h){
-  segmentedImageLabels={arr:labelArr,w,h};   // kept independently of the raw panel, for Show image and per-cell tracking
+function drawSegmentedImage(labelArr,w,h,source='imported'){
+  segmentedImageLabels={arr:labelArr,w,h,source};   // kept independently of the raw panel, for Show image and per-cell tracking
   segmentedImageData=computeSegmentedImageData(labelArr,w,h);
-  const colorOf=shuffledLabelColors(segmentedImageData.map(c=>c.id));
+  segmentedImageLabels.coversField=segmentedImageData.reduce((n,c)=>n+(c.id>0?c.areaPx:0),0)===w*h;
+  segSourceShowing=false; segImageHeld=false;
   { const rt=$('rawTitle'); if(rt) rt.textContent='Segmented image'; }
   hideOtherRawToggleBtns('segShowModeBtn');
   if(!rawFull) rawFull=document.createElement('canvas');
   rawFull.width=w; rawFull.height=h;
-  const ctx=rawFull.getContext('2d'), im=ctx.createImageData(w,h);
-  for(let i=0;i<w*h;i++){
-    const v=Math.round(labelArr[i]), c=v===0?null:colorOf.get(v);
-    im.data[i*4]=c?c[0]:0; im.data[i*4+1]=c?c[1]:0; im.data[i*4+2]=c?c[2]:0; im.data[i*4+3]=255;
-  }
-  ctx.putImageData(im,0,0);
+  paintSegmentedMask();
   rawPixelData={arr:labelArr,w,h}; rawSpots=null; rawLocs=null;
   leavePsfPreviewMode();   // reclaim from a shown PSF preview too
   rawSegView=true; setRawPlot(false); $('rawCropBtn').disabled=true;
@@ -20411,9 +20804,39 @@ function drawSegmentedImage(labelArr,w,h){
   // load only estimated it from the data).
   setFrameAspect(w,h);
   fitRawView(); clampRawView(); drawRawView();
-  $('rawInfo').textContent=`— ${segmentedImageData.length} cell(s) segmented`;
+  $('rawInfo').textContent=`— ${segmentedImageData.length} cell(s) segmented${segmentedImageLabels.coversField?' · all pixels labeled':''}`;
   syncSaveImg();
-  log(`Segmented image: ${segmentedImageData.length} cell(s), ${w}×${h}.`);
+}
+function paintSegmentedMask(){
+  const {arr:labelArr,w,h}=segmentedImageLabels;
+  const displaySource=cachedSegDisplaySource();
+  if(displaySource?.w===w && displaySource.h===h) paintSegSource(displaySource,paramValue('segOpacity')/100);
+  else{
+    const colorOf=shuffledLabelColors(segmentedImageData.map(c=>c.id));
+    const ctx=rawFull.getContext('2d'), im=ctx.createImageData(w,h);
+    for(let i=0;i<w*h;i++){
+      const v=Math.round(labelArr[i]), c=v===0?null:colorOf.get(v);
+      im.data[i*4]=c?c[0]:0; im.data[i*4+1]=c?c[1]:0; im.data[i*4+2]=c?c[2]:0; im.data[i*4+3]=255;
+    }
+    ctx.putImageData(im,0,0);
+  }
+}
+// Paint the cached watershed input; opacity zero reveals the source during a
+// press, while the slider controls the resting segmentation overlay.
+function paintSegSource(source,opacity){
+  const {arr,w,h}=segmentedImageLabels, img=source.img;
+  let lo=Infinity, hi=-Infinity;
+  for(const v of img){ if(v<lo)lo=v; if(v>hi)hi=v; }
+  const scale=hi>lo ? 255/(hi-lo) : 0;
+  const colorOf=shuffledLabelColors(segmentedImageData.map(c=>c.id));
+  const ctx=rawFull.getContext('2d'), pixels=ctx.createImageData(w,h);
+  for(let i=0;i<img.length;i++){
+    const grey=Math.max(0,Math.min(255,(img[i]-lo)*scale));
+    const label=Math.round(arr[i]), color=label ? colorOf.get(label) : null;
+    for(let c=0;c<3;c++) pixels.data[i*4+c]=color ? grey*(1-opacity)+color[c]*opacity : grey;
+    pixels.data[i*4+3]=255;
+  }
+  ctx.putImageData(pixels,0,0);
 }
 // Per-pixel colour canvas of the cells for the SR overlay: background
 // transparent, cells opaque, same colours as the raw-panel view.
@@ -20596,31 +21019,46 @@ function drawTracksColorBar(ctx,DW,DH){
   // Unit label above the bar.
   ctx.textAlign='left'; ctx.textBaseline='bottom'; ctx.fillText('µm²/s', x, y-8);
 }
+// A separate single image takes priority as watershed input; it is never used
+// for localization or the Data projection display.
+async function loadSegmentationSource(file){
+  const sourceStack=stack, job=++segJob;
+  segPending=true;
+  try{
+    const image=await loadTiffFile(file,log);
+    if(image.n!==1) throw new Error('select a single image, not a stack.');
+    const img=(await image.getFrames(0,1))[0];
+    if(job!==segJob || stack!==sourceStack) return;
+    if(sourceStack && (image.w!==sourceStack.w || image.h!==sourceStack.h))
+      throw new Error(`image is ${image.w}×${image.h}, but the loaded movie is ${sourceStack.w}×${sourceStack.h}. Use an image of the same pixel dimensions.`);
+    for(const v of img) if(!Number.isFinite(v)) throw new Error('image contains a non-finite pixel.');
+    segSourceImage={name:file.name,img,w:image.w,h:image.h};
+    setSegmentationDefaults(img,segSourceImage);
+    $('segSourceInfo').textContent=`Source: ${file.name}`;
+    log(`Watershed source image: ${file.name} (${image.w}×${image.h}).`);
+    if($('applySegmentation').checked) await runAutoSegmentation(true);
+  }catch(err){ if(job===segJob) log(`!!! Load source image failed: ${err.message}`); }
+  finally{ if(job===segJob) segPending=false; }
+}
 // "Load segm. image" button handler: loads frame 0 of the given file as the
 // segmentation label mask (computeSegmentedImageData() does the analysis).
 async function loadSegmentedImage(file){
+  const sourceStack=stack, job=++segJob;
+  segPending=true;
   try{
     const segStack=await loadTiffFile(file, log);
     if(segStack.n>1) log(`!!! Segmented image has ${segStack.n} frames — using frame 1 only.`);
     const img=(await segStack.getFrames(0,1))[0];
+    if(job!==segJob || stack!==sourceStack) return;
     if(stack && (segStack.w!==stack.w || segStack.h!==stack.h))
       log(`!!! Segmented image size (${segStack.w}×${segStack.h}) doesn't match the loaded movie (${stack.w}×${stack.h}) — pixel correspondence will be off.`);
-    drawSegmentedImage(img, segStack.w, segStack.h);
-    // refPxNm: pixel size at load time (for the SR overlay's scale); set only
-    // on a fresh load.
-    segmentedImageLabels.refPxNm=paramValue('pxnm');
-    // A fresh load opens on the image view.
-    segShowMode='image'; syncSegShowModeBtn();
-    $('segShowBtn').disabled=false;
-    $('srSegOverlayBtn').style.display='';   // "Show segm." now has something to show
-    if(srSegOverlayOn && srFull) drawView();   // already toggled on from a prior segmentation image — refresh with the new one
-    // Max. cell area defaults to the largest cell (fresh load only).
-    if(segmentedImageData.length) $('segAreaMax').value=Math.max(...segmentedImageData.map(c=>c.areaPx));
-  }catch(err){ log(`!!! Segmented image load failed: ${err.message}`); }
+    acceptSegmentation(img,segStack.w,segStack.h,'imported');
+  }catch(err){ if(job===segJob) log(`!!! Segmented image load failed: ${err.message}`); }
+  finally{ if(job===segJob) segPending=false; }
 }
 // Cell-area histogram (px, linear count axis).
 function drawSegAreaHist(){
-  if(!segmentedImageData || !segmentedImageData.length){ log('!!! Show area histogram: no segmentation image — load one with Load segm. image.'); return; }
+  if(!segmentedImageData || !segmentedImageData.length){ log('!!! Show area histogram: no cells in the segmentation mask. Adjust watershed or import a mask.'); return; }
   computeHist('Cell area', segmentedImageData.map(c=>c.areaPx), 'px');
   drawHistogram();
 }
@@ -20636,47 +21074,102 @@ function syncSegShowModeBtn(){
 function drawSegShow(){
   if(!segmentedImageLabels) return;
   if(segShowMode==='hist') drawSegAreaHist();
-  else drawSegmentedImage(segmentedImageLabels.arr, segmentedImageLabels.w, segmentedImageLabels.h);
+  else{
+    const {arr,w,h,source,csvOutside,csvBounds}=segmentedImageLabels;
+    drawSegmentedImage(arr,w,h,source);
+    segmentedImageLabels.csvOutside=csvOutside;
+    segmentedImageLabels.csvBounds=csvBounds;
+  }
   syncSegShowModeBtn();
+}
+async function showSegmentationSourceWhileHeld(){
+  if(!segmentedImageLabels){ log('!!! Show image: no segmentation mask. Apply watershed or import a mask.'); return; }
+  if(segSourceShowing) return;
+  segImageHeld=true;
+  const labels=segmentedImageLabels, st=stack;
+  try{
+    const source=segSourceImage || (st ? await ensureSegSource(st) : null);
+    if(!segImageHeld || labels!==segmentedImageLabels || st!==stack) return;
+    if(!source){ segImageHeld=false; log('!!! Show image: no source image is available. Load a source image to preview it with the mask.'); return; }
+    if(source.w!==labels.w || source.h!==labels.h){ segImageHeld=false; log('!!! Show image: source image and segmentation mask must have the same pixel dimensions.'); return; }
+    segShowMode='image'; segSourceShowing=true;
+    if(!rawFull) rawFull=document.createElement('canvas');
+    rawFull.width=source.w; rawFull.height=source.h;
+    paintSegSource(source,0);
+    $('rawTitle').textContent='Source image'; hideOtherRawToggleBtns(null);
+    leavePsfPreviewMode(); rawPixelData={arr:labels.arr,w:labels.w,h:labels.h}; rawSpots=null; rawLocs=null;
+    rawSegView=true; setRawPlot(false); $('rawCropBtn').disabled=true;
+    $('rawInfo').textContent='— original source image';
+    clampRawView(); drawRawView(); syncSaveImg();
+      if(srFull && srIsRecon) drawView();
+  }catch(err){ segImageHeld=false; log(`!!! Show image failed: ${err.message}`); }
+}
+function restoreSegmentationAfterHold(){
+  segImageHeld=false;
+  if(!segSourceShowing) return;
+  segSourceShowing=false;
+  if(!segmentedImageLabels) return;
+  const source=cachedSegDisplaySource();
+  if(!source || source.w!==segmentedImageLabels.w || source.h!==segmentedImageLabels.h){ segShowMode='image'; drawSegShow(); return; }
+  paintSegSource(source,paramValue('segOpacity')/100);
+  $('rawTitle').textContent='Segmented image';
+  $('rawInfo').textContent=`— ${segmentedImageData.length} cell(s) segmented`;
+  segShowMode='image'; syncSegShowModeBtn();
+  drawRawView(); syncSaveImg();
+  if(srFull && srIsRecon) drawView();
+}
+function updateSegOpacity(){
+  $('segOpacityValue').textContent=`${paramValue('segOpacity')}%`;
+  if(!segSourceShowing && segmentedImageLabels && rawSegView && $('rawTitle').textContent==='Segmented image'){
+    const source=cachedSegDisplaySource();
+    if(source && source.w===segmentedImageLabels.w && source.h===segmentedImageLabels.h){
+      paintSegSource(source,paramValue('segOpacity')/100); drawRawView(); syncSaveImg();
+    }
+  }
+  if(srSegOverlayOn && srFull) drawView();
 }
 $('applySegmentation').addEventListener('change', ()=>{
   const on=$('applySegmentation').checked;
-  $('segLoadRow').style.display = on ? '' : 'none';
-  $('segAreaMinRow').style.display = on ? '' : 'none';
-  $('segAreaMaxRow').style.display = on ? '' : 'none';
-  if(!on && rawSegView){
-    segmentedImageData=null; segmentedImageLabels=null; rawSegView=false;
-    $('segShowBtn').disabled=true; $('segShowModeBtn').style.display='none'; segShowMode='image';
-    // Nothing to overlay any more: reset the toggle and cache, redraw.
-    const wasOn=srSegOverlayOn;
-    srSegOverlayOn=false; _segOverlayCanvas=null; _segOverlayForLabels=null;
-    $('srSegOverlayBtn').style.display='none'; $('srSegOverlayBtn').textContent='Show segm.';
-    if(wasOn && srFull) drawView();
-    if(stack) showFrame(+$('scrub').value||0);
-    else{ rawFull=null; rawPixelData=null;
-      const rt=$('rawTitle'); if(rt) rt.textContent='Raw frame';
-      $('rawInfo').textContent='— detected spots overlaid in green';
-      drawRawView(); syncSaveImg(); }
+  $('segSourceBtn').disabled=!on; $('segLoadBtn').disabled=!on;
+  for(const id of ['segLoadRow','segHMinRow','segThresholdRow','segPeakFloodingRow','segInvertRow','segAreaMinRow','segAreaMaxRow']) $(id).style.display=on?'':'none';
+  if(on) runAutoSegmentation();
+  else{
+    segJob++; segPending=false; clearSegmentationResult(true);
   }
 });
+for(const id of ['segMethod','segHMin','segThreshold','segPeakFlooding','segInvert'])
+  $(id).addEventListener('change',()=>{ if($('applySegmentation').checked) runAutoSegmentation(); });
+for(const id of ['alexEnabled','alexFirstFrame','alexProjToggleBtn'])
+  $(id).addEventListener(id==='alexProjToggleBtn'?'click':'change',()=>{
+    if($('applySegmentation').checked && (!segmentedImageLabels || segmentedImageLabels.source==='watershed')) runAutoSegmentation();
+  });
 $('segLoadBtn').addEventListener('click', ()=>$('segFile').click());
+$('segSourceBtn').addEventListener('click', ()=>$('segSourceFile').click());
+$('segSourceFile').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  e.target.value='';
+  await loadSegmentationSource(f);
+});
 $('segFile').addEventListener('change', async e=>{
   const f=e.target.files[0]; if(!f) return;
   registerTerminalFile(f);
   await loadSegmentedImage(f);
   e.target.value='';   // allow re-selecting the same filename later
 });
-// Reopens the last segmentation view from the stored labels (colouring is
-// deterministic).
-$('segShowBtn').addEventListener('click', ()=>{
-  if(!segmentedImageLabels){ log('!!! Show area histogram: no segmentation image — load one with Load segm. image.'); return; }
-  drawSegShow();
-});
+const segShowBtn=$('segShowBtn');
+segShowBtn.addEventListener('pointerdown',e=>{ if(e.button===0) showSegmentationSourceWhileHeld(); });
+for(const event of ['pointerup','pointercancel','pointerleave']) segShowBtn.addEventListener(event,restoreSegmentationAfterHold);
+window.addEventListener('pointerup',restoreSegmentationAfterHold);
+segShowBtn.addEventListener('keydown',e=>{ if((e.key===' ' || e.key==='Enter') && !e.repeat){ e.preventDefault(); showSegmentationSourceWhileHeld(); } });
+segShowBtn.addEventListener('keyup',e=>{ if(e.key===' ' || e.key==='Enter'){ e.preventDefault(); restoreSegmentationAfterHold(); } });
+segShowBtn.addEventListener('blur',restoreSegmentationAfterHold);
+$('segOpacity').addEventListener('input', updateSegOpacity);
+$('segOpacity').addEventListener('change', updateSegOpacity);
 $('segShowModeBtn').addEventListener('click', ()=>{ segShowMode = segShowMode==='hist' ? 'image' : 'hist'; drawSegShow(); });
 // Toggles the SR panel between the reconstruction and the segmentation
 // overlay (text-swap button).
 $('srSegOverlayBtn').addEventListener('click', ()=>{
-  if(!segmentedImageLabels){ log('!!! Show area histogram: no segmentation image — load one with Load segm. image.'); return; }
+  if(!segmentedImageLabels){ log('!!! Show segm.: no segmentation mask. Apply watershed or import a mask.'); return; }
   srSegOverlayOn=!srSegOverlayOn;
   $('srSegOverlayBtn').textContent = srSegOverlayOn ? 'Show recon.' : 'Show segm.';
   drawView();
@@ -22237,7 +22730,7 @@ async function computeStackProjection(st){
     const parity = alexProjChannel==='dirDonorExc' ? donorParity : 1-donorParity;
     return averageFramesByParity(st,first,last,parity,paramValue('stackProjCap'));
   }
-  if(_projCache && _projCache.stack===st) return {img:_projCache.img, used:_projCache.used};
+  if(_projCache && _projCache.stack===st && _projCache.cap===paramValue('stackProjCap')) return {img:_projCache.img, used:_projCache.used};
   return averageFrames(st,first,last,paramValue('stackProjCap'));
 }
 function stackProjectionInfo(st, used){
@@ -22249,11 +22742,11 @@ async function showStackProjection(){
   const st=stack; if(!st) return;
   const first=0, last=st.n;
   const alex=paramValue('alexEnabled');
-  const r=await computeStackProjection(st);
+  const r=await ensureSegSource(st);
   if(!r) return;
   if(stack!==st || srFull || srIsPlot || lastResult || calib) return;   // SR panel already claimed by something else
   // An ALEX parity average is not the whole-stack overview: don't cache it.
-  _projCache = alex ? null : {stack:st, first, last, img:r.img, used:r.used};
+  _projCache = alex ? null : {stack:st, first, last, cap:paramValue('stackProjCap'), img:r.img, used:r.used};
   const {w,h}=st, {img:proj,used}=r;
   srFull=renderSrCompositeForChannel(proj, w, h);
   srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); fitView(); clampView(); drawView();
@@ -22619,6 +23112,7 @@ function maybeShowMemWarning(){
 // Clears every result tied to the current stack and disables the actions
 // that need one (a new movie, or a rotation of the current one).
 function clearAnalysisOutputs(){
+  clearSegmentationForNewData();
   view3dForget();
   clearTableState();
   $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=true; $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none'; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; groundTruthLocs=null; gtShowing=false; srFullBeforeGT=null;
@@ -23414,6 +23908,54 @@ function parseCsvLocs(text){
   const w=Math.ceil(maxXpx)+MARGIN, h=Math.ceil(maxYpx)+MARGIN;
   return {locs, w, h, px};
 }
+// Keep CSV positions in nm when Pixel size changes, including cached paired
+// and tracked rows. The mask stays on its original camera-pixel grid.
+function rescaleLoadedCsv(newPx){
+  if(!lastResult?.fromCsv || !(newPx>0) || !Number.isFinite(newPx)) return false;
+  const oldPx=lastResult.csvCoordinatePx||lastResult.px;
+  if(oldPx===newPx){ lastResult.px=newPx; return false; }
+  newEpoch(); // discard a Track or other analysis still using the old coordinates
+  const factor=oldPx/newPx, seen=new Set();
+  const pixelFields=['x','y','x0','y0','x2','y2','sigma','sigma1st','sx','sy','lpx','lpy',
+    'sx0th','sy0th','sx1st','sy1st','sxAA','syAA'];
+  const hadSpt=!!lastSpt?.usedSegmentation;
+  const hadCellIds=!!segmentedImageLabels && lastResult.locs.some(L=>L.cell_id!==undefined);
+  for(const rows of [lastResult.locs,sSmlmOriginalLocs,sSmlmPairedLocs,lastSpt?.locs]){
+    if(!rows) continue;
+    for(const L of rows){
+      if(seen.has(L)) continue;
+      seen.add(L);
+      for(const key of pixelFields) if(Number.isFinite(L[key])) L[key]*=factor;
+      if(hadCellIds){ delete L.cell_id; delete L.cell_area; }
+      if(hadSpt){ delete L.track_id; delete L.D_coeff; }
+    }
+  }
+  for(const key of ['fdx','fdy','segdx','segdy']){
+    const values=lastDrift?.[key];
+    if(values) for(let i=0;i<values.length;i++) values[i]*=factor;
+  }
+  lastResult.csvCoordinatePx=newPx; lastResult.px=newPx; lastResult.byFrame=null;
+  let maxX=0,maxY=0;
+  for(const L of sSmlmOriginalLocs||lastResult.locs){
+    if(Number.isFinite(L.x)) maxX=Math.max(maxX,L.x);
+    if(Number.isFinite(L.y)) maxY=Math.max(maxY,L.y);
+  }
+  lastResult.csvInferredW=Math.ceil(maxX)+10;
+  lastResult.csvInferredH=Math.ceil(maxY)+10;
+  if(hadSpt || hadCellIds){
+    const wasSptPlot=rawPlotName==='sptMsd' || (rawPlotName==='histogram' && ['log10(D)','SPT track length'].includes(histData?.col));
+    clearDerivedSptState();
+    if(wasSptPlot && segmentedImageLabels) drawSegShow();
+    else if(wasSptPlot) setRawPlot(false);
+    if(hadSpt) log('Pixel size updated; click Track to recompute tracks and cell assignments.');
+  }
+  if(segmentedImageLabels) updateCsvSegmentationField();
+  else{
+    lastResult.w=lastResult.csvInferredW; lastResult.h=lastResult.csvInferredH;
+    setFrameAspect(lastResult.w,lastResult.h);
+  }
+  return true;
+}
 async function loadCsvFile(f){
   if(!f) return;
   registerTerminalFile(f);
@@ -23426,11 +23968,12 @@ async function loadCsvFile(f){
     // Superseded (another load, a Localize, a crop, …) while this file was
     // being read/parsed — see newEpoch()'s own comment.
     if(staleEpoch(myEpoch)) return;
+    clearSegmentationForNewData(); stack=null; rawFull=null; rawPixelData=null;
     srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
     setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; cropRect=null;
     lastDrift=null; $('driftShowBtn').disabled=true; lastNena=null;
     clearTableState(); $('zmin').value=''; $('zmax').value='';
-    lastResult={locs, w, h, px, mag:paramValue('mag'), det:null};
+    lastResult={locs, w, h, px, mag:paramValue('mag'), det:null, fromCsv:true, csvCoordinatePx:px, csvInferredW:w, csvInferredH:h};
     // No stack for a CSV load: size the panel to the data's bounding box so
     // the fit view and scale bar sit on the data.
     setFrameAspect(w, h);
@@ -23457,6 +24000,8 @@ async function loadCsvFile(f){
 // spt/sSmlmPair results are not wired into their plots; inspect them from
 // the terminal.
 function applyHeadlessResultToSession(result){
+  clearSegmentationForNewData();
+  rawFull=null; rawPixelData=null;
   srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
   setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; cropRect=null;
   lastDrift=null; $('driftShowBtn').disabled=true; lastNena=null;
@@ -23772,8 +24317,11 @@ $('zmax').addEventListener('change',()=>{ if(lastResult) requestRerender(true); 
 // a raster view (Data projection, SOI or bead composite) so its scale bar
 // updates. Nothing to do for a vector plot on the SR panel.
 $('pxnm').addEventListener('change',()=>{
-  if(lastResult) lastResult.px=paramValue('pxnm');
-  if(srIsRecon && !srIsPlot) rerender(true);
+  if(lastResult?.fromCsv) rescaleLoadedCsv(paramValue('pxnm'));
+  else if(lastResult) lastResult.px=paramValue('pxnm');
+  // A CSV load may still be rendering when this change arrives. Queue a fresh
+  // render even before srIsRecon becomes true, so the old-sized job is discarded.
+  if((lastResult?.fromCsv || srIsRecon) && !srIsPlot) rerender(true);
   else if(srFull && !srIsPlot){ clampView(); drawView(); }
   // A raw-panel plot is replotted (drawRawView() would blank it); nm axes
   // pick up the new value. A shown FRC or NeNA is recomputed rather than replotted: both are in nm
@@ -24062,6 +24610,8 @@ function rawClickToNative(e){
 // load, keeping PCFO gain/offset (camera property) but not lastNena
 // (spatial).
 function resetAfterCropChange(){
+  clearSegmentationForNewData();
+  $('rawCropBtn').disabled=false;
   clearTableState();
   lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
   setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; clearSimGroundTruth(); lastDrift=null; lastNena=null;
@@ -24398,7 +24948,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.4-dev · build 2026-10-09a — start of the 0.13.4 development cycle.`);
+log(`webSMLM v0.13.4-dev · build 2026-10-13d — source-image comparison and CSV edge coverage.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -25857,7 +26407,7 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
       <li><b>Set detection &amp; fit.</b> Pick a <b>Fit method</b> first — the relevant parameters follow it. <b>Phasor</b> is the speed option (no iteration); <b>Gaussian (LS)</b> and <b>Gaussian (MLE)</b> trade speed for precision, with MLE reporting a proper per-localization CRLB uncertainty and covering spherical, elliptical, 3D-astigmatic and rotated-elliptical (sSMLM) variants — see the <b>Fit method</b> popup and the full docs for when to use which. Adjust <b>Threshold (k·σ_noise)</b> if too many/few spots are boxed in the raw view, and set <b>σ_PSF</b> to match your spot size.</li>
       <li><b>Localize.</b> The raw view refreshes live with detected ROIs (green boxes) and accepted localizations as the run progresses; the right panel builds the super-resolution image.</li>
       <li><b>Explore the result.</b> Set <b>Pixel size (nm)</b> (e.g. 100 or 160) — it defines the physical scale for the scale bar and export. Change <b>Magnification</b>/<b>σ_render</b> to re-render instantly (no refit). Scroll or pinch to zoom, drag to pan, double-click/tap to reset.</li>
-      <li><b>Optional extras.</b> Each remaining sidebar section is a self-contained add-on, opened as needed: <b>Gain &amp; offset estimation</b> calibrates real camera photon units; <b>3D calibration</b> fits an astigmatic width-vs-z curve for 3D localization; <b>Drift correction &amp; precision</b> removes sample drift (AIM or cross correlation) and reports NeNA/FRC; <b>Pairing for sSMLM or FRET</b> pairs 0th/1st-order localizations from a diffraction grating (or a prism-split donor/acceptor pair); <b>Time traces and FRET</b> finds sites of interest, pairs donor/acceptor channels and reads out DD/DA/AA intensity-vs-time traces; <b>Single-particle tracking</b> links per-frame localizations into trajectories and estimates diffusion coefficients.</li>
+       <li><b>Optional extras.</b> Each remaining sidebar section is a self-contained add-on, opened as needed: <b>Gain &amp; offset estimation</b> calibrates real camera photon units; <b>3D calibration</b> fits an astigmatic width-vs-z curve for 3D localization; <b>Drift correction &amp; precision</b> removes sample drift (AIM or cross correlation) and reports NeNA/FRC; <b>Pairing for sSMLM or FRET</b> pairs 0th/1st-order localizations from a diffraction grating (or a prism-split donor/acceptor pair); <b>Time traces and FRET</b> finds sites of interest, pairs donor/acceptor channels and reads out DD/DA/AA intensity-vs-time traces; <b>Single-particle tracking</b> links per-frame localizations into trajectories and estimates diffusion coefficients; optionally load a separate source image there for watershed cell segmentation of the same field of view. Adjust the shared segmentation opacity in both image panels, or hold <b>Show image</b> to see the source alone. For localization CSVs, set Pixel size to the image's camera pixel size. You can change it after loading: the reconstruction and mask alignment update without reloading either file. Re-run Track after a change.</li>
     </ol>
 
     <h3>Keyboard hotkeys</h3>
@@ -25877,7 +26427,8 @@ if(document.readyState==='loading') window.addEventListener('DOMContentLoaded',i
       Versions 0.1.0–0.11.2 remain available under their original CC BY 4.0 terms; this
       license applies going forward. Bundled decoders retain their own licenses: UTIF.js and pako
       are MIT-licensed; the simulator's microtubule cell field is Koen J. A. Martens's
-      inSiliScope world model (BSD-3-Clause, notice in the page source).</p>
+      inSiliScope world model and watershed segmentation ports Interactive-H-Watershed
+      (both BSD-3-Clause; notices in the page source).</p>
   </div>
 </div>
 </body>

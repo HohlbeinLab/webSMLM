@@ -184,6 +184,8 @@ says.
 - **(Caution!) Single-particle tracking** (`sptBox`) — links localizations into
   trajectories and computes a per-track diffusion coefficient; enabled as
   soon as there are localizations, same gating as Pairing for sSMLM or FRET.
+  Its watershed can use the loaded image/movie or a separately loaded
+  single image aligned to the localization field.
   See [§3](#spt-params)/[§2](#spt).
 
 ### Main data panels
@@ -2094,49 +2096,114 @@ per-track summary — see below for the filter grammar. No
 length-RESOLVED D histogram (D binned by track length — distinct from the
 plain track-length histogram above) yet — see `docs/REFACTOR_PLAN.md`.
 
-**Segmentation image** (`applySegmentation`, default unchecked) is
-cell-segmentation-aware tracking: checking it reveals **Load segm. image**
-(loads a separate integer-labelled mask — 0 = background, 1/2/3/… = cell
-number — through the same file types **Load data** accepts, shown in the
-raw panel recoloured so adjacent cells are visually distinct) and **Show
-image** (re-shows the already-loaded mask without reloading the
-file; opens on the segmentation image by default, with a toggle next to the
-raw panel's own title — labelled **Area histogram** — to switch to a
-histogram of cell areas, px, and back). `segmentedImageData` (one row per
-cell: id, centre of mass in px, area in px) drives that area histogram and
-**Min./Max. cell area (px)** (default 50/∞), which gate which cells'
-localizations actually get tracked — a fresh **Load segm. image** sets
-**Max. cell area** to the largest cell actually found in that image (a
-sensible starting upper bound instead of an abstract "no limit"); re-showing
-an already-loaded image does not touch it, so it won't silently overwrite a
-value you've since adjusted by hand. Headless exposure ([§8](#8-headless-api-window-websmlm)'s
-`config.segmentationFile`, v0.11.6) mirrors this: its mere presence switches
-`config.sptTrack` to cell-by-cell tracking, same `segAreaMin`/`segAreaMax`
-gating either way.
+**Apply segmentation** (`applySegmentation`, default unchecked) generates a
+labelled mask with the **Watershed** method. It uses the loaded image's pixels,
+or the same sampled average **Data projection** shown for a movie (the selected
+excitation channel when ALEX is on). Checking Apply enables **Load source image**
+and **Load segm. image**. Load source image optionally supplies
+a separate *single-frame* TIFF/ND2/FITS image for watershed, while the movie
+or CSV remains the localization data. Once loaded, that image always takes
+priority until another dataset is loaded, rotated or cropped; it does not
+replace the Data projection view or the localization stack. When a movie is
+loaded, its width and height must match the source image exactly.
+For CSV localizations, no raw stack exists, so the source image supplies the
+mask's pixel grid; its coordinates must correspond to the CSV positions.
+Loading another dataset, rotating or cropping clears both the source image
+and the mask. A multi-frame source is rejected to avoid silently choosing
+the wrong frame.
+
+**Seed dynamics (H)** suppresses shallow peaks (larger H tends to merge
+cells), **Intensity threshold** excludes dim pixels in the source's original
+intensity units, **Peak flooding** controls how far peaks grow toward that
+threshold, and **Invert intensity** makes dark cells bright peaks. Each new
+source starts at H = 5% of its pixel range, threshold = its minimum,
+flooding = 100%, inversion off. The source pixels are cached, so changing a
+control reruns watershed without rereading the movie or source file. A
+stack average or inversion changes the input pixels relative to the
+single-image ImageJ macro; visible cell contrast is still required.
+
+**Load segm. image**, beside **Load source image**, remains a manual override:
+it loads an integer-labelled mask (0 = background, positive integers = cell
+numbers) and replaces the generated result. Changing a watershed control
+generates a new mask from the selected source. The segmentation view blends
+labelled cell colours over that source at the **Segmentation opacity** setting:
+0% shows the grayscale source, 100% makes labelled cells opaque, and the
+background stays visible at either setting. Replacing or regenerating the mask
+clears previous interactive Track results; click **Track** again after the mask
+changes. The same slider controls the coloured mask in the SMLM reconstruction.
+Hold **Show image** with a pointer or keyboard to see the original source in
+both panels, with reconstruction localizations still visible over it. The
+same source pixels occupy the same camera coordinates as the mask. Release to
+restore the segmentation at the same opacity and zoom. Changing a watershed control keeps
+the opacity setting. The grayscale preview spans the source image's own
+minimum and maximum pixel values; this display scaling does not change the
+watershed input. The slider value is saved with settings. A toggle next to
+the raw panel title switches the segmentation to a cell-area histogram and
+back. If an imported mask has no matching source image, its opaque mask still
+works, but the blend and hold preview require a matching source image.
+`segmentedImageData` (id, centre of mass and area in px per cell) drives
+that histogram and **Min./Max. cell area (px)** (default 50/∞), which gate
+cells during tracking (inclusive bounds; blank Max. means no upper limit).
+The preview and area histogram show all cells in the full mask; press **Track** again
+after changing the limits. A fresh mask load sets Max. cell area to its largest
+cell; reopening the preview does not change an adjusted value. If Min.
+exceeds Max., **Track** reports the invalid range. When Apply
+is checked but no mask is ready, **Track** reports the problem and stops.
+The headless API still uses [§8](#8-headless-api-window-websmlm)'s
+`config.segmentationFile` for cell-by-cell tracking.
 
 Once a segmentation image is loaded, **SMLM reconstruction**'s own panel
-title gains a **Show segm.** button — swaps the panel from the usual density
-reconstruction to the segmented cells (opaque, same colours as the raw-panel
-view) with the SAME reconstruction drawn on top, its own black background
-made highly transparent, so you can visually confirm localizations line up
+title gains a **Show segm.** button — blends the cells over the ordinary
+reconstruction at the same opacity as the raw panel, with localization signal
+restored on top. At 0% opacity the reconstruction is unchanged, so you can
+visually confirm localizations line up
 with the cells before running **Track** on them (click again — now labelled
-**Show recon.** — to go back). Drawn top-left aligned against the
-reconstruction regardless of whether the segmentation image's own pixel
-dimensions exactly match the loaded movie's — same "warn, don't block"
-convention as the load-time size-mismatch warning (a genuine mismatch just
-loses a thin strip at the far edge).
+**Show recon.** — to go back). The overlay draws one mask pixel per camera
+pixel, from the shared top-left origin; per-cell tracking reads those exact
+mask pixels. Zooming or cropping the reconstruction does not change that
+registration. A separate watershed source image must match a loaded movie's
+dimensions.
 
-Localization positions never depend on Pixel size (nm) — only the scale bar
-and nm readouts do (and those already update live, same as the ordinary
-reconstruction). If you correct Pixel size (nm) *after* loading the
-segmentation image — e.g. dialling it in until the segmented cell outlines
-visually match the reconstruction's own shapes — the segmentation's on-screen
-size rescales accordingly relative to the (unmoving) localizations, using the
-Pixel size (nm) value at the moment the segmentation image was loaded as its
-own reference: correcting it upward grows the segmentation's apparent
-coverage relative to the localizations, correcting it downward shrinks it.
-This reference is captured only on a genuine **Load segm. image**, not on
-**Show image** re-displaying the same already-loaded image.
+Watershed itself uses the source image's pixel values and does not need Pixel
+size. A CSV stores localization positions in nm but contains no camera field
+size or reliable camera-pixel calibration, so set **Pixel size (nm)** to the
+acquisition's camera pixel size to map those positions onto the mask. You can
+change Pixel size after loading: webSMLM rescales the loaded CSV's pixel-valued
+positions and widths and checks them against the same mask. The source image,
+mask and opacity remain loaded. The reconstruction field includes both the
+mask and the CSV's nonnegative extent, with no padding added at the image
+boundary. Points beyond the image's right or lower edge are visible but
+receive no cell label. The raw preview,
+reconstruction overlay, cell count, area histogram, and per-cell tracking use
+every original mask pixel and full cell area, including cells with no
+localizations. The mask is never stretched or trimmed to the localization
+bounds. A localization is assigned to the image pixel containing its unrounded
+camera-pixel coordinate, matching the displayed mask; background pixels have
+label 0 and cannot produce cell tracks. At the minimum Intensity threshold,
+watershed may instead label every pixel, including visible image background.
+The app warns when that happens; raise the threshold or load a mask with
+0-valued background if those pixels should be excluded. At partial opacity the
+raw panel blends labels over the grayscale source, while the reconstruction
+blends them over SMLM signal on black, so colours can look different despite
+the same label boundaries. Out-of-field CSV positions remain visible in the
+reconstruction but cannot be assigned to a cell; **Track** reports the
+count and stops until the coordinate calibration is corrected. Changing Pixel
+size updates the reconstruction without reloading either file and clears a
+previous per-cell Track result; click **Track** again after calibration. The
+outermost localization is not a reliable way to infer camera pixel size: a
+sparse acquisition may not reach the image edge. Within a cell, colours may
+cover pixels with no detection because cells are contiguous image regions.
+Physical nm positions are preserved across changes, and Pixel size still
+calibrates the reconstruction scale bar.
+
+In the bundled Cas12aScrambled part 1 CSV, positions at 119 nm/pixel span
+x=3.75–240.31 and y=3.71–238.34 within the 244×242 source image. The observed
+edge margin is about 3.7 pixels on each side. The published
+[ThunderSTORM MLE macro](https://github.com/HohlbeinLab/sptPALM-Python/blob/452da48a9e4400b75abd11178d74e45bad80ecfc/ImageJ_Fiji_Macros/Macro_thunderSTORM.ijm)
+specifies a four-pixel fitting radius, consistent with this margin; the CSV
+alone cannot establish the exact processing settings. Image pixels in that
+margin remain valid mask pixels. A region with no localizations cannot form a
+track, and cropping the mask to the observed CSV range would alter cell areas.
 
 The reconstruction shown in this mode also floors the alpha of any pixel
 with real signal, however faint — a sparse, isolated localization is only
@@ -3597,14 +3664,23 @@ and the temporary `sptFrameTime` back-compat alias.
 | `sptTracksColorByD` | Colour tracks by mean D | bool | — | — | — | true |
 | `segAreaMin` | Min. cell area (px) | number (int) | 0 | — | 1 | 50 |
 | `segAreaMax` | Max. cell area (px) | number (int) | 0 | — | 1 | ∞ (blank field) |
+| `segMethod` | Segmentation method | enum | — | — | — | Watershed |
+| `segHMin` | Seed dynamics (H) | number | 0 | — | any | 5% of source range on load |
+| `segThreshold` | Intensity threshold | number | — | — | any | Source minimum on load |
+| `segPeakFlooding` | Peak flooding (%) | number | 0 | 100 | 1 | 100 |
+| `segInvert` | Invert intensity | bool | — | — | — | false |
+| `segOpacity` | Segmentation opacity (%) | number (int) | 0 | 100 | 1 | 50 |
 
 **In-app "more info…" popup** (`hint-spt` in `webSMLM.html`; synced by
 `tools/sync_hints.mjs` — edit here, then run the script, never edit the
 `.hint` div directly):
 
 <!-- HINT:spt -->
-<p><b>Apply segmentation</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load data</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show image</b> re-shows it later without reloading the file, opening on the segmentation image by default; a toggle next to the raw panel's own title switches to a histogram of the cell-area distribution (px) and back — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
-<p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — swaps the panel to the segmented cells (opaque, same colours as the raw-panel view) with the same reconstruction drawn on top, its black background made highly transparent (sparse localizations get a minimum visible brightness so they don't disappear against a bright cell colour), so you can check localizations line up with their cells before tracking (click again, now <b>Show recon.</b>, to go back). If you correct <b>Pixel size (nm)</b> after loading the segmentation image, the segmentation's on-screen size rescales relative to the (unmoving) localizations — using its value at load time as the reference, since localization positions themselves never depend on it: correcting it upward grows the segmentation's apparent coverage, downward shrinks it.</p>
+<p>Load a movie or CSV for localizations. In <b>Single-particle tracking</b>, check <b>Apply segmentation</b> to make a labelled mask with <b>Watershed</b> and enable the two image-loading buttons. By default a single loaded image or the movie's average Data projection supplies the pixels. <b>Load source image</b> uses a separate single image instead, even while localizations come from the movie or CSV; its width and height must match a loaded movie. A separate image always takes priority until loading another dataset, rotating or cropping clears the source and mask.</p>
+<p><b>Seed dynamics (H)</b> suppresses shallow peaks; larger values tend to merge cells. <b>Intensity threshold</b> excludes dim pixels in the source's own units. <b>Peak flooding</b> sets how far peaks grow toward that threshold (100% reaches it). <b>Invert intensity</b> makes dark cells bright peaks. Each source starts with H at 5% of its intensity range, threshold at its minimum, flooding at 100%, and inversion off. At that minimum, watershed may assign visible background to cells; raise the threshold or load a mask with 0-valued background if it should be excluded from Track. Changing a control regenerates the mask without rereading the source.</p>
+<p><b>Load segm. image</b>, beside <b>Load source image</b>, overrides watershed with an integer-labelled mask (0 = background, positive integers = cells). Changing a watershed control generates from the selected source again without changing opacity. Replacing the mask clears earlier Track results; click <b>Track</b> again. <b>Segmentation opacity</b> blends cell colours over the grayscale source and the reconstruction: 0% shows the source or ordinary reconstruction alone; 100% gives opaque cell colours while localization signal remains visible. Hold <b>Show image</b> to see the original source in both panels, with reconstruction localizations over it; release to restore the segmentation at the same opacity and zoom. This display scaling does not change watershed pixel values. An imported mask with no matching source remains an opaque mask; the hold preview needs a matching source. The raw-panel toggle on the segmentation view shows the cell-area histogram. <b>Min./Max. cell area (px)</b> select cells for the next <b>Track</b> run; the preview and histogram show every cell in the full mask. Blank Max. means no upper limit. <b>Track</b> reports an invalid area range or a missing mask.</p>
+<p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — the full mask is blended over the ordinary reconstruction at the same opacity as the raw panel, with sparse localization signal kept visible (click again, now <b>Show recon.</b>, to go back). Both panels use the same image-pixel coordinates, and per-cell tracking reads those mask pixels. For CSV data, <b>Pixel size (nm)</b> converts positions in nm to image pixels; use the acquisition's camera calibration. Changing it moves localizations relative to the fixed image, but does not trim the mask, change cell areas or delete CSV rows. The reconstruction keeps all CSV points visible, including those outside the mask. Their count is reported, and <b>Track</b> stops until the coordinates are calibrated. After changing Pixel size, click <b>Track</b> again to recompute previous per-cell results. Watershed itself needs only image pixels; sparse localization bounds cannot establish the camera pixel size exactly.</p>
+<p>CSV detections can leave an empty rim inside the image when localization fitting needs space near its edges. The mask still covers the source image's real pixels; an edge without detections cannot create tracks. The app reports the observed rim when it spans every edge. Keep the image mask at its native size rather than trimming it to the outermost detection.</p>
 <p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save localisations**/the table.</p>
 <p>Links each frame's localizations onto the previous frames' active tracks — a trackpy-<b>inspired</b> variant (same <code>search_range</code>/<code>memory</code> terminology and linking philosophy as the Python <code>trackpy</code> package), not a literal port of its source, since there's no way to call real Python trackpy from a static HTML page. Frame-to-frame candidates within <b>Search range</b> are grouped into small connected clusters and each solved via an optimal (minimum total squared displacement) assignment, which keeps crossing trajectories from swapping identity in the common case. <b>Memory</b> lets a track skip up to that many frames with no detection and still be relinked when it reappears.</p>
 <p>Every localization gets a <code>track_id</code> (even length-1 tracks); track-length filtering happens only at the diffusion-coefficient step. <b>Track</b> is safe to re-run any time — it only sets/overwrites <code>track_id</code>/<code>D_coeff</code>, never drops or replaces rows, so there's no separate "original vs. tracked" state to manage the way sSMLM's Pair/Unpair needs.</p>
@@ -3613,9 +3689,6 @@ and the temporary `sptFrameTime` back-compat alias.
 <p><b>Show tracks</b> plots a subset of tracks as lines directly on the <b>SMLM reconstruction</b> (thickness = one reconstruction pixel's own on-screen size at the current zoom, capped so zooming in a long way can't blow a track up into an oversized shape), a filled circle marking each track's own start point (diameter = 2x the line thickness, same colour as the line), and its track number in white on a semi-transparent grey backing box (matching the scale bar's own) for legibility — growing larger the further you zoom in — legible tracks require zooming in, since real data is usually dense. Only tracks meeting <b>Min track length</b> are eligible (the same threshold Track's own D estimate uses); <b>Show tracks (%)</b> (default 10%) then samples a fixed, reproducible percentage of those, so a dense dataset stays plottable — raising it never reshuffles the tracks already shown, it only reveals more, and the exact same track identities come up every time for a given dataset. <b>Colour tracks by mean D</b> (checked by default) colours each track by its own mean diffusion coefficient (the same colour ramp as <b>Fire (hot)</b>, normalised against <b>D plot min/max</b>, with a colour-scale legend centred along the panel's right edge while it's checked — a track with no qualifying D estimate, e.g. too short, is drawn a neutral grey instead); uncheck it for plain magenta tracks instead. Click a track (anywhere along its own line) to select it — it highlights magenta in colour-by-D mode, or the same green the raw panel's own ROI boxes use otherwise; click it again, or a different track, to change the selection. Turning the overlay on also switches the reconstruction to the <b>Grey</b> colour map, so the tracks' own colouring doesn't compete with a coloured density map. A toggle next to the <b>SMLM reconstruction</b> title (<b>Show tracks</b>/<b>Hide tracks</b>) switches the overlay on and off without re-plotting.</p>
 <p><b>Show track data</b> opens a sortable, filterable table of the per-track summary — one row per track (<code>track_id</code>, <code>n_locs</code>, <code>D_coeff</code>, mean x/y, first/last frame), the same rows <b>Save track data</b> writes to CSV, not one row per localization (see <b>View data/filtering</b> for that). Click a column header to sort by it; type a filter (e.g. <code>n_locs &gt; 10</code>, joinable with <code>and</code>/<code>or</code>) and press Enter to apply it — cumulative, removable filter chips, same grammar as the main table. A v1 kept deliberately simple for now (no histogram-of-column, no link back to the reconstruction yet).</p>
 <p>Ported from the user's own <code>sptPALM-Python</code> pipeline (L. lactis sptPALM) — see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>. No length-resolved D histogram yet — see <code>docs/REFACTOR_PLAN.md</code>.</p>
-<p><b>Apply segmentation</b> (default unchecked) reveals <b>Load segm. image</b> — loads a separate integer-labelled mask (0 = background, 1/2/3/… = cell number, same file types as <b>Load data</b>), shown in the raw panel recoloured so adjacent cells are visually distinct, and builds an internal per-cell table (id, centre of mass, area in px). <b>Show image</b> re-shows it later without reloading the file, opening on the segmentation image by default; a toggle next to the raw panel's own title switches to a histogram of the cell-area distribution (px) and back — use it to judge <b>Min./Max. cell area (px)</b>, which gate which cells actually get tracked (default 50–∞).</p>
-<p>Once a segmentation image is loaded, <b>SMLM reconstruction</b>'s panel title gains a <b>Show segm.</b> button — swaps the panel to the segmented cells (opaque, same colours as the raw-panel view) with the same reconstruction drawn on top, its black background made highly transparent (sparse localizations get a minimum visible brightness so they don't disappear against a bright cell colour), so you can check localizations line up with their cells before tracking (click again, now <b>Show recon.</b>, to go back). If you correct <b>Pixel size (nm)</b> after loading the segmentation image, the segmentation's on-screen size rescales relative to the (unmoving) localizations — using its value at load time as the reference, since localization positions themselves never depend on it: correcting it upward grows the segmentation's apparent coverage, downward shrinks it.</p>
-<p>With segmentation applied, <b>Track</b> links each qualifying cell's own localizations SEPARATELY (a track can never cross a cell boundary), rather than one whole-field-of-view pass — ported from the user's own <code>sptPALM-Python</code> pipeline's <code>apply_cell_segmentation_sptPALM.py</code>/<code>tracking_sptPALM.py</code> (<code>use_segmentations</code> branch). Every localization gets a <code>cell_id</code> (−1 if it's background or inside a cell outside the area range — never tracked) and, only once segmentation is applied, a <code>cell_area [px]</code> column alongside it in **Save localisations**/the table.</p>
 <!-- /HINT:spt -->
 
 Defaults are ported from the user's own `sptPALM-Python` pipeline's
@@ -4735,6 +4808,9 @@ What this tool borrows from, and where to read more.
 
 **COMET drift**
 - "Cost-function Optimized Maximal Overlap Drift Estimation for Single Molecule Localization Microscopy," L. Reinkensmeier, S. Aufmkolk, I. Farabella, A. Egner, M. Bates, bioRxiv (2026). [doi:10.64898/2026.03.27.714864](https://doi.org/10.64898/2026.03.27.714864). Reference implementation (MIT): [github.com/gpufit/comet](https://github.com/gpufit/comet); webSMLM's `cometDrift()` is written from the published description, not ported from that code.
+
+**Cell segmentation (H_Watershed)**
+- The browser watershed is a 2D port of the [Interactive-H-Watershed source at commit 03dd865](https://github.com/mpicbg-scicomp/Interactive-H-Watershed/tree/03dd86585ecb1bd44a8bd3c96be3f924c15c4e76/src/main/java/de/mpicbg/scf/InteractiveWatershed) (BSD-3-Clause; full copyright notice in `webSMLM.html`'s head comment). The [sptPALM ImageJ macro](https://github.com/HohlbeinLab/sptPALM-Python/blob/452da48a9e4400b75abd11178d74e45bad80ecfc/ImageJ_Fiji_Macros/Macro_CellSegmentation.ijm) is the workflow reference. Pixel comparisons require the same 2D image and settings: the published brightfield/mask pairs match this port at H=45/threshold=0 and H=25/threshold=0, respectively; the macro's current 47/1 defaults do not reproduce those archived masks.
 
 **Picasso** (reference implementation for the ported MLE and AIM drift code above, [github.com/jungmannlab/picasso](https://github.com/jungmannlab/picasso))
 - "Super-resolution microscopy with DNA-PAINT," J. Schnitzbauer, M. T. Strauss, T. Schlichthaerle, F. Schueder, R. Jungmann, *Nat. Protoc.* **12**, 1198–1228 (2017). [doi:10.1038/nprot.2017.024](https://doi.org/10.1038/nprot.2017.024)

@@ -48,6 +48,8 @@ const ROSTER = [
   T('cpu', 'smfret-anchored-bg', 'test-smfret-anchored-bg.mjs'),
   T('cpu', 'smfret-bearing-width', 'test-smfret-bearing-width.mjs'),
   T('cpu', 'smfret-fit-robustness', 'test-smfret-fit-robustness.mjs'),
+  T('cpu', 'watershed', 'test-watershed.mjs'),
+  T('cpu', 'watershed-ui', 'test-watershed-ui.mjs'),
   T('io', 'bigtiff', 'test-bigtiff.mjs'),
   T('io', 'rotate', 'test-rotate-movie.mjs'),
   T('io', 'save-sim', 'test-save-sim-movie.mjs'),

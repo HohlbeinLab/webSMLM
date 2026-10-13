@@ -62,7 +62,18 @@ in-app, plus acknowledgements and licence.
    finds sites of interest, pairs donor/acceptor channels and reads out
    DD/DA/AA intensity-vs-time traces; **Single-particle tracking** links
    per-frame localizations into trajectories and estimates diffusion
-   coefficients.
+   coefficients; optionally load a separate source image there for watershed
+   cell segmentation of the same field of view. Adjust the shared segmentation
+   opacity in both image panels, or hold **Show image** to compare the source
+   image with localizations in the reconstruction.
+   For localization CSVs, set Pixel size to the image's camera pixel size.
+   The full image mask defines cell counts and areas, including cells with
+   no localizations. The reconstruction includes the image and CSV positions
+   beyond its right or lower edge; those points remain visible without cell
+   labels. Changing Pixel size moves CSV positions relative to the fixed mask
+   without reloading either file. Track stops while points fall outside.
+   At a minimum Intensity threshold, watershed may label background too;
+   review the overlay before Track. Re-run Track after a Pixel size change.
 
 ## Simulation
 
@@ -174,5 +185,6 @@ Bundled third-party decoders retain their own MIT licenses:
 [UTIF.js](https://github.com/photopea/UTIF.js) and
 [pako](https://github.com/nodeca/pako). The simulator's microtubule cell field is the
 [inSiliScope](https://github.com/kjamartens/inSiliScope) world model of Koen J.A. Martens
-(BSD-3-Clause, no GPL code), embedded as a generated block; its licence text is in the
-head comment of `webSMLM.html`.
+(BSD-3-Clause, no GPL code), embedded as a generated block. The watershed segmentation
+ports [Interactive-H-Watershed](https://github.com/mpicbg-scicomp/Interactive-H-Watershed)
+(BSD-3-Clause). Both BSD notices are in the head comment of `webSMLM.html`.

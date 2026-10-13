@@ -435,8 +435,47 @@ what makes GUI and command-line use interchangeable.
   without re-linking; ensemble MSD-vs-lag plot.
   - Tracks overlay: line width = `view.zoom` (one srFull pixel, never `mag·view.zoom`), clamped;
     the % sample draws once per track id over the full list (stable subsets).
-  - Per-cell tracking (`linkTracksPerCell()`) takes `segLabels` as a parameter (headless-safe). The
-    segmentation overlay scales by `pxnm/refPxNm` (refPxNm = pxnm at mask load).
+   - Per-cell tracking (`linkTracksPerCell()`) takes `segLabels` as a parameter (headless-safe).
+       Interactive mask rendering and `cellIdForLoc()` both use the mask's original
+       camera-pixel coordinates. `segIndexForLoc()` floors finite coordinates
+       into the pixel interval `[x,x+1)×[y,y+1)` for both CSV bounds and tracking;
+       never stretch a mask to the CSV bounding box or
+       reconstruction canvas. `parseCsvLocs()` converts nm positions using Pixel size;
+       `rescaleLoadedCsv()` updates pixel-valued fields, drift and CSV bounds on a
+       later Pixel size change without reloading. `updateCsvSegmentationField()`
+        counts out-of-field CSV positions, records the observed CSV bounds, and sizes the reconstruction to include
+        both the mask and every CSV point, without adding the CSV-only margin.
+        It never edits mask labels to match sparse localization bounds: the raw preview, SR overlay, histogram
+       and `linkTracksPerCell()` use the full mask and full cell areas. CSV rows
+       remain loaded; `runSptTrack()` blocks when positions fall outside the
+       image until the coordinate calibration is corrected. Existing per-cell
+       Track results are invalidated and must be rerun; source image, mask and
+       opacity are retained. A full-coverage mask warns that background, if
+       present in the source image, will also receive cell labels.
+       If a CSV's observed positions leave at least two image pixels along
+       every edge, the alignment note reports the smallest empty rim; this
+       describes missing detections and does not crop or shift the mask.
+       `drawSegShow()` preserves these bounds across histogram/image toggles.
+      Replacing or regenerating a mask also clears interactive Track state, and
+      `runSptTrack()` discards a result if the mask changes while it runs.
+      Both bundled Cas12a cases fit at 119 nm/px. Min./Max.
+     cell area gate tracking with inclusive bounds, not the preview or histogram;
+     Track rejects Min. > Max.
+  - Interactive watershed is a 2D port of Fiji Interactive-H-Watershed (`hWatershedLabels()`;
+    BSD-3-Clause notice in the HTML head banner). `Load source image` accepts one separate
+     2D image for segmentation while localization keeps its movie or CSV; the button is
+     enabled only while Apply segmentation is checked. That image takes priority over
+     the cached Data projection until the dataset changes. The segmentation view blends
+      cell colours over the source at `segOpacity`; the same slider sets mask
+       opacity in the SMLM reconstruction. Holding `Show image` temporarily shows
+      the same grayscale source canvas in both panels, with the localization
+      signal still overlaid in the reconstruction. Releasing it restores the blend without resetting opacity or
+     raw-panel zoom. Display scaling never changes the watershed input pixels.
+    `clearSegmentationForNewData()` drops the source and mask on load/rotate/crop.
+    Importing a labelled mask overrides watershed until a watershed control changes;
+    headless `segmentationFile` is unchanged. Keep the source in memory so controls do
+    not reread the stack. Browser coverage is in `tests/cpu/test-watershed-ui.mjs`,
+    source-mask parity in `tests/cpu/test-watershed.mjs`.
 
 - **pipeline** — Localize, drift and calibration are each a DOM-free `*Core(config, stack, hooks)`
   plus a thin interactive wrapper; `analyze()` calls the cores directly. New analysis logic belongs
