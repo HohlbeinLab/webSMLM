@@ -4747,8 +4747,8 @@ published EPFL high/low-density truth. Reports separate accuracy against truth,
 pairwise tool agreement, and runtime. Live acquisition is reported by the
 webSMLM livestream benchmarks; Picasso is offline and is not presented as a
 realtime peer. See
-[`tests/README.md`](../tests/README.md) and
-[`tests/validation/README.md`](../tests/validation/README.md) for commands and
+[`tests/README.md`](https://github.com/HohlbeinLab/webSMLM/blob/main/tests/README.md) and
+[`tests/validation/README.md`](https://github.com/HohlbeinLab/webSMLM/blob/main/tests/validation/README.md) for commands and
 the exact evidence limits.
 
 ---
