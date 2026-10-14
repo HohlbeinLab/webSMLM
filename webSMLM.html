@@ -1761,7 +1761,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-13d</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-14a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -20661,8 +20661,8 @@ function acceptSegmentation(img,w,h,source,resetAreaMax=true){
   const hadSpt=!!lastSpt, hadCellIds=!!lastResult?.locs.some(L=>L.cell_id!==undefined);
   if(hadSpt || hadCellIds){
     for(const L of lastResult.locs){
-      delete L.cell_id; delete L.cell_area;
-      if(hadSpt){ delete L.track_id; delete L.D_coeff; }
+      L.cell_id=undefined; L.cell_area=undefined;
+      if(hadSpt){ L.track_id=undefined; L.D_coeff=undefined; }
     }
     clearDerivedSptState();
     if(hadSpt) log('Segmentation changed; click Track to recompute tracks and cell assignments.');
@@ -20676,7 +20676,7 @@ function acceptSegmentation(img,w,h,source,resetAreaMax=true){
   $('segShowBtn').disabled=false;
   $('srSegOverlayBtn').style.display='';
   if(srSegOverlayOn && srFull) drawView();
-  if(resetAreaMax && segmentedImageData.length) $('segAreaMax').value=Math.max(...segmentedImageData.map(c=>c.areaPx));
+  if(resetAreaMax && segmentedImageData.length) $('segAreaMax').value=segmentedImageData.reduce((m,c)=>c.areaPx>m?c.areaPx:m,0);
 }
 function clearDerivedSptState(){
   lastSpt=null; sptMsdData=null; sptMsdView=null;
@@ -23926,8 +23926,8 @@ function rescaleLoadedCsv(newPx){
       if(seen.has(L)) continue;
       seen.add(L);
       for(const key of pixelFields) if(Number.isFinite(L[key])) L[key]*=factor;
-      if(hadCellIds){ delete L.cell_id; delete L.cell_area; }
-      if(hadSpt){ delete L.track_id; delete L.D_coeff; }
+      if(hadCellIds){ L.cell_id=undefined; L.cell_area=undefined; }
+      if(hadSpt){ L.track_id=undefined; L.D_coeff=undefined; }
     }
   }
   for(const key of ['fdx','fdy','segdx','segdy']){
@@ -24948,7 +24948,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.4-dev · build 2026-10-13d — source-image comparison and CSV edge coverage.`);
+log(`webSMLM v0.13.4-dev · build 2026-10-14a — watershed review fixes (no delete on loc rows, no spread max).`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
