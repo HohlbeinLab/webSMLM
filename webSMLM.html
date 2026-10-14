@@ -1761,7 +1761,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-14a</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-14b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -6776,7 +6776,7 @@ function makeConcatStack(stacks, names){
       const out=[]; let fi=s;
       while(fi<e){
         const si=locate(fi), stk=stacks[si], localStart=fi-starts[si], localEnd=Math.min(e-starts[si], stk.n);
-        out.push(...await stk.getFrames(localStart, localEnd));
+        for(const fr of await stk.getFrames(localStart, localEnd)) out.push(fr);
         fi=starts[si]+localEnd;
       }
       return out;
@@ -14571,7 +14571,7 @@ async function calibrationCore(config, stack, hooks={}){
   const calib={ first,last,step,px,zref, qx,qy,qpr, zcal, qmagX, qmagY, sourceFile:config.sourceFile, fixedXY,
           det:{sigma,k,win,border,exactBP,mode}, fitsByFrame,
           pts:good.map((p,i)=>({z:zr[i],sx:sxN[i],sy:syN[i],pr:p.pr,mx:p.mx,my:p.my})),
-          zmin:Math.min(...zr), zmax:Math.max(...zr) };
+          zmin:zr.reduce((m,v)=>v<m?v:m,Infinity), zmax:zr.reduce((m,v)=>v>m?v:m,-Infinity) };
   const cal3d=zcal;                               // make it immediately usable by Phasor 3D
   const cal3dW=(qx&&qy)?{qx:{a:qx.a,c:qx.c,b:qx.b},qy:{a:qy.a,c:qy.c,b:qy.b},zmin:calib.zmin,zmax:calib.zmax,px}:null;  // width model for MLE 3D
   const calMethods={ phasor_magnitude:!!zcal, gaussian_width:!!(qx&&qy) };   // tag which models this calibration provides
@@ -15615,7 +15615,7 @@ async function driftCore(locs, px, config, hooks={}){
   for(let f=0;f<nFrames;f++){ if(d.fdx[f]<mnx)mnx=d.fdx[f]; if(d.fdx[f]>mxx)mxx=d.fdx[f];
     if(d.fdy[f]<mny)mny=d.fdy[f]; if(d.fdy[f]>mxy)mxy=d.fdy[f]; }
   onLog(`drift span: x ${((mxx-mnx)*px).toFixed(0)} nm, y ${((mxy-mny)*px).toFixed(0)} nm`+
-      (d.fdz?`, z ${(Math.max(...d.fdz)-Math.min(...d.fdz)).toFixed(0)} nm`:'')+` · ${d.nSeg} segments · ${Math.round(performance.now()-t0)} ms.`);
+      (d.fdz?`, z ${(d.fdz.reduce((m,v)=>v>m?v:m,-Infinity)-d.fdz.reduce((m,v)=>v<m?v:m,Infinity)).toFixed(0)} nm`:'')+` · ${d.nSeg} segments · ${Math.round(performance.now()-t0)} ms.`);
   return { drift:d, nFrames, frame0, ms:Math.round(performance.now()-t0) };
 }
 
@@ -16820,7 +16820,7 @@ async function pcfoTilePointsCpu(stack,idx,S,kThresh,onProgress){
     let tm=performance.now();
     const img=(await stack.getFrames(idx[i],idx[i]+1))[0];
     pts.timing.readMs+=performance.now()-tm; tm=performance.now();
-    pts.push(...pcfoFrameTilePoints(img,stack.w,stack.h,S,kThresh));
+    for(const pt of pcfoFrameTilePoints(img,stack.w,stack.h,S,kThresh)) pts.push(pt);
     pts.timing.deviceMs+=performance.now()-tm;
     onProgress(100*(i+1)/idx.length);
     await tick();
@@ -22377,7 +22377,7 @@ async function liveStreamPushChunkFile(file){
   const r=await runCore(cfg, chunkStack, {zcal:liveStreamState.zcal, wcal:liveStreamState.wcal}, {onLog:quietLog});
   const offset=liveStreamState.frameOffset;
   for(const L of r.locs) L.frame+=offset;   // keep frame numbers meaningful across the whole streamed acquisition, not just this chunk
-  liveStreamState.allLocs.push(...r.locs);
+  for(const L of r.locs) liveStreamState.allLocs.push(L);
   liveStreamState.frameOffset+=chunkStack.n;
   liveStreamState.chunkCount++;
   lastResult={locs:liveStreamState.allLocs, w:r.w, h:r.h, px:cfg.pxnm, mag:paramValue('mag'), det:r.det};
@@ -24948,7 +24948,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.4-dev · build 2026-10-14a — watershed review fixes (no delete on loc rows, no spread max).`);
+log(`webSMLM v0.13.4-dev · build 2026-10-14b — spread-argument overflow guards.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
