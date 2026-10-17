@@ -65,7 +65,7 @@ below for what it does.
 
 | Button | id | Does |
 |---|---|---|
-| **Load data** | `loadBtn` | Opens a file picker accepting EITHER a movie (one multi-frame TIFF or BigTIFF, a native Nikon `.nd2`, a FITS file, or Ctrl/Cmd+click several files to combine them into one stack, natural-sorted by filename — either several single-frame TIFFs, one file = one frame, e.g. a per-frame camera dump, OR several multi-frame TIFFs from ONE continuous acquisition split purely by size, each file = a chunk of frames; which one is auto-detected from the first file's own frame count) OR a single localization file — a CSV written by **Save localisations** (or ThunderSTORM), or an `.smlm` archive (ShareLoc.XYZ; see [§6](#6-csv-export-format)) — OR a single JSON file webSMLM saved — smFRET traces (**Save traces**), settings (**Save settings**) or a 3D calibration — told apart by the file's own `format` field (older settings/calibration files without one are recognised by their contents). Movie vs. localization file (`.csv`/`.smlm`) vs. JSON is detected by file extension; mixing types in one selection is refused with a logged error — pick one type at a time. See **in/out**/**pipeline** below. |
+| **Load data** | `loadBtn` | Opens a file picker accepting EITHER a movie (one multi-frame TIFF or BigTIFF, a native Nikon `.nd2`, a FITS file, or Ctrl/Cmd+click several files to combine them into one stack, natural-sorted by filename — either several single-frame TIFFs, one file = one frame, e.g. a per-frame camera dump, OR several multi-frame TIFFs from ONE continuous acquisition split purely by size, each file = a chunk of frames; which one is auto-detected from the first file's own frame count) OR a single localization file — a CSV written by **Save localisations** (or ThunderSTORM), an `.smlm` archive (ShareLoc.XYZ), or a Picasso `.hdf5` (optionally Ctrl/Cmd+click its `.yaml` with it; see [§6](#6-csv-export-format)) — OR a single JSON file webSMLM saved — smFRET traces (**Save traces**), settings (**Save settings**) or a 3D calibration — told apart by the file's own `format` field (older settings/calibration files without one are recognised by their contents). Movie vs. localization file (`.csv`/`.smlm`/`.hdf5`) vs. JSON is detected by file extension; mixing types in one selection is refused with a logged error — pick one type at a time. See **in/out**/**pipeline** below. |
 | **Simulate movie** | `genBtn` | Generates a synthetic stack from the *Simulation* module — no file needed, useful for a quick smoke-test or teaching demo. |
 | **Load settings** | `loadSetBtn` | Opens a `.json` file (as saved by **Save settings**) and applies every recognised `{id: value}` pair to the `PARAMS` registry — unknown/legacy keys are logged and ignored, not errored on. |
 | **Save settings** | `saveSetBtn` | Dumps the *current* value of every `PARAMS` entry (not just ones with a page control) to a `webSMLM_settings.json` file — see [§4](#4-settings-json-format). |
@@ -415,7 +415,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 
 | GUI action | Terminal function | Notes |
 |---|---|---|
-| Load data | `loadFiles(fileList)` | a `File` array/`FileList`; auto-detects movie vs. localization file (`.csv`/`.smlm`) vs. JSON (a JSON goes through `loadJsonFile(file)`, which routes by its `format` field) |
+| Load data | `loadFiles(fileList)` | a `File` array/`FileList`; auto-detects movie vs. localization file (`.csv`/`.smlm`/`.hdf5`, a `.yaml` goes with its `.hdf5`) vs. JSON (a JSON goes through `loadJsonFile(file)`, which routes by its `format` field) |
 | Load calibration… | `loadCalibrationJson(file)` | |
 | Load settings | `loadSettingsJson(file)` | |
 | Simulate movie | `runSimulation()` | no args — reads the current Simulation |
@@ -4007,6 +4007,31 @@ no use for (`id`, `chi2`, …) are listed in the log and dropped.
 - Before reading, the row count in `manifest.json` is checked against the
   memory budget (`LOC_ROW_BYTES` per localization).
 
+**Picasso `.hdf5`** ([Picasso](https://github.com/jungmannlab/picasso),
+Schnitzbauer et al., *Nat. Protoc.* **12**, 1198–1228 (2017); see
+[§9](#9-references-further-reading)) is read by a small HDF5 reader of webSMLM's
+own (`readHdf5Table()`), which covers the layout Picasso writes through h5py:
+HDF5 file-format version 0/1, a `/locs` table of named numeric columns stored in
+one block, and `/metadata`, a JSON string (Picasso 0.11 and later). It was
+checked value by value against h5py on files from Picasso 0.9.1 to 0.11.3.
+Chunked or compressed tables, newer HDF5 file-format versions and files written
+by `pandas.to_hdf()` are refused with a message.
+
+- Units as in Picasso: `x`, `y`, `sx`, `sy`, `lpx`, `lpy` in camera pixels,
+  `z` and `lpz` in nm, frames from 0. Picasso puts pixel *i*'s centre at
+  x = *i*, as webSMLM's fitters do, so positions are taken as they are.
+  `sigma` is √(sx·sy). Other columns (`net_gradient`, `ellipticity`, `group`,
+  …) are listed in the log and dropped.
+- Metadata: the embedded `/metadata`, else a `.yaml` selected together with the
+  `.hdf5` in **Load data** (matched by file name; older Picasso writes only the
+  `.yaml`). As in Picasso, a key is taken from the last document that has it.
+  `Pixelsize` sets **Pixel size (nm)** (logged) and `Width`/`Height` the field
+  size. Without metadata, the current Pixel size is used and a `!!!` warning
+  says how to add it.
+- Positions stay in camera pixels: changing **Pixel size** later rescales the
+  nm values (scale bar, export), not where the localizations are, unlike a CSV
+  whose positions are in nm.
+
 ---
 
 ## 7 · Calibration JSON format
@@ -4080,8 +4105,9 @@ const result = await window.webSMLM.analyze({
   auto-detected "several single-frame files" vs. "several chunks of one
   continuous acquisition" cases — see **in/out**), loaded via the existing
   `loadTiffFile`/`loadTiffFilesAuto`. One of the two is required.
-- **`config.file` ending in `.csv` or `.smlm`** (v0.11.13; `.smlm` since
-  v0.13.4) — the headless equivalent of loading a localization file via
+- **`config.file` ending in `.csv`, `.smlm` or `.hdf5`/`.h5`** (v0.11.13;
+  `.smlm` and Picasso `.hdf5` since v0.13.4; a Picasso file's own pixel size is
+  logged, `pxnm` is not changed) — the headless equivalent of loading a localization file via
   **Load data** (same extension-only dispatch), not a movie at all: parsed
   directly via `parseLocTableFile()`, skipping Localize
   (and so `method`/`psf`/`winr`/…), `cropX0`–`cropY1`, `estimateGainOffset`,
@@ -4802,6 +4828,7 @@ What this tool borrows from, and where to read more.
 
 **File formats**
 - W. Ouyang, J. Bai, M. K. Singh, C. Leterrier, P. Barthelemy, S. F. H. Barnett, T. Klein, M. Sauer, P. Kanchanawong, N. Bourg, M. M. Cohen, B. Lelandais, C. Zimmer, "ShareLoc — an open platform for sharing localization microscopy data," *Nat. Methods* **19**(11), 1331–1333 (2022). [doi:10.1038/s41592-022-01659-0](https://doi.org/10.1038/s41592-022-01659-0) — the ShareLoc.XYZ platform and its `.smlm` file format; please cite it when you use `.smlm` data.
+- J. Schnitzbauer, M. T. Strauss, T. Schlichthaerle, F. Schueder, R. Jungmann, "Super-resolution microscopy with DNA-PAINT," *Nat. Protoc.* **12**(6), 1198–1228 (2017). [doi:10.1038/nprot.2017.024](https://doi.org/10.1038/nprot.2017.024) — Picasso, whose `.hdf5` localization files `parsePicassoLocs()` reads (Picasso source: <https://github.com/jungmannlab/picasso>, MIT).
 - SMLM file format (`.smlm`), specification 0.2 and reference readers, imod-pasteur: <https://github.com/imodpasteur/smlm-file-format> — the format `parseSmlmLocs()` reads.
 
 **Spot detection & thresholding**

@@ -103,8 +103,8 @@
     spt             19686  single-particle tracking and diffusion coefficients
     pipeline        21179  *Core()/wrapper orchestration, Run, hotkeys, terminal
     liveStreaming   22263  Micro-Manager/pycromanager bridge (experimental)
-    table           25221  localizations table, filters, histograms, clustering
-    headless API    25912  window.webSMLM.analyze()/analyzeBatch()
+    table           25427  localizations table, filters, histograms, clustering
+    headless API    26118  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1761,7 +1761,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-17a</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-17b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1779,7 +1779,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
     <!-- actions -->
     <div class="group">
       <div class="btnrow">
-        <button id="loadBtn" title="Select a movie — TIFF (also BigTIFF; or Ctrl/Cmd+click several single-frame TIFFs to combine them), native Nikon .nd2, or FITS — OR a localization file (a CSV from Save localisations or ThunderSTORM, or an .smlm archive from ShareLoc), OR a JSON file webSMLM saved (traces from Save traces, settings, or a 3D calibration; recognised from its content). Select one kind of file at a time.">Load data</button>
+        <button id="loadBtn" title="Select a movie — TIFF (also BigTIFF; or Ctrl/Cmd+click several single-frame TIFFs to combine them), native Nikon .nd2, or FITS — OR a localization file (a CSV from Save localisations or ThunderSTORM, an .smlm archive from ShareLoc, or a Picasso .hdf5, optionally with its .yaml), OR a JSON file webSMLM saved (traces from Save traces, settings, or a 3D calibration; recognised from its content). Select one kind of file at a time.">Load data</button>
         <button id="genBtn" title="Generate a synthetic test movie from the Simulation settings (known emitter positions and drift), to try out or validate the analysis">Simulate movie</button>
       </div>
       <div class="btnrow">
@@ -1799,7 +1799,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button id="helpBtn" class="helpbtn" title="Open the quick-reference guide (guided workflow, acknowledgements, licence)">Quick guide</button>
       </div>
       <div class="bar" id="bar"><i id="prog"></i></div>
-      <input type="file" id="file" accept=".tif,.tiff,.nd2,.fits,.fit,.csv,.smlm,.json" multiple hidden>
+      <input type="file" id="file" accept=".tif,.tiff,.nd2,.fits,.fit,.csv,.smlm,.hdf5,.h5,.yaml,.yml,.json" multiple hidden>
       <input type="file" id="segFile" accept=".tif,.tiff,.nd2,.fits,.fit" hidden>
       <input type="file" id="segSourceFile" accept=".tif,.tiff,.nd2,.fits,.fit" hidden>
       <input type="file" id="setFile" accept=".json" hidden>
@@ -23868,7 +23868,7 @@ const LOC_COLUMNS=[
   {key:'sigma', names:['sigma','width'], kind:'len', emptyZero:true},
   {key:'lpx', names:['uncertainty','uncertainty_xy'], kind:'lpxy'},
   {key:'lpx', names:['x_precision','lpx'], kind:'len'}, {key:'lpy', names:['y_precision','lpy'], kind:'len'},
-  {key:'lpz', names:['sigma_z','uncertainty_z','z_precision'], kind:'nm'},
+  {key:'lpz', names:['sigma_z','uncertainty_z','z_precision','lpz'], kind:'nm'},
   {key:'dist', names:['dist'], kind:'nm'},
   {key:'x2', names:['x2'], kind:'len'}, {key:'y2', names:['y2'], kind:'len'},
   {key:'pairAngle', names:['pairangle'], kind:''},   // degrees, kept (see pairCore)
@@ -23914,7 +23914,7 @@ function makeLocColumnMapper(headers, opts){
       const toPx = u==='px'||u==='pixel'||u==='pixels';
       if(!toPx && !(u in LOC_LEN_UNITS)) throw new Error(`column "${h}" has unit "${u}", which webSMLM cannot convert to nm`);
       const nm = toPx ? px : LOC_LEN_UNITS[u];
-      mul=nm; if(col.kind!=='nm') div=px;
+      if(!(toPx && col.kind!=='nm')){ mul=nm; if(col.kind!=='nm') div=px; }
     }else if(col.kind==='rad'){ mul=Math.PI; div=180; }
     used.add(col.key); if(col.kind==='lpxy') used.add('lpy');
     plan.push({j, key:col.key, kind:col.kind, mul, div, emptyZero:!!col.emptyZero});
@@ -24078,10 +24078,200 @@ async function parseSmlmLocs(file, {onLog=()=>{}, onProgress=()=>{}, memBudgetGB
   if(tables.length>1) onLog(`!!! .smlm: ${tables.length} tables (channels ${tables.map(fi=>fi.channel||'?').join(', ')}) were merged into one localization list; webSMLM has no channel column yet.`);
   return {locs, ...locTableBounds(locs), px};
 }
+// Minimal HDF5 reader for Picasso localization files: superblock v0/v1,
+// symbol-table groups (v1 B-tree, local heap), v1 object headers, contiguous
+// datasets of compound, numeric or variable-length string type. That is the
+// layout h5py writes by default and Picasso uses (checked on files from
+// Picasso 0.9.1-0.11.3); chunked/compressed data, newer file-format versions
+// and pandas.to_hdf() files are refused with a message. Structure is read
+// through 64 KiB pages fetched on demand: parsing throws a page request,
+// which is fetched and the parse retried, so only the table itself is large.
+async function readHdf5Table(file, tableName){
+  const PAGE=65536, pages=new Map(), dec=new TextDecoder();
+  const need=(a,n)=>{ for(let pg=Math.floor(a/PAGE); pg<=Math.floor((a+n-1)/PAGE); pg++) if(!pages.has(pg)) throw {hdf5Page:pg}; };
+  const byte=a=>{ need(a,1); return pages.get(Math.floor(a/PAGE))[a%PAGE]; };
+  const bytes=(a,n)=>{ need(a,n); const out=new Uint8Array(n); for(let i=0;i<n;i++) out[i]=pages.get(Math.floor((a+i)/PAGE))[(a+i)%PAGE]; return out; };
+  const num=(a,n)=>{ let v=0; for(let i=n-1;i>=0;i--) v=v*256+byte(a+i); return v; };   // little-endian unsigned, exact below 2^53
+  const U16=a=>num(a,2), U32=a=>num(a,4), U64=a=>num(a,8);
+  const str=(a,n)=>dec.decode(bytes(a,n));
+  const cstr=a=>{ let e=a; while(byte(e)) e++; return str(a,e-a); };
+  const parse=()=>{
+    let sb=-1;
+    const SIG=[0x89,0x48,0x44,0x46,0x0d,0x0a,0x1a,0x0a];
+    for(let o=0;o+8<=file.size;o=o?o*2:512) if(SIG.every((v,i)=>byte(o+i)===v)){ sb=o; break; }
+    if(sb<0) throw new Error('not an HDF5 file');
+    const ver=byte(sb+8);
+    if(ver>1) throw new Error(`HDF5 superblock version ${ver} (newer file-format settings) is not supported; Picasso writes version 0`);
+    if(byte(sb+13)!==8 || byte(sb+14)!==8) throw new Error('only 8-byte HDF5 offsets are supported');
+    const p0=sb+24+(ver===1?4:0), base=U64(p0), A=a=>a+base, UNDEF=2**64-1;
+    const rootOH=A(U64(p0+32+8));
+    // Object header v1 messages, following continuation blocks.
+    const messages=addr=>{
+      if(byte(addr)!==1) throw new Error(`HDF5 object header version ${byte(addr)} is not supported`);
+      const n=U16(addr+2), out=[], blocks=[[addr+16, U32(addr+8)]];
+      while(blocks.length && out.length<n){
+        let [q,len]=blocks.shift(); const end=q+len;
+        while(q+8<=end && out.length<n){
+          const type=U16(q), size=U16(q+2);
+          out.push({type, off:q+8, size});
+          if(type===0x10) blocks.push([A(U64(q+8)), U64(q+16)]);
+          q+=8+size;
+        }
+      }
+      return out;
+    };
+    const groupLinks=oh=>{
+      const st=messages(oh).find(m=>m.type===0x11);
+      if(!st) throw new Error('HDF5 group without a symbol table (newer link storage) is not supported');
+      const heapData=A(U64(A(U64(st.off+8))+24)), links={};
+      const walk=node=>{
+        const sig=str(node,4);
+        if(sig==='SNOD'){ for(let i=0,c=U16(node+6);i<c;i++){ const e=node+8+i*40; links[cstr(heapData+U64(e))]=A(U64(e+8)); } return; }
+        if(sig!=='TREE') throw new Error('corrupt HDF5 group index');
+        for(let i=0,c=U16(node+6);i<c;i++) walk(A(U64(node+32+i*16)));
+      };
+      walk(A(U64(st.off)));
+      return links;
+    };
+    // Datatype message -> {cls, size, kind, propLen, members?}.
+    const datatype=off=>{
+      const cv=byte(off), cls=cv&15, version=cv>>4, bits=byte(off+1)|(byte(off+2)<<8), size=U32(off+4);
+      if((cls===0 || cls===1) && (bits&1)) throw new Error('big-endian HDF5 numbers are not supported');
+      if(cls===0){ const k=((bits&8)?'getInt':'getUint')+(8*size); if(size>4) return {cls,size,kind:'int64',signed:!!(bits&8),propLen:4}; return {cls,size,kind:k,propLen:4}; }
+      if(cls===1){ if(size!==4 && size!==8) throw new Error(`${size}-byte HDF5 floats are not supported`); return {cls,size,kind:size===4?'getFloat32':'getFloat64',propLen:12}; }
+      if(cls===3) return {cls,size,kind:'string',propLen:0};
+      if(cls===9) return {cls,size,kind:'vlen',propLen:8+12};
+      if(cls===6){
+        const members=[]; let q=off+8;
+        for(let i=0;i<(bits&0xFFFF);i++){
+          const name=cstr(q), nl=new TextEncoder().encode(name).length;
+          q = version<3 ? q+Math.ceil((nl+1)/8)*8 : q+nl+1;
+          let moff;
+          if(version<3){ moff=U32(q); q+=4; } else { const nb=size<256?1:size<65536?2:size<16777216?3:4; moff=num(q,nb); q+=nb; }
+          if(version===1) q+=28;
+          const t=datatype(q); members.push({name, offset:moff, type:t}); q+=8+t.propLen;
+        }
+        return {cls,size,kind:'compound',members,propLen:q-(off+8)};
+      }
+      throw new Error(`HDF5 datatype class ${cls} is not supported`);
+    };
+    const dataset=oh=>{
+      let shape=null, type=null, addr=null;
+      for(const m of messages(oh)){
+        if(m.type===1){ const v=byte(m.off), rank=byte(m.off+1), at=m.off+(v===1?8:4); shape=[]; for(let k=0;k<rank;k++) shape.push(U64(at+8*k)); }
+        else if(m.type===3) type=datatype(m.off);
+        else if(m.type===8){
+          const v=byte(m.off), cls=byte(m.off+1);
+          if(v<3) throw new Error(`HDF5 data layout version ${v} is not supported`);
+          if(cls!==1) throw new Error(cls===2 ? 'chunked (possibly compressed) HDF5 datasets are not supported' : 'compact HDF5 datasets are not supported');
+          const a=U64(m.off+2); addr = a===UNDEF ? null : A(a);
+        }
+        else if(m.type===0xB) throw new Error('compressed HDF5 datasets are not supported');
+        else if(m.type===0x11) throw new Error('is a group, not a table');
+      }
+      if(!shape || !type) throw new Error('incomplete HDF5 dataset header');
+      return {n:shape.reduce((a,b)=>a*b,1), type, addr};
+    };
+    // A variable-length string: length, global heap collection, object index.
+    const vlenString=o=>{
+      const len=U32(o), col=A(U64(o+4)), idx=U32(o+12);
+      if(str(col,4)!=='GCOL') throw new Error('corrupt HDF5 global heap');
+      for(let q=col+16, end=col+U64(col+8); q+16<=end;){
+        const id=U16(q), sz=U64(q+8);
+        if(!id) break;
+        if(id===idx) return str(q+16,len);
+        q+=16+Math.ceil(sz/8)*8;
+      }
+      throw new Error('HDF5 string not found');
+    };
+    const links=groupLinks(rootOH);
+    if(!(tableName in links)) throw new Error(`no /${tableName} dataset in this HDF5 file`);
+    let table;
+    try{ table=dataset(links[tableName]); }
+    catch(e){ throw new Error(e.message==='is a group, not a table' ? `/${tableName} is a group of blocks (a pandas.to_hdf() file), not a Picasso table — re-save it with Picasso` : e.message); }
+    if(table.type.kind!=='compound') throw new Error(`/${tableName} is not a table of named columns`);
+    let metadata=null;
+    if('metadata' in links){
+      const md=dataset(links.metadata);
+      if(md.addr!=null) metadata = md.type.kind==='vlen' ? vlenString(md.addr) : md.type.kind==='string' ? str(md.addr,md.type.size).replace(/\0+$/,'') : null;
+    }
+    return {table, metadata};
+  };
+  let parsed;
+  for(let tries=0;;tries++){
+    try{ parsed=parse(); break; }
+    catch(e){
+      if(e && e.hdf5Page!==undefined && tries<10000){ const a=e.hdf5Page*PAGE; pages.set(e.hdf5Page, new Uint8Array(await file.slice(a, a+PAGE).arrayBuffer())); continue; }
+      throw e;
+    }
+  }
+  return parsed;
+}
+// Picasso's .yaml metadata: '---'-separated documents; only top-level scalar
+// keys are needed (Pixelsize, Width, Height, Frames). Lists, nested blocks and
+// comments are skipped.
+function parsePicassoYaml(text){
+  return text.split(/^---\s*$/m).map(doc=>{
+    const o={};
+    for(const line of doc.split(/\r?\n/)){
+      const m=line.match(/^([^\s#\-][^:]*):\s*(.*?)\s*$/);
+      if(!m || m[2]==='' || m[2]==='|' || m[2]==='>') continue;
+      let v=m[2].replace(/^(['"])(.*)\1$/,'$2');
+      o[m[1]] = v!=='' && isFinite(+v) ? +v : v;
+    }
+    return o;
+  }).filter(d=>Object.keys(d).length);
+}
+// Picasso looks a key up from the last metadata document to the first.
+function picassoMeta(docs, key){
+  for(let i=(docs||[]).length-1;i>=0;i--){ const v=docs[i]?.[key]; if(v) return v; }
+  return null;
+}
+// Picasso localizations (.hdf5): x, y, sx, sy, lpx, lpy in camera px; z and
+// lpz in nm; frames 0-based (Picasso's fit grid puts pixel i's centre at
+// x = i, as webSMLM's fitters do, so no shift). Metadata: the /metadata JSON
+// (Picasso >= 0.11), else a .yaml picked together with the file.
+async function parsePicassoLocs(file, {onLog=()=>{}, onProgress=()=>{}, memBudgetGB=Infinity, yamlFile=null}={}){
+  const {table, metadata}=await readHdf5Table(file, 'locs');
+  let docs=null, metaSrc='';
+  if(metadata){ try{ docs=JSON.parse(metadata); metaSrc='embedded metadata'; }catch(e){ onLog('!!! Picasso file: its embedded metadata is not valid JSON — ignored.'); } }
+  if(!docs && yamlFile){ docs=parsePicassoYaml(await yamlFile.text()); metaSrc=yamlFile.name; }
+  if(!Array.isArray(docs)) docs = docs ? [docs] : null;
+  const n=table.n, budget=effectiveMemBudgetBytes(memBudgetGB);
+  if(n*LOC_ROW_BYTES>budget.bytes)
+    throw new Error(`${n.toLocaleString()} localizations need about ${(n*LOC_ROW_BYTES/1073741824).toFixed(1)} GB, above the memory budget of ${(budget.bytes/1073741824).toFixed(1)} GB — raise Total memory budget or use a smaller file`);
+  const cols=table.type.members.filter(m=>m.type.kind.startsWith('get') || m.type.kind==='int64');
+  const m=makeLocColumnMapper(cols.map(c=>c.name), {px:1, frameBase:0, defaultLenUnit:k=>(k==='z'||k==='lpz')?'nm':'px', required:['frame','x','y'], what:'Picasso localization file'});
+  const skipped=[...m.ignored, ...table.type.members.filter(c=>!cols.includes(c)).map(c=>c.name)];
+  if(skipped.length) onLog(`Picasso file: column(s) not used by webSMLM: ${skipped.join(', ')}.`);
+  const rowLen=table.type.size, vals=new Float64Array(cols.length), locs=new Array(n);
+  const CHUNK=Math.max(1, Math.floor(32*1048576/rowLen));
+  let lastTick=performance.now();
+  for(let r0=0;r0<n;r0+=CHUNK){
+    const r1=Math.min(n,r0+CHUNK), a=table.addr+r0*rowLen;
+    const dv=new DataView(await file.slice(a, a+(r1-r0)*rowLen).arrayBuffer());
+    if(dv.byteLength<(r1-r0)*rowLen) throw new Error('the file is shorter than its table — truncated download?');
+    for(let r=r0;r<r1;r++){
+      const b=(r-r0)*rowLen;
+      for(let k=0;k<cols.length;k++){ const c=cols[k], o=b+c.offset;
+        vals[k] = c.type.kind==='int64' ? Number(c.type.signed ? dv.getBigInt64(o,true) : dv.getBigUint64(o,true)) : dv[c.type.kind](o,true); }
+      const L=m.row(vals);
+      if(!(L.sigma>0) && L.sx>0 && L.sy>0) L.sigma=Math.sqrt(L.sx*L.sy);
+      locs[r]=L;
+    }
+    if(performance.now()-lastTick>200){ onProgress(100*r1/n); await tick(); lastTick=performance.now(); }
+  }
+  const meta={pixelsize:+picassoMeta(docs,'Pixelsize')||null, width:+picassoMeta(docs,'Width')||null,
+              height:+picassoMeta(docs,'Height')||null, frames:+picassoMeta(docs,'Frames')||null, source:metaSrc};
+  if(!docs) onLog('!!! Picasso file: no metadata (the file has none embedded and no .yaml was selected with it) — the current Pixel size is used and the field size is taken from the data. Select the .yaml together with the .hdf5 to use the file\'s own values.');
+  const b=locTableBounds(locs);
+  return {locs, w:meta.width||b.w, h:meta.height||b.h, px:meta.pixelsize, coordsInPx:true, picassoMeta:meta};
+}
 // One entry point for every localization-table format Load data accepts.
-const LOC_TABLE_RE=/\.(csv|smlm)$/i;
+const LOC_TABLE_RE=/\.(csv|smlm|hdf5|h5)$/i;
 async function parseLocTableFile(file, opts={}){
   if(/\.smlm$/i.test(file.name||'')) return parseSmlmLocs(file, opts);
+  if(/\.(hdf5|h5)$/i.test(file.name||'')) return parsePicassoLocs(file, opts);
   const text = typeof file.text==='function' ? await file.text() : new TextDecoder().decode(await file.arrayBuffer());
   return parseCsvLocs(text);
 }
@@ -24090,7 +24280,8 @@ async function parseLocTableFile(file, opts={}){
 function rescaleLoadedCsv(newPx){
   if(!lastResult?.fromCsv || !(newPx>0) || !Number.isFinite(newPx)) return false;
   const oldPx=lastResult.csvCoordinatePx||lastResult.px;
-  if(oldPx===newPx){ lastResult.px=newPx; return false; }
+  // Positions stored in camera px (Picasso) don't move with Pixel size.
+  if(oldPx===newPx || lastResult.coordsInPx){ lastResult.px=newPx; lastResult.csvCoordinatePx=newPx; return false; }
   newEpoch(); // discard a Track or other analysis still using the old coordinates
   const factor=oldPx/newPx, seen=new Set();
   const pixelFields=['x','y','x0','y0','x2','y2','sigma','sigma1st','sx','sy','lpx','lpy',
@@ -24133,25 +24324,33 @@ function rescaleLoadedCsv(newPx){
   }
   return true;
 }
-async function loadCsvFile(f){
+async function loadCsvFile(f, opts={}){
   if(!f) return;
   registerTerminalFile(f);
   const myEpoch=newEpoch();   // see newEpoch()'s own comment (MODULE: in/out)
   // Logged before parsing; a runnable command (analyze() handles .csv too).
   logCmd({file: f.name, pxnm: paramValue('pxnm'), frametime: paramValue('frametime')});
   try{
-    const {locs,w,h,px}=await parseLocTableFile(f, {onLog:log, onProgress:setProg, memBudgetGB:paramValue('memBudgetGB')});
+    const parsed=await parseLocTableFile(f, {onLog:log, onProgress:setProg, memBudgetGB:paramValue('memBudgetGB'), yamlFile:opts.yamlFile});
     setProg(null);
+    const {locs,w,h,coordsInPx}=parsed;
     if(!locs.length) throw new Error('no data rows');
     // Superseded (another load, a Localize, a crop, …) while this file was
     // being read/parsed — see newEpoch()'s own comment.
     if(staleEpoch(myEpoch)) return;
+    let px=parsed.px;
+    // A Picasso file stores positions in camera px and its own pixel size:
+    // that becomes Pixel size (nm) (positions do not depend on it).
+    if(coordsInPx){
+      if(px>0 && px!==paramValue('pxnm')){ log(`Pixel size set to ${px} nm from the file's metadata (${parsed.picassoMeta.source}).`); $('pxnm').value=px; }
+      px=paramValue('pxnm');
+    }
     clearSegmentationForNewData(); stack=null; rawFull=null; rawPixelData=null;
     srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false);
     setRawPlot(false); measureLine=null; measurePt0=null; cropPt0=null; cropRect=null;
     lastDrift=null; $('driftShowBtn').disabled=true; lastNena=null;
     clearTableState(); $('zmin').value=''; $('zmax').value='';
-    lastResult={locs, w, h, px, mag:paramValue('mag'), det:null, fromCsv:true, csvCoordinatePx:px, csvInferredW:w, csvInferredH:h};
+    lastResult={locs, w, h, px, mag:paramValue('mag'), det:null, fromCsv:true, csvCoordinatePx:px, csvInferredW:w, csvInferredH:h, coordsInPx:!!coordsInPx};
     // No stack for a CSV load: size the panel to the data's bounding box so
     // the fit view and scale bar sit on the data.
     setFrameAspect(w, h);
@@ -24278,14 +24477,20 @@ async function loadFiles(fs){
     await loadJsonFile(jsonFiles[0]);
     return;
   }
+  // A Picasso .yaml goes with the .hdf5 of the same base name.
+  const isYaml=f=>/\.ya?ml$/i.test(f.name), yamlFiles=fs.filter(isYaml);
+  fs=fs.filter(f=>!isYaml(f));
   const csvFiles=fs.filter(isCsv), movieFiles=fs.filter(f=>!isCsv(f));
+  if(yamlFiles.length && !csvFiles.some(f=>/\.(hdf5|h5)$/i.test(f.name))){ log(`!!! Load data: ${yamlFiles[0].name} is Picasso metadata — select it together with its .hdf5 localization file.`); return; }
   if(csvFiles.length && movieFiles.length){
     log(`!!! Load data: the selection mixes a CSV (${csvFiles[0].name}) with movie file(s) (${movieFiles[0].name}${movieFiles.length>1?', …':''}) — pick one type at a time.`);
     return;
   }
   if(csvFiles.length){
     if(csvFiles.length>1) log(`!!! Multiple localization files selected — loading only ${csvFiles[0].name}.`);
-    await loadCsvFile(csvFiles[0]);
+    const stem=f=>f.name.replace(/\.[^.]*$/,'');
+    const yamlFile=yamlFiles.find(y=>stem(y)===stem(csvFiles[0])) || (yamlFiles.length===1 ? yamlFiles[0] : null);
+    await loadCsvFile(csvFiles[0], {yamlFile});
   }else{
     await loadMovieFiles(movieFiles);
   }
@@ -25126,7 +25331,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.4-dev · build 2026-10-17a — Load data reads .smlm (ShareLoc) localization files.`);
+log(`webSMLM v0.13.4-dev · build 2026-10-17b — Load data reads Picasso .hdf5 (with .yaml) and .smlm localization files.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -26112,6 +26317,7 @@ async function analyze(config){
   if(isCsv){
     const parsed = await parseLocTableFile(cfg.file, {onLog, memBudgetGB:cfg.memBudgetGB});
     if(!parsed.locs.length) throw new Error('analyze(): the localization file has no data rows');
+    if(parsed.coordsInPx && parsed.px>0 && parsed.px!==cfg.pxnm) onLog(`!!! The file's metadata gives a pixel size of ${parsed.px} nm; this run uses pxnm=${cfg.pxnm} (set pxnm to match).`);
     locs = parsed.locs;
     r = { w:parsed.w, h:parsed.h, timings:null };
     clampCfgMag(parsed.w, parsed.h);

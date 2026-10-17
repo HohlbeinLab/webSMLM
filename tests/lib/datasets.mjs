@@ -23,6 +23,21 @@ const CAS12A_SCRAMBLED_FILES = [
   sptPalmFile('Cas12aScrambled_procBrightfield_segm_Table.csv', 27414),
   ...SPTPALM_SHARED,
 ];
+const PICASSO_REVISION = 'a1e639a22fc3e96c9ebdfb4c5bee4acf92e2b5bb';
+const picassoFile = (path, bytes, sha256) => ({
+  name: path.split('/').pop(), bytes, sha256,
+  url: `https://raw.githubusercontent.com/jungmannlab/picasso/${PICASSO_REVISION}/${path}`,
+});
+const PICASSO_SAMPLE_FILES = [
+  picassoFile('samples/data/raw_movie_locs.hdf5', 109652, '0a117ff28e1d24e6e0ec21415973a41144edf26733d74e593d24408904005a44'),
+  picassoFile('samples/data/raw_movie_locs.yaml', 10142, '9b381cda7e191c46b54f0b94cb748556e5ccd8c7d318dbe6453968c71e43e6f4'),
+  picassoFile('samples/data/raw_movie_locs_picked.hdf5', 118240, '0174f8ec5adfea052ce1c9b52b6a8460660b820027abe373bc17887a22c723c8'),
+  picassoFile('samples/data/raw_movie_locs_picked.yaml', 10330, '245d5330edf337065d639461ab4e476ea2022d9ed40b51dddee1f39b4304c292'),
+  picassoFile('samples/data/egfr_mols.hdf5', 306896, '92a2be1c4ae6139756ffc891ca2eac3aacd95d8f1bd27031247ba0dac2479531'),
+  picassoFile('samples/data/egfr_mols.yaml', 9829, '5b87a65f29a557a6c633009d1bee5a996c714ecc6ce872f74d7ad6225e4adb0c'),
+  picassoFile('tests/data/testdata_locs.hdf5', 31168, 'b2e4bef73e2fe033cc397f2ebc787a845fdcb05e311ac86ee6077c15ede5407e'),
+  picassoFile('tests/data/testdata_locs.yaml', 9995, '992b7626387c401811301ae7d2e37ef4a8bbce206e1a0d438d865d9f8bf2e517'),
+];
 const SPTPALM_PARAMETERS = {
   pxnm: 119, sptFrameTime: 0.01, sptLocError: 35,
   sptSearchRange: 800, sptMemory: 0, sptTrackLenMin: 2,
@@ -249,6 +264,18 @@ export const DATASETS = Object.freeze({
       url: 'https://zenodo.org/api/records/5507548/files/sample-8/data.smlm/content' }] },
     sha256: { 'data.smlm': 'bb3ccd51d65ce159ccf78271e358848347398addb322bee24560ac8e0e8a027c' },
     bytes: { 'data.smlm': 225264303 },
+  },
+  // Picasso's own sample localization files (MIT), written by Picasso
+  // 0.9.1-0.11: HDF5 tables with .yaml metadata. Pinned to one commit.
+  picassoSamples: {
+    label: 'Picasso sample localizations (.hdf5 + .yaml)',
+    source: 'https://github.com/jungmannlab/picasso/tree/a1e639a22fc3e96c9ebdfb4c5bee4acf92e2b5bb/samples/data',
+    localPath: 'picasso-samples',
+    files: Object.fromEntries(PICASSO_SAMPLE_FILES.map(f => [f.name.replace(/\.(hdf5|yaml)$/, (m, e) => e === 'hdf5' ? '' : 'Yaml'), file('PICASSO_' + f.name.replace(/\W/g, '_').toUpperCase(), f.name)])),
+    scenarios: ['load'], scientificValidation: false,
+    download: { type: 'files', files: PICASSO_SAMPLE_FILES },
+    sha256: Object.fromEntries(PICASSO_SAMPLE_FILES.map(f => [f.name, f.sha256])),
+    bytes: Object.fromEntries(PICASSO_SAMPLE_FILES.map(f => [f.name, f.bytes])),
   },
   bigtiff: {
     label: 'BigTIFF stack',

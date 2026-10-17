@@ -277,6 +277,21 @@ for `.smlm` files (`tests/io/test-loc-formats.mjs`, which also looks for
 npm --prefix tools run data:download:shareloc-smlm
 ```
 
+## Dataset IX — Picasso sample localizations (.hdf5 + .yaml)
+
+The localization files in Picasso's repository (MIT; pinned to commit
+`a1e639a`): `samples/data/raw_movie_locs`, `raw_movie_locs_picked`,
+`egfr_mols` (cluster centres) and `tests/data/testdata_locs`, each an `.hdf5`
+with its `.yaml`. Written by Picasso 0.9.1 and later; positions in camera
+pixels, 130 nm pixel size. They exercise **Load data** for Picasso files
+(`tests/io/test-picasso-hdf5.mjs`). Picasso: Schnitzbauer et al.,
+*Nat. Protoc.* **12**, 1198–1228 (2017),
+[doi:10.1038/nprot.2017.024](https://doi.org/10.1038/nprot.2017.024).
+
+```sh
+npm --prefix tools run data:download:picasso-samples
+```
+
 ## Useful properties to note for benchmarking
 
 When adding a stack, record these — they determine which speed optimizations

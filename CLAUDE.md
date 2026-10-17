@@ -110,11 +110,17 @@ what makes GUI and command-line use interchangeable.
     only those frames may be *transferred* to workers (a cached stack returns the same array every
     call; transferring it would detach the cache). Guarded by `tests/gpu/test-frame-cache-integrity.mjs`.
   - **Localization files** (Load data, headless `file`): `parseLocTableFile()` dispatches `.csv`
-    (`parseCsvLocs()`) and `.smlm` (`parseSmlmLocs()`: ZIP + `manifest.json` + binary tables, rows stored
+    (`parseCsvLocs()`), `.hdf5`/`.h5` (Picasso) and `.smlm` (`parseSmlmLocs()`: ZIP + `manifest.json` + binary tables, rows stored
     one after another, little-endian; streamed through `DecompressionStream`, pako fallback; frames
     1-based). Both go through `makeLocColumnMapper()` (`LOC_COLUMNS`: header aliases incl. ShareLoc's
     `sigma_nm_` renaming, unit conversion as `v*mul/div` so a CSV value gives exactly `v/px`). A new loc
-    field or format alias is one `LOC_COLUMNS` entry. Test: `tests/io/test-loc-formats.mjs` (CSV parity
+    field or format alias is one `LOC_COLUMNS` entry. Picasso `.hdf5` (`parsePicassoLocs()`): `readHdf5Table()`
+    is a minimal HDF5 reader (superblock v0/v1, symbol-table groups, v1 object headers, contiguous
+    compound table, `/metadata` JSON string); structure is read through 64 KiB pages fetched on demand
+    (the parse throws `{hdf5Page}`, the page is read and the parse retried), the table in 32 MB slices.
+    Positions stay in camera px (`lastResult.coordsInPx`: `rescaleLoadedCsv()` only records the new
+    Pixel size); `Pixelsize` from `/metadata` or a `.yaml` picked with the file (`parsePicassoYaml()`)
+    sets Pixel size. Test: `tests/io/test-picasso-hdf5.mjs` (h5py fixtures, Picasso's sample files). Test: `tests/io/test-loc-formats.mjs` (CSV parity
     with the previous parser, synthetic `.smlm`, the real ShareLoc file when present).
   - `makeCroppedStack()` (raw-panel crop) replaces `stack` with a sliced wrapper (original kept in
     `originalStack`), so nothing downstream needs offsets; crop bounds ride on the stack for logged
