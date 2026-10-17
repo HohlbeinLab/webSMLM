@@ -60,10 +60,10 @@ try {
   assert.deepEqual(state.scripts.find(script => script.name === 'io:test:bigtiff')?.datasets, []);
   assert.deepEqual(state.scripts.find(script => script.name === 'cpu:bench:segmentation')?.datasets.map(dataset => dataset.key), ['cas12a-segmentation']);
   assert.deepEqual(state.scripts.find(script => script.name === 'cpu:bench:segmentation-scrambled')?.datasets.map(dataset => dataset.key), ['cas12a-scrambled']);
-  assert.equal(state.datasets.length, 11, 'only downloadable datasets must appear');
+  assert.equal(state.datasets.length, 13, 'only downloadable datasets must appear');
   assert.ok(state.datasets.every(dataset => dataset.downloadable));
   assert.deepEqual(state.datasets.filter(dataset => dataset.downloadable).map(dataset => dataset.key).sort(), [
-    'cas12a-scrambled', 'cas12a-segmentation', 'epfl-as-beads', 'epfl-as-hd', 'epfl-as-ld', 'epfl-bp250', 'epfl-dh', 'gatta80r', 'npc-beads', 'ssmlm', 'storm3d',
+    'cas12a-scrambled', 'cas12a-segmentation', 'epfl-as-beads', 'epfl-as-hd', 'epfl-as-ld', 'epfl-bp250', 'epfl-dh', 'gatta80r', 'npc-beads', 'picassoSamples', 'sharelocSmlm', 'ssmlm', 'storm3d',
   ]);
   assert.ok(!state.scripts.some(script => script.name === 'postinstall'));
   assert.ok(!state.scripts.some(script => script.name === 'validation:setup'));

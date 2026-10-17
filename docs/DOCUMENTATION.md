@@ -3878,9 +3878,26 @@ view zoomed/panned where the crop left it.
 Written by **Save localisations** (`exportCSV()`), ThunderSTORM-compatible:
 
 ```
-"id","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]"[,"sigma_x [nm]","sigma_y [nm]"],"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"x2 [nm]","y2 [nm]"][,"pairAngle [deg]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"sx_AA [nm]","sy_AA [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"][,"cell_id","cell_area [px]"][,"llr"]
+"id [webSMLM]","frame","x [nm]","y [nm]",["z [nm]",]"sigma [nm]"[,"sigma_x [nm]","sigma_y [nm]"],"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"[,"sigma_z [nm]"][,"dist [nm]"][,"x2 [nm]","y2 [nm]"][,"pairAngle [deg]"][,"sigma1st [nm]"][,"sx0th [nm]","sy0th [nm]","sx1st [nm]","sy1st [nm]"][,"sx_AA [nm]","sy_AA [nm]"][,"n_merged [frames]"][,"track_id"][,"D_coeff [um^2/s]"][,"cell_id","cell_area [px]"][,"llr"]
 ```
 
+- **Pixel convention.** Positions (`x`, `y`, `x2`, `y2`) use ThunderSTORM's
+  convention: camera pixel *i* covers *i*–*i*+1 pixel sizes, so its centre is at
+  (*i* + 0.5)·pixel size. Internally webSMLM's fitters (and Picasso) put pixel
+  *i*'s centre at *i*; the half pixel (`LOC_PX_EDGE`) is added on export and
+  removed on import, and the panels draw localizations with it, so the
+  reconstruction lines up with the raw frame, the Data projection and a
+  segmentation mask. The table's `x`/`y` and the SR crop use the exported
+  values. The ground-truth CSV (**Save sim. movie**) and **Save track data**
+  (`mean_x`/`mean_y`) use the same convention.
+- `id [webSMLM]` marks a file written by webSMLM (since v0.13.4). ThunderSTORM
+  reads it as its own `id` column (it drops a `[unit]` it doesn't know and
+  renumbers ids anyway); other programs see an ordinary column name. A comment
+  line would not do: ThunderSTORM takes the first line as the header and imports
+  nothing.
+- ThunderSTORM's importer skips any row with an empty cell. webSMLM writes an
+  empty cell where an optional value is missing (e.g. `z` for a failed z fit),
+  so such rows don't reach ThunderSTORM.
 - `z [nm]` only present for a real 3D result (a 3D fit method).
 - `sigma [nm]` is kept under that literal name (not `sigma_xy`, which the
   in-app table uses) specifically for ThunderSTORM compatibility.
@@ -3955,7 +3972,15 @@ Written by **Save localisations** (`exportCSV()`), ThunderSTORM-compatible:
 
 **Loading it back** — **Load data** (`parseCsvLocs()`) is the reverse: reads
 the header to find which optional columns are present, then rebuilds a full
-`lastResult` usable exactly like a completed Run's. Two things don't survive
+`lastResult` usable exactly like a completed Run's. Every CSV is read in
+ThunderSTORM's pixel convention (above). A CSV saved by webSMLM before v0.13.4
+(no `id [webSMLM]`) did not add the half pixel; it loads half a camera pixel
+down and right of where it was measured (distances, precision and tracking are
+unaffected), and Load data says so in the log. A CSV exported by Picasso
+(`picasso hdf2ts`) is recognised by its unquoted header and ids starting at 0;
+Picasso keeps its own pixel centres (at *i*·pixel size) and frames from 0 in that
+export, so such a file is read without the half pixel and with frames from 0
+(logged). Two things don't survive
 the round trip losslessly:
 - `lpx`/`lpy` (the two separate CRLB/precision components) collapse to a
   single combined `uncertainty [nm]` in the CSV; loading sets
@@ -4000,8 +4025,9 @@ no use for (`id`, `chi2`, …) are listed in the log and dropped.
 - Lengths default to nm; a column's declared unit (`um`, `angstrom`, `px`, …)
   is converted. As for a CSV, the current **Pixel size (nm)** converts them to
   camera pixels.
-- Frame numbers are taken as 1-based, as ThunderSTORM writes them (the spec
-  doesn't say).
+- Frame numbers are taken as 1-based and positions in ThunderSTORM's pixel
+  convention (pixel centres at (*i* + 0.5)·pixel size), as for a CSV; ShareLoc's
+  tables are mostly ThunderSTORM exports. The spec says neither.
 - Several tables (channels) are merged into one list with a `!!!` note: webSMLM
   has no channel column yet. Image entries (widefield, masks) are ignored.
 - Before reading, the row count in `manifest.json` is checked against the

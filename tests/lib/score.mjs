@@ -112,6 +112,8 @@ export async function scoreLocsInPage(page, locs, groundTruth, cfg = {}, { chunk
 // the simulator's OWN per-emitter-frame answer, in the same units a tool's CSV would arrive in.
 // Columns: frame(1-based), x,y,z [nm], x_structure,y_structure [nm], photons, molecule_id,
 // out_of_focus. x/y include the simulated drift, which is what the scorer compares against.
+// x/y are in ThunderSTORM's pixel convention (pixel centres at (i+0.5)·px, LOC_PX_EDGE in
+// webSMLM.html); the scorer works in the simulator's (centres at i·px), so the half pixel comes off.
 // Haze rows are dropped, matching groundTruthLocs (generateSynthetic() filters `haze`).
 export function locsFromGroundTruthCsv(text, pxNm) {
   const lines = text.trim().split(/\r?\n/);
@@ -120,7 +122,7 @@ export function locsFromGroundTruthCsv(text, pxNm) {
   for (let i = 1; i < lines.length; i++) {
     const c = lines[i].split(',');
     if (+c[8]) continue;               // out_of_focus (haze)
-    out.push({ frame: +c[0] - 1, x: +c[1] / pxNm, y: +c[2] / pxNm, z: c[3] === '' ? NaN : +c[3],
+    out.push({ frame: +c[0] - 1, x: +c[1] / pxNm - 0.5, y: +c[2] / pxNm - 0.5, z: c[3] === '' ? NaN : +c[3],
                photons: c[6] === '' ? NaN : +c[6], lpx: lp, lpy: lp,
                moleculeId: c[7] === '' ? null : +c[7] });   // not read by the scorer; lets a caller subset by molecule
   }

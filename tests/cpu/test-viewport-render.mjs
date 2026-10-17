@@ -22,7 +22,7 @@ try {
     for (const mode of ['fixed', 'precision', 'dither']) for (const zc of [false, true]) for (const blurPx of [0, 0.25])
       for (const mag of [4, 7]) for (const useNorm of [false, true]) {
         const W = W0 * mag, H = H0 * mag, L = useNorm ? sub : locs, N = useNorm ? locs : null;
-        const P = packSrLocs(L, 'z', zc, mode), PN = N ? packSrLocs(N, 'z', zc, 'fixed') : null, s = blurPx * mag * 0.3;
+        const P = packSrLocs(L, 'z', zc, mode, mag), PN = N ? packSrLocs(N, 'z', zc, 'fixed', mag) : null, s = blurPx * mag * 0.3;
         const acc = mode === 'precision' ? new Float32Array(W * H) : new Uint16Array(W * H), zacc = zc ? new Float32Array(W * H) : null;
         srAccumulate(P, W, H, 0, 0, W, H, mag, blurPx, zc, -200, 250, mode, acc, zacc);
         let d = acc, z = zacc;

@@ -238,12 +238,15 @@ try {
 
   // The displayed mask pixel under a subpixel localization is its containing
   // image pixel. Tracking and the out-of-field check must use that same pixel.
+  // Points are given in the mask's pixel-edge frame (pixel i spans [i,i+1));
+  // a loc sits at edge - LOC_PX_EDGE, so the last point, a loc at pixel (1,1)'s
+  // centre, lands in that pixel.
   const subpixelCells=await page.evaluate(() => {
     const labels={arr:Int32Array.from([1,0,0,2]),w:2,h:2};
-    return [[0.75,0.25],[0.75,0.75],[1.75,1.75],[-0.2,0.2],[2,1]]
-      .map(([x,y])=>cellIdForLoc({x,y},labels));
+    return [[0.75,0.25],[0.75,0.75],[1.75,1.75],[-0.2,0.2],[2,1],[1.5,1.5]]
+      .map(([x,y])=>cellIdForLoc({x:x-LOC_PX_EDGE,y:y-LOC_PX_EDGE},labels));
   });
-  assert.deepEqual(subpixelCells,[1,1,2,-1,-1]);
+  assert.deepEqual(subpixelCells,[1,1,2,-1,-1,2]);
 
   const reconstructionOpacity = await page.evaluate(async () => {
     const oldSr=srFull, oldRecon=srIsRecon, oldResult=lastResult, oldOverlay=srSegOverlayOn;
@@ -356,7 +359,7 @@ try {
     lastResult={locs:[{x:35,y:30,frame:0}],w:40,h:40,px:119,mag:1,fromCsv:true};
     acceptSegmentation(new Int32Array(32*32).fill(1),32,32,'imported');
     const preserved={w:lastResult.w,h:lastResult.h,note:segmentationAlignmentNote().includes('outside')};
-    lastResult={locs:[{x:31.75,y:31.75,frame:0}],w:40,h:40,px:119,mag:1,fromCsv:true};
+    lastResult={locs:[{x:31.75-LOC_PX_EDGE,y:31.75-LOC_PX_EDGE,frame:0}],w:40,h:40,px:119,mag:1,fromCsv:true};   // inside the last mask pixel (pixel-edge 31.75)
     acceptSegmentation(new Int32Array(32*32).fill(1),32,32,'imported');
     return {preserved,fitted:{w:lastResult.w,h:lastResult.h,note:segmentationAlignmentNote().includes('outside')}};
   });
@@ -386,10 +389,12 @@ try {
     await runSptTrack();
     const tracked=!!lastSpt && lastResult.locs.every(L=>L.cell_id===1 && L.track_id>=0);
     $('pxnm').value='200'; $('pxnm').dispatchEvent(new Event('change'));
-    const resized={tracked,scaled:lastResult.locs[1].x===0.5 && lastResult.locs[1].x0===0.5
+    // Positions keep their nm value in the pixel-edge frame: (x+E)·100 = (x'+E)·200.
+    const E=LOC_PX_EDGE, rs=x=>(x+E)*0.5-E;
+    const resized={tracked,scaled:lastResult.locs[1].x===rs(1) && lastResult.locs[1].x0===rs(1)
         && lastResult.locs[1].sigma===0.5 && lastResult.locs[1].lpx===0.1,
       drift:lastDrift.fdx[0]===1 && lastDrift.fdy[0]===2 && lastDrift.segdx[0]===1,
-      paired:sSmlmOriginalLocs[0].x===1 && sSmlmPairedLocs[0].x===1.5,
+      paired:sSmlmOriginalLocs[0].x===rs(2) && sSmlmPairedLocs[0].x===rs(3),
       invalidated:lastSpt===null && lastResult.locs.every(L=>L.track_id===undefined && L.cell_id===undefined),
       maskReady:segmentedImageLabels.csvOutside===0};
     await runSptTrack();

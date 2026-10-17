@@ -92,19 +92,19 @@
     detect           8058  band-pass (wavelet/DoG/box) + local-maxima detection
     fit              8314  phasor, LSQ and Poisson-MLE fitters; aperture photometry
     render           8971  super-resolution accumulation, view, colour maps, plots
-    workers         11023  frame-parallel detect/fit worker pool
-    gpu             11667  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          14013  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  14362  astigmatic width-vs-z bead calibration
-    drift           14774  AIM and cross-correlation drift correction
-    locprecision    15805  NeNA and FRC
-    sSMLM           16972  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          17578  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             19686  single-particle tracking and diffusion coefficients
-    pipeline        21179  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   22263  Micro-Manager/pycromanager bridge (experimental)
-    table           25427  localizations table, filters, histograms, clustering
-    headless API    26118  window.webSMLM.analyze()/analyzeBatch()
+    workers         11040  frame-parallel detect/fit worker pool
+    gpu             11684  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          14031  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  14383  astigmatic width-vs-z bead calibration
+    drift           14795  AIM and cross-correlation drift correction
+    locprecision    15826  NeNA and FRC
+    sSMLM           16993  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          17599  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             19707  single-particle tracking and diffusion coefficients
+    pipeline        21205  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   22289  Micro-Manager/pycromanager bridge (experimental)
+    table           25469  localizations table, filters, histograms, clustering
+    headless API    26160  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1761,7 +1761,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-17b</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-17c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -9169,11 +9169,28 @@ function splatGaussianLoc(acc,zacc,W,H,px,py,sx,sy,zval){
 // the worker keeps them between viewport renders. Float64 throughout, so
 // rounding to SR pixels and the z-range test match the loc objects exactly.
 // c (colour field) only with zColor; lpx/lpy only for the modes that read them.
-function packSrLocs(locs,colorField,zColor,renderMode){
-  const n=locs.length, x=new Float64Array(n), y=new Float64Array(n);
+// Pixel-centre convention: a loc's x/y (camera px) puts pixel i's centre at
+// x = i (the fitters, Picasso). The panels, segmentation masks, exports and
+// ThunderSTORM-style files use the pixel-edge frame, where pixel i spans
+// [i, i+1) and its centre is i + 0.5: edge-frame = x + LOC_PX_EDGE. Applied
+// only where locs meet that frame (packing for the renderer, overlays, the
+// table's x/y, CSV/.smlm import and export, segIndexForLoc()); positions and
+// all analysis stay in the fitters' convention.
+const LOC_PX_EDGE=0.5;
+// Offset the renderer adds so a loc appears at (x + LOC_PX_EDGE)·mag on the
+// panel, which draws srFull pixel k over [k, k+1). 'fixed'/'dither' bin with
+// round() (pixel k collects u in [k−½, k+½)), so they need another −½ SR px;
+// the 'precision' splat integrates each pixel over [k, k+1) (splatGaussianLoc())
+// and needs none.
+function srLocShift(mag,renderMode){
+  if(!(mag>0)) throw new Error('srLocShift(): magnification required');
+  return renderMode==='precision' ? LOC_PX_EDGE : LOC_PX_EDGE-0.5/mag;
+}
+function packSrLocs(locs,colorField,zColor,renderMode,mag){
+  const n=locs.length, x=new Float64Array(n), y=new Float64Array(n), sh=srLocShift(mag,renderMode);
   const c=zColor?new Float64Array(n):null, withLp=renderMode!=='fixed';
   const lpx=withLp?new Float64Array(n):null, lpy=withLp?new Float64Array(n):null;
-  for(let i=0;i<n;i++){ const L=locs[i]; x[i]=L.x; y[i]=L.y;
+  for(let i=0;i<n;i++){ const L=locs[i]; x[i]=L.x+sh; y[i]=L.y+sh;
     if(c) c[i]=L[colorField];
     if(withLp){ lpx[i]=L.lpx; lpy[i]=L.lpy; } }
   return {n,x,y,c,lpx,lpy};
@@ -9420,7 +9437,7 @@ async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,nor
   if(allowViewport && srRenderPlan(W,H,zColor,blurPx,renderMode,hasNorm,reserveBytes)==='viewport')
     return renderSuperResViewport(locs,W,H,mag,blurPx,lutName,pct,zColor,zlo,zhi,hasNorm?normLocs:null,colorField,onLog,renderMode,reserveBytes);
   checkRenderSize(W,H,w,h,mag,zColor,blurPx,renderMode,reserveBytes,hasNorm);
-  const pack=()=>[packSrLocs(locs,colorField,zColor,renderMode), hasNorm?packSrLocs(normLocs,colorField,zColor,'fixed'):null];
+  const pack=()=>[packSrLocs(locs,colorField,zColor,renderMode,mag), hasNorm?packSrLocs(normLocs,colorField,zColor,'fixed',mag):null];
   const satWarn=n=>{ if(n) onLog(`!!! ${n.toLocaleString()} localization(s) landed on an already-saturated (65,535+ hits) reconstruction pixel and weren't counted further — density there is undercounted.`); };
   const worker=await getRenderWorker();
   if(worker){
@@ -9493,7 +9510,7 @@ async function renderSuperResViewport(locs,W,H,mag,blurPx,lutName,pct,zColor,zlo
   const k=srOverviewStride(W,H), id=++_srViewportSeq;
   const params={W,H,mag,blurPx,zColor,zlo,zhi,renderMode,lutName};
   const vp={width:W,height:H,_viewport:true,id,ovK:k,overview:null,norm:0,params,worker:null,local:null,patch:null};
-  const pack=()=>[xf?packSrLocs3d(locs,colorField,zColor,renderMode,xf):packSrLocs(locs,colorField,zColor,renderMode), normLocs?packSrLocs(normLocs,colorField,zColor,'fixed'):null];
+  const pack=()=>[xf?packSrLocs3d(locs,colorField,zColor,renderMode,xf,mag):packSrLocs(locs,colorField,zColor,renderMode,mag), normLocs?packSrLocs(normLocs,colorField,zColor,'fixed',mag):null];
   // GPU first (no normLocs: the display maximum comes from the overview's own samples); any failure falls back to the worker.
   if(!normLocs){
     try{
@@ -9725,7 +9742,7 @@ async function gpuViewportSelfTest(){
   for(let i=0;i<5000;i++) locs.push({x:rnd()*60,y:rnd()*45,z:rnd()*400,lpx:0.03+rnd()*0.05,lpy:0.03+rnd()*0.05});
   let allOk=true;
   for(const [mode,blurPx,zc] of [['fixed',0,false],['fixed',0.5,false],['fixed',0.5,true],['precision',0.5,false],['precision',0.5,true]]){
-    const mag=8, W=60*mag, H=45*mag, P=packSrLocs(locs,'z',zc,mode);
+    const mag=8, W=60*mag, H=45*mag, P=packSrLocs(locs,'z',zc,mode,mag);
     const params={W,H,mag,blurPx,zColor:zc,zlo:0,zhi:400,renderMode:mode,lutName:'viridis'};
     try{
       const g=await gpuViewportInit(P,mode);
@@ -10338,7 +10355,7 @@ const VIEW3D_DRAG_MAX_LOCS=500000;   // while a slider/orbit drag is live: rende
 // Packs the box's locs transformed by xf (see above) for the renderer; xf.nIn / xf.nKept report the
 // culled and packed counts. Precision (lpx/lpy, camera px) is projected axis-aligned:
 // σx'² = σx²c²+σy²s², σy'² = (σx²s²+σy²c²)cos²θ + σz² sin²θ; a missing lpz falls back to 2.5·lpx.
-function packSrLocs3d(locs,colorField,zColor,renderMode,xf){
+function packSrLocs3d(locs,colorField,zColor,renderMode,xf,mag){
   const {bx0,by0,bx1,by1,X0,Y0,Z0,ox,oy,px,ct,st,cr,sr}=xf, withLp=renderMode!=='fixed';
   let cnt=0;
   for(let i=0,n=locs.length;i<n;i++){ const L=locs[i];
@@ -10351,7 +10368,7 @@ function packSrLocs3d(locs,colorField,zColor,renderMode,xf){
     if(!(L.x>=bx0&&L.x<bx1&&L.y>=by0&&L.y<by1&&isFinite(L.z))) continue;
     if(seen++%step) continue;
     const Xp=L.x-X0, Yp=L.y-Y0, Zp=(L.z-Z0)/px, u=Xp*cr+Yp*sr, v=-Xp*sr+Yp*cr;
-    x[k]=X0-ox+u; y[k]=Y0-oy+v*ct-Zp*st;
+    x[k]=X0-ox+u+srLocShift(mag,renderMode); y[k]=Y0-oy+v*ct-Zp*st+srLocShift(mag,renderMode);
     if(c) c[k]=L[colorField];
     if(withLp){ const sx2=L.lpx*L.lpx, sy2=L.lpy*L.lpy, sz=isFinite(L.lpz)?L.lpz/px:2.5*L.lpx;
       lpx[k]=Math.sqrt(sx2*cr*cr+sy2*sr*sr);
@@ -12488,8 +12505,9 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
   const dispatchAccumulateChunk=async(from, cnt, rawL)=>{
     const [accBufL,zaccBufL,accHiL,zHiL]=rawL;
     const locData=new Float32Array(cnt*4);
+    const sh=srLocShift(mag,renderMode);
     for(let i=0;i<cnt;i++){ const L=locs[from+i];
-      locData[i*4]=L.x; locData[i*4+1]=L.y; locData[i*4+2]=zColor?L[colorField]:0; locData[i*4+3]=0; }
+      locData[i*4]=L.x+sh; locData[i*4+1]=L.y+sh; locData[i*4+2]=zColor?L[colorField]:0; locData[i*4+3]=0; }
     const locsBuf=engine.mkBuf(locData.byteLength, U.STORAGE|U.COPY_DST, 'render:chunk-locs'); device.queue.writeBuffer(locsBuf,0,locData);
     const accParamsBuf=engine.mkBuf(48, U.UNIFORM|U.COPY_DST, 'render:chunk-params');
     const accEntries=[{binding:0,resource:{buffer:accParamsBuf}},{binding:1,resource:{buffer:locsBuf}}];
@@ -14126,7 +14144,10 @@ function buildCsvText(locs, px, sigPSF){
   const dcoeffcol=hasDCoeff?',"D_coeff [um^2/s]"':'';   // ASCII "um^2" — CSV compatibility, matches ThunderSTORM's own ASCII-only header convention
   const cellcol=hasCellId?',"cell_id","cell_area [px]"':'';
   const llrcol=hasLlr?',"llr"':'';
-  const parts=[`"id","frame","x [nm]","y [nm]",${zcol}"sigma [nm]"${sxsycol}${anglecol},"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${x2y2col}${pairanglecol}${s1col}${ellcol}${aacol}${mcol}${tidcol}${dcoeffcol}${cellcol}${llrcol}\n`];
+  // "id [webSMLM]" marks a webSMLM export (positions in ThunderSTORM's
+  // pixel-edge frame, LOC_PX_EDGE); ThunderSTORM reads it as its "id" column
+  // (an unknown [unit] is dropped) and regenerates ids anyway.
+  const parts=[`"id [webSMLM]","frame","x [nm]","y [nm]",${zcol}"sigma [nm]"${sxsycol}${anglecol},"intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"${zsigcol}${distcol}${x2y2col}${pairanglecol}${s1col}${ellcol}${aacol}${mcol}${tidcol}${dcoeffcol}${cellcol}${llrcol}\n`];
   let buf=[], nNoSigma=0;
   for(let i=0;i<locs.length;i++){
     const L=locs[i];
@@ -14146,7 +14167,7 @@ function buildCsvText(locs, px, sigPSF){
     const fnm=v=>isFinite(v)&&v>0?(v*px).toFixed(1):'';
     // x2/y2 are native px on L (same convention as x/y themselves) — need
     // the *px conversion here, unlike dist (already nm from pairCore).
-    const x2y2c=hasX2Y2?`,${isFinite(L.x2)?(L.x2*px).toFixed(1):''},${isFinite(L.y2)?(L.y2*px).toFixed(1):''}`:'';
+    const x2y2c=hasX2Y2?`,${isFinite(L.x2)?((L.x2+LOC_PX_EDGE)*px).toFixed(1):''},${isFinite(L.y2)?((L.y2+LOC_PX_EDGE)*px).toFixed(1):''}`:'';
     const pairanglec=hasPairAngle?`,${isFinite(L.pairAngle)?L.pairAngle.toFixed(1):''}`:'';   // already degrees — see pairCore
     const s1c=hasSigma1st?`,${isFinite(L.sigma1st)&&L.sigma1st>0?(L.sigma1st*px).toFixed(1):''}`:'';
     const sxsyc=hasSxSy?`,${fnm(L.sx)},${fnm(L.sy)}`:'';
@@ -14158,7 +14179,7 @@ function buildCsvText(locs, px, sigPSF){
     const dcoeffc=hasDCoeff?`,${isFinite(L.D_coeff)?L.D_coeff.toFixed(4):''}`:'';
     const cellc=hasCellId?`,${L.cell_id!==undefined?L.cell_id:''},${L.cell_area!==undefined?L.cell_area:''}`:'';
     const llrc=hasLlr?`,${isFinite(L.llr)?L.llr.toFixed(3):''}`:'';
-    buf.push(`${i+1},${(L.frame|0)+1},${(L.x*px).toFixed(1)},${(L.y*px).toFixed(1)},${zc}${sNm.toFixed(1)}${sxsyc}${anglec},`+
+    buf.push(`${i+1},${(L.frame|0)+1},${((L.x+LOC_PX_EDGE)*px).toFixed(1)},${((L.y+LOC_PX_EDGE)*px).toFixed(1)},${zc}${sNm.toFixed(1)}${sxsyc}${anglec},`+
              `${N.toFixed(1)},${bg.toFixed(1)},${bs.toFixed(1)},${isFinite(unc)?unc.toFixed(1):''}${zsc}${dc}${x2y2c}${pairanglec}${s1c}${ellc}${aac}${mc}${tidc}${dcoeffc}${cellc}${llrc}`);
     if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }   // chunked: avoid one huge string
   }
@@ -19814,11 +19835,12 @@ async function linkTracks(locs, px, config, onProgress=()=>{}){
 // Cell id of a loc from the segmentation labels, only for cells within
 // [areaMin, areaMax]; -1 = no (qualifying) cell, as in the reference pipeline
 // and like track_id's -1 (0 may be a real label).
-// Source and reconstruction masks paint pixel (x,y) over [x,x+1)×[y,y+1).
-// Use the pixel containing the localization in both display and analysis.
+// Masks paint pixel (x,y) over [x,x+1)×[y,y+1), the pixel-edge frame; a loc
+// sits at x + LOC_PX_EDGE there. Same pixel in display and analysis.
 function segIndexForLoc(L,w,h){
-  if(!Number.isFinite(L.x)||!Number.isFinite(L.y)||L.x<0||L.y<0||L.x>=w||L.y>=h) return -1;
-  return Math.floor(L.y)*w+Math.floor(L.x);
+  const ex=L.x+LOC_PX_EDGE, ey=L.y+LOC_PX_EDGE;
+  if(!Number.isFinite(ex)||!Number.isFinite(ey)||ex<0||ey<0||ex>=w||ey>=h) return -1;
+  return Math.floor(ey)*w+Math.floor(ex);
 }
 function cellIdForLoc(L, segLabels){
   const {arr,w,h}=segLabels, i=segIndexForLoc(L,w,h);
@@ -20074,7 +20096,7 @@ function sptTrackSummary(locs, px){
     if(isFinite(L.D_coeff)) a.D=L.D_coeff;   // same D_coeff repeated on every loc of a qualifying track (see trackDiffusionCoeffs) — any one of them has it
   }
   return [...byTrack.entries()].sort((a,b)=>a[0]-b[0]).map(([track_id,a])=>({
-    track_id, n_locs:a.n, D_coeff:a.D, mean_x:a.sumX/a.n*px, mean_y:a.sumY/a.n*px,
+    track_id, n_locs:a.n, D_coeff:a.D, mean_x:(a.sumX/a.n+LOC_PX_EDGE)*px, mean_y:(a.sumY/a.n+LOC_PX_EDGE)*px,
     first_frame:a.minF+1, last_frame:a.maxF+1,   // 1-indexed, same convention buildCsvText() uses for the per-loc "frame" column
   }));
 }
@@ -20695,6 +20717,8 @@ function updateCsvSegmentationField(){
     if(Number.isFinite(L.x)){ minX=Math.min(minX,L.x); maxX=Math.max(maxX,L.x); }
     if(Number.isFinite(L.y)){ minY=Math.min(minY,L.y); maxY=Math.max(maxY,L.y); }
   }
+  // Bounds in the mask's pixel-edge frame (LOC_PX_EDGE).
+  minX+=LOC_PX_EDGE; maxX+=LOC_PX_EDGE; minY+=LOC_PX_EDGE; maxY+=LOC_PX_EDGE;
   segmentedImageLabels.csvOutside=outside;
   segmentedImageLabels.csvBounds={minX,maxX,minY,maxY};
   // Keep the CSV's nonnegative extent visible, while the image and mask retain
@@ -20904,10 +20928,11 @@ function trackHitTest(fx,fy){
   const mag=lastResult.mag||1, tolPx=8/Math.max(1e-6,view.zoom);
   let best=null, bestDist=Infinity;
   for(const t of tracks){
-    if(t.pts.length===1){ const d=Math.hypot(fx-t.pts[0].x*mag, fy-t.pts[0].y*mag);
+    const E=LOC_PX_EDGE;
+    if(t.pts.length===1){ const d=Math.hypot(fx-(t.pts[0].x+E)*mag, fy-(t.pts[0].y+E)*mag);
       if(d<bestDist){ bestDist=d; best=t.id; } continue; }
     for(let i=1;i<t.pts.length;i++){
-      const d=distPointToSegment(fx,fy, t.pts[i-1].x*mag,t.pts[i-1].y*mag, t.pts[i].x*mag,t.pts[i].y*mag);
+      const d=distPointToSegment(fx,fy, (t.pts[i-1].x+E)*mag,(t.pts[i-1].y+E)*mag, (t.pts[i].x+E)*mag,(t.pts[i].y+E)*mag);
       if(d<bestDist){ bestDist=d; best=t.id; }
     }
   }
@@ -20979,10 +21004,11 @@ function drawTracksOverlay(ctx,DW,DH){
       else col='#666';   // no D estimate (too short): grey
     }
     ctx.strokeStyle=col; ctx.beginPath();
-    for(let i=0;i<t.pts.length;i++){ const p=toD(t.pts[i].x*mag, t.pts[i].y*mag);
+    const E=LOC_PX_EDGE;
+    for(let i=0;i<t.pts.length;i++){ const p=toD((t.pts[i].x+E)*mag, (t.pts[i].y+E)*mag);
       if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); }
     ctx.stroke();
-    const p0=toD(t.pts[0].x*mag, t.pts[0].y*mag);
+    const p0=toD((t.pts[0].x+E)*mag, (t.pts[0].y+E)*mag);
     // Start-of-track marker — same colour as the track's own line, so it's
     // clearly this track's own start rather than a generic dot.
     ctx.fillStyle=col; ctx.beginPath(); ctx.arc(p0.x,p0.y,startR,0,2*Math.PI); ctx.fill();
@@ -23141,7 +23167,7 @@ function buildGroundTruthCsv(gtEvents, nFrames, pxNm, drift){
   for(const f of [...byFrame.keys()].sort((a,b)=>a-b)){
     const dx=drift?drift.dx(f):0, dy=drift?drift.dy(f):0;   // nm
     for(const g of byFrame.get(f)){
-      const xs=g.x*pxNm, ys=g.y*pxNm;
+      const xs=(g.x+LOC_PX_EDGE)*pxNm, ys=(g.y+LOC_PX_EDGE)*pxNm;   // pixel-edge frame, as Save localisations
       buf.push(`${f+1},${(xs+dx).toFixed(1)},${(ys+dy).toFixed(1)},${isFinite(g.z)?g.z.toFixed(1):''},`+
         `${xs.toFixed(1)},${ys.toFixed(1)},${isFinite(g.phot)?g.phot.toFixed(1):''},${g.mol??''},${g.haze?1:0}`);
       if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }
@@ -23857,10 +23883,12 @@ $('calFile').addEventListener('change',async e=>{
 // precision, sSMLM dist), 'rad' = degrees converted to radians, 'frame' =
 // shifted by the format's frame base, 'lpxy' = one precision for both axes,
 // '' = a plain number. emptyZero: a present but empty cell still writes 0 (as
-// the CSV loader always did for sigma and n_merged).
+// the CSV loader always did for sigma and n_merged). pos: a position, moved
+// from the file's pixel-edge frame to the fitters' convention (LOC_PX_EDGE)
+// unless the format already uses the latter (Picasso: pixelEdge false).
 const LOC_COLUMNS=[
   {key:'frame', names:['frame'], kind:'frame'},
-  {key:'x', names:['x'], kind:'len'}, {key:'y', names:['y'], kind:'len'},
+  {key:'x', names:['x'], kind:'len', pos:true}, {key:'y', names:['y'], kind:'len', pos:true},
   {key:'z', names:['z'], kind:'nm'},
   {key:'photons', names:['intensity','photons'], kind:''},
   {key:'bg', names:['offset','background','bg'], kind:''},
@@ -23870,7 +23898,7 @@ const LOC_COLUMNS=[
   {key:'lpx', names:['x_precision','lpx'], kind:'len'}, {key:'lpy', names:['y_precision','lpy'], kind:'len'},
   {key:'lpz', names:['sigma_z','uncertainty_z','z_precision','lpz'], kind:'nm'},
   {key:'dist', names:['dist'], kind:'nm'},
-  {key:'x2', names:['x2'], kind:'len'}, {key:'y2', names:['y2'], kind:'len'},
+  {key:'x2', names:['x2'], kind:'len', pos:true}, {key:'y2', names:['y2'], kind:'len', pos:true},
   {key:'pairAngle', names:['pairangle'], kind:''},   // degrees, kept (see pairCore)
   {key:'sigma1st', names:['sigma1st'], kind:'len'},
   {key:'sx', names:['sigma_x','sx'], kind:'len'}, {key:'sy', names:['sigma_y','sy'], kind:'len'},
@@ -23901,7 +23929,7 @@ function locHeaderKey(h){
 // units (declared per column, optional), defaultLenUnit(key) ('nm' or 'px'),
 // required (loc keys that must be present), what (the format, for messages).
 function makeLocColumnMapper(headers, opts){
-  const {px, frameBase=1, units=[], defaultLenUnit=()=> 'nm', required=['x','y'], what='localization table'}=opts;
+  const {px, frameBase=1, units=[], defaultLenUnit=()=> 'nm', required=['x','y'], what='localization table', pixelEdge=true}=opts;
   const plan=[], used=new Set(), ignored=[];
   headers.forEach((h,j)=>{
     const {name,unit:hu}=locHeaderKey(h);
@@ -23917,7 +23945,7 @@ function makeLocColumnMapper(headers, opts){
       if(!(toPx && col.kind!=='nm')){ mul=nm; if(col.kind!=='nm') div=px; }
     }else if(col.kind==='rad'){ mul=Math.PI; div=180; }
     used.add(col.key); if(col.kind==='lpxy') used.add('lpy');
-    plan.push({j, key:col.key, kind:col.kind, mul, div, emptyZero:!!col.emptyZero});
+    plan.push({j, key:col.key, kind:col.kind, mul, div, emptyZero:!!col.emptyZero, shift:col.pos&&pixelEdge?LOC_PX_EDGE:0});
   });
   const missing=required.filter(k=>!used.has(k));
   if(missing.length) throw new Error(`missing required columns (${missing.join('/')}) — not a ${what}?`);
@@ -23929,7 +23957,7 @@ function makeLocColumnMapper(headers, opts){
       if(v!==v){ if(c.emptyZero) L[c.key]=0; continue; }
       if(c.kind==='frame') L.frame=Math.trunc(v)-frameBase;
       else if(c.kind==='lpxy'){ if(!isFinite(L.lpx)){ L.lpx=L.lpy=v*c.mul/c.div; } }
-      else L[c.key]=v*c.mul/c.div;
+      else L[c.key]=v*c.mul/c.div-c.shift;
     }
     return L;
   };
@@ -23941,18 +23969,28 @@ function makeLocColumnMapper(headers, opts){
 function locTableBounds(locs){
   let maxXpx=0, maxYpx=0;
   for(const L of locs){ if(L.x>maxXpx) maxXpx=L.x; if(L.y>maxYpx) maxYpx=L.y; }
-  const MARGIN=10;
-  return {w:Math.ceil(maxXpx)+MARGIN, h:Math.ceil(maxYpx)+MARGIN};
+  const MARGIN=10;   // measured in the panel's pixel-edge frame (LOC_PX_EDGE)
+  return {w:Math.ceil(maxXpx+LOC_PX_EDGE)+MARGIN, h:Math.ceil(maxYpx+LOC_PX_EDGE)+MARGIN};
 }
 // Load data (CSV from Save localisations, or ThunderSTORM) -> a full working
 // lastResult. Uses only the CSV (nm/photon values) plus current Pixel
 // size/Magnification for the internal grid; `stack` is untouched and the raw
 // panel stays unavailable.
-function parseCsvLocs(text){
+function parseCsvLocs(text, onLog=()=>{}){
   const lines=text.split(/\r?\n/).filter(l=>l.length);
   if(!lines.length) throw new Error('empty file');
   const headers=lines[0].split(','), px=paramValue('pxnm');
-  const m=makeLocColumnMapper(headers, {px, frameBase:1, required:['frame','x','y','photons'], what:'webSMLM CSV export'});
+  // Pixel convention (LOC_PX_EDGE). ThunderSTORM and webSMLM (since v0.13.4,
+  // marked "id [webSMLM]") put pixel centres at (i+0.5)·pixel size. Picasso's
+  // ThunderSTORM export (picasso hdf2ts, written by pandas: unquoted header,
+  // ids and frames from 0) keeps its own centres at i·pixel size, as webSMLM
+  // CSVs before v0.13.4 did; those cannot be told apart from ThunderSTORM's.
+  const h0=headers[0].trim(), firstId=(lines[1]||'').split(',')[0];
+  const picasso = /^id$/.test(h0) && firstId==='0';
+  if(picasso) onLog('Recognised as a Picasso ThunderSTORM export (ids and frames from 0, pixel centres at i·pixel size): read with Picasso\'s conventions.');
+  else if(!/^"?id \[webSMLM\]"?$/.test(h0))
+    onLog('Positions are read with ThunderSTORM\'s pixel convention (pixel centres at (i+0.5)·pixel size). A CSV saved by webSMLM before v0.13.4 used pixel centres at i·pixel size and shows half a camera pixel down and right of the raw image; distances are unaffected.');
+  const m=makeLocColumnMapper(headers, {px, frameBase:picasso?0:1, pixelEdge:!picasso, required:['frame','x','y','photons'], what:'webSMLM CSV export'});
   const locs=new Array(lines.length-1), vals=new Float64Array(headers.length);
   for(let i=1;i<lines.length;i++){
     const p=lines[i].split(',');
@@ -24241,7 +24279,7 @@ async function parsePicassoLocs(file, {onLog=()=>{}, onProgress=()=>{}, memBudge
   if(n*LOC_ROW_BYTES>budget.bytes)
     throw new Error(`${n.toLocaleString()} localizations need about ${(n*LOC_ROW_BYTES/1073741824).toFixed(1)} GB, above the memory budget of ${(budget.bytes/1073741824).toFixed(1)} GB — raise Total memory budget or use a smaller file`);
   const cols=table.type.members.filter(m=>m.type.kind.startsWith('get') || m.type.kind==='int64');
-  const m=makeLocColumnMapper(cols.map(c=>c.name), {px:1, frameBase:0, defaultLenUnit:k=>(k==='z'||k==='lpz')?'nm':'px', required:['frame','x','y'], what:'Picasso localization file'});
+  const m=makeLocColumnMapper(cols.map(c=>c.name), {px:1, frameBase:0, defaultLenUnit:k=>(k==='z'||k==='lpz')?'nm':'px', required:['frame','x','y'], what:'Picasso localization file', pixelEdge:false});
   const skipped=[...m.ignored, ...table.type.members.filter(c=>!cols.includes(c)).map(c=>c.name)];
   if(skipped.length) onLog(`Picasso file: column(s) not used by webSMLM: ${skipped.join(', ')}.`);
   const rowLen=table.type.size, vals=new Float64Array(cols.length), locs=new Array(n);
@@ -24273,7 +24311,7 @@ async function parseLocTableFile(file, opts={}){
   if(/\.smlm$/i.test(file.name||'')) return parseSmlmLocs(file, opts);
   if(/\.(hdf5|h5)$/i.test(file.name||'')) return parsePicassoLocs(file, opts);
   const text = typeof file.text==='function' ? await file.text() : new TextDecoder().decode(await file.arrayBuffer());
-  return parseCsvLocs(text);
+  return parseCsvLocs(text, opts.onLog);
 }
 // Keep CSV positions in nm when Pixel size changes, including cached paired
 // and tracked rows. The mask stays on its original camera-pixel grid.
@@ -24284,7 +24322,10 @@ function rescaleLoadedCsv(newPx){
   if(oldPx===newPx || lastResult.coordsInPx){ lastResult.px=newPx; lastResult.csvCoordinatePx=newPx; return false; }
   newEpoch(); // discard a Track or other analysis still using the old coordinates
   const factor=oldPx/newPx, seen=new Set();
-  const pixelFields=['x','y','x0','y0','x2','y2','sigma','sigma1st','sx','sy','lpx','lpy',
+  // Positions scale about the pixel-edge origin (the nm value is fixed);
+  // widths and precisions just scale.
+  const posFields=['x','y','x0','y0','x2','y2'], E=LOC_PX_EDGE;
+  const pixelFields=['sigma','sigma1st','sx','sy','lpx','lpy',
     'sx0th','sy0th','sx1st','sy1st','sxAA','syAA'];
   const hadSpt=!!lastSpt?.usedSegmentation;
   const hadCellIds=!!segmentedImageLabels && lastResult.locs.some(L=>L.cell_id!==undefined);
@@ -24293,6 +24334,7 @@ function rescaleLoadedCsv(newPx){
     for(const L of rows){
       if(seen.has(L)) continue;
       seen.add(L);
+      for(const key of posFields) if(Number.isFinite(L[key])) L[key]=(L[key]+E)*factor-E;
       for(const key of pixelFields) if(Number.isFinite(L[key])) L[key]*=factor;
       if(hadCellIds){ L.cell_id=undefined; L.cell_area=undefined; }
       if(hadSpt){ L.track_id=undefined; L.D_coeff=undefined; }
@@ -24308,8 +24350,8 @@ function rescaleLoadedCsv(newPx){
     if(Number.isFinite(L.x)) maxX=Math.max(maxX,L.x);
     if(Number.isFinite(L.y)) maxY=Math.max(maxY,L.y);
   }
-  lastResult.csvInferredW=Math.ceil(maxX)+10;
-  lastResult.csvInferredH=Math.ceil(maxY)+10;
+  lastResult.csvInferredW=Math.ceil(maxX+LOC_PX_EDGE)+10;
+  lastResult.csvInferredH=Math.ceil(maxY+LOC_PX_EDGE)+10;
   if(hadSpt || hadCellIds){
     const wasSptPlot=rawPlotName==='sptMsd' || (rawPlotName==='histogram' && ['log10(D)','SPT track length'].includes(histData?.col));
     clearDerivedSptState();
@@ -24913,7 +24955,7 @@ async function commitSrCrop(x0, y0, x1, y1){
   // a plain reference filter over base.
   _tableFilters.push({expr:`crop: x ${x0.toFixed(0)}–${x1.toFixed(0)} nm, y ${y0.toFixed(0)}–${y1.toFixed(0)} nm`,
     exprCLI:`x >= ${x0.toFixed(1)} and x <= ${x1.toFixed(1)} and y >= ${y0.toFixed(1)} and y <= ${y1.toFixed(1)}`,
-    fn:(L)=>{ const xNm=L.x*info.px, yNm=L.y*info.px; return xNm>=x0&&xNm<=x1&&yNm>=y0&&yNm<=y1; }});
+    fn:(L)=>{ const xNm=(L.x+LOC_PX_EDGE)*info.px, yNm=(L.y+LOC_PX_EDGE)*info.px; return xNm>=x0&&xNm<=x1&&yNm>=y0&&yNm<=y1; }});
   renderTable();
   // Await the filtered render before zooming: otherwise the old, unfiltered
   // buffer shows at the crop's zoom (data outside the crop in the letterbox
@@ -25331,7 +25373,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.4-dev · build 2026-10-17b — Load data reads Picasso .hdf5 (with .yaml) and .smlm localization files.`);
+log(`webSMLM v0.13.4-dev · build 2026-10-17c — pixel-centre convention: reconstruction, masks, CSV import/export aligned (half pixel).`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -25609,14 +25651,14 @@ function tableColumnValue(L, i, col, info){
   switch(col){
     case 'id': return i+1;
     case 'frame': return (L.frame|0)+1;
-    case 'x': return L.x*px;
-    case 'y': return L.y*px;
+    case 'x': return (L.x+LOC_PX_EDGE)*px;   // nm in the pixel-edge frame, as exported (LOC_PX_EDGE)
+    case 'y': return (L.y+LOC_PX_EDGE)*px;
     case 'z': return isFinite(L.z)?L.z:NaN;
     case 'dist': return isFinite(L.dist)?L.dist:NaN;
     // x2/y2 native px on L (same convention as x/y) — *px here, unlike dist
     // (already nm from pairCore); pairAngle is already degrees.
-    case 'x2': return isFinite(L.x2)?L.x2*px:NaN;
-    case 'y2': return isFinite(L.y2)?L.y2*px:NaN;
+    case 'x2': return isFinite(L.x2)?(L.x2+LOC_PX_EDGE)*px:NaN;
+    case 'y2': return isFinite(L.y2)?(L.y2+LOC_PX_EDGE)*px:NaN;
     case 'pairAngle': return isFinite(L.pairAngle)?L.pairAngle:NaN;
     case 'sigma_xy': { let sPx=L.sigma||0; if(!(sPx>0)) sPx=sigPSF; return sPx*px; }
     case 'sigma_x': return isFinite(L.sx)?L.sx*px:NaN;

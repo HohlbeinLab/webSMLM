@@ -3,7 +3,9 @@
 // mapper (makeLocColumnMapper()).
 //   1. CSV: the mapper reproduces the pre-mapper parseCsvLocs() (taken from
 //      git, commit 194ade8) exactly, on a CSV with every optional column and
-//      empty cells.
+//      empty cells — except positions (x, y, x2, y2), which are now read in
+//      ThunderSTORM's pixel-edge frame: the old value minus LOC_PX_EDGE.
+//      Save localisations -> Load data round-trips positions.
 //   2. .smlm: a synthetic archive (deflate and stored entries, uint32/float64/
 //      float32 columns, a shaped column to skip, a per-column offset, µm units)
 //      loads to the expected values.
@@ -64,7 +66,7 @@ for (let i = 0; i < N; i++) {
   bin.writeUInt32LE(fr, o); bin.writeDoubleLE(xUm, o + 4); bin.writeFloatLE(yUm, o + 12);
   for (let k = 0; k < 4; k++) bin.writeUInt32LE(99, o + 16 + 4 * k);
   bin.writeFloatLE(I, o + 32);
-  truth.push({ frame: fr - 1, x: (xUm + 0.5) * 1000 / PX, y: Math.fround(yUm) * 1000 / PX, photons: I });
+  truth.push({ frame: fr - 1, x: (xUm + 0.5) * 1000 / PX - 0.5, y: Math.fround(yUm) * 1000 / PX - 0.5, photons: I });
 }
 const manifest = {
   format_version: '0.2',
@@ -84,12 +86,35 @@ try {
   const csv = await page.evaluate(({ csvText, oldParse }) => {
     const oldFn = (0, eval)('(' + oldParse + ')');
     const a = oldFn(csvText), b = parseCsvLocs(csvText);
+    for (const L of a.locs) for (const k of ['x', 'y', 'x2', 'y2']) if (L[k] !== undefined) L[k] -= LOC_PX_EDGE;
     // Property order differs (header order now); compare the values.
     const canon = r => JSON.stringify({ ...r, locs: r.locs.map(L => Object.fromEntries(Object.keys(L).sort().map(k => [k, L[k]]))) });
     return { a: canon(a), b: canon(b), n: b.locs.length };
   }, { csvText, oldParse });
   assert.equal(csv.b, csv.a, 'new CSV mapper differs from the old parser');
-  console.log(`  CSV: ${csv.n} rows with all optional columns identical to the previous parser`);
+  console.log(`  CSV: ${csv.n} rows with all optional columns identical to the previous parser (positions shifted by the half pixel)`);
+  const rt = await page.evaluate(() => {
+    const locs = [{ frame: 0, x: 3.25, y: 7.75, photons: 1000, bg: 2, bgstd: 1, sigma: 1.2, lpx: 0.1, lpy: 0.1, x2: 10.5, y2: 4.125 },
+                  { frame: 4, x: 0, y: 0, photons: 500, bg: 1, bgstd: 1, sigma: 1.1, lpx: 0.2, lpy: 0.2, x2: 1, y2: 2 }];
+    const text = buildCsvText(locs, paramValue('pxnm'), 1.3).parts.join('');
+    const back = parseCsvLocs(text).locs;
+    return { head: text.split('\n')[0], back: back.map(L => [L.x, L.y, L.x2, L.y2]), want: locs.map(L => [L.x, L.y, L.x2, L.y2]) };
+  });
+  assert.ok(rt.head.startsWith('"id [webSMLM]",'), rt.head);
+  rt.back.flat().forEach((v, i) => assert.ok(Math.abs(v - rt.want.flat()[i]) < 0.0005, `round trip ${i}: ${v} vs ${rt.want.flat()[i]}`));
+  console.log('  Save localisations -> Load data: positions round-trip, header marked "id [webSMLM]"');
+  // Picasso's ThunderSTORM export (pandas: unquoted header, ids/frames from 0,
+  // pixel centres at i·px) vs the same rows from ThunderSTORM (quoted, from 1, i+0.5).
+  const conv = await page.evaluate(() => {
+    const rows = ['0,2,3325.1,3040.8,109.3,2726,36,0,3.19', '1,4,3324.2,3041.4,117.4,2662,39,0,3.39'];
+    const pic = parseCsvLocs(['id,frame,x [nm],y [nm],sigma [nm],intensity [photon],offset [photon],bkgstd [photon],uncertainty_xy [nm]', ...rows].join('\n')).locs;
+    const ts = parseCsvLocs(['"id","frame","x [nm]","y [nm]","sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty_xy [nm]"',
+      ...rows.map(r => r.replace(/^(\d+),/, (m, id) => `${+id + 1},`))].join('\n')).locs;
+    return { pic: [pic[0].frame, pic[0].x, pic[0].y], ts: [ts[0].frame, ts[0].x, ts[0].y] };
+  });
+  assert.deepEqual(conv.pic, [2, 3325.1 / PX, 3040.8 / PX]);
+  assert.deepEqual(conv.ts, [1, 3325.1 / PX - 0.5, 3040.8 / PX - 0.5]);
+  console.log('  Picasso CSV export recognised (no shift, frames from 0); ThunderSTORM CSV: half pixel removed, frames from 1');
 
   for (const path of [smlmDeflate, smlmStored]) {
     await page.setInputFiles('#file', path);
@@ -132,7 +157,7 @@ try {
     const fi = man.files[0], fmt = man.formats[fi.format], tbl = entryBytes(fi.name);
     closeSync(fd);
     const rl = fmt.headers.length * 4, col = h => fmt.headers.indexOf(h) * 4;
-    const ref = r => ({ frame: tbl.readFloatLE(r * rl + col('frame')) - 1, x: tbl.readFloatLE(r * rl + col('x')) / PX, y: tbl.readFloatLE(r * rl + col('y')) / PX,
+    const ref = r => ({ frame: tbl.readFloatLE(r * rl + col('frame')) - 1, x: tbl.readFloatLE(r * rl + col('x')) / PX - 0.5, y: tbl.readFloatLE(r * rl + col('y')) / PX - 0.5,
       photons: tbl.readFloatLE(r * rl + col('intensity_photon_')), sigma: tbl.readFloatLE(r * rl + col('sigma_nm_')) / PX, lpx: tbl.readFloatLE(r * rl + col('uncertainty_nm_')) / PX });
     const t0 = Date.now();
     await page.setInputFiles('#file', real);

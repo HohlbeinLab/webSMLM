@@ -20,7 +20,7 @@ try {
     locs.push({ x: 0, y: 0, z: 0, lpx: 0.05, lpy: 0.05 }, { x: W0 - 0.01, y: H0 - 0.01, z: 10, lpx: 0.05, lpy: 0.05 });
     const out = [];
     for (const mode of ['fixed', 'precision']) for (const zc of [false, true]) for (const blurPx of [0, 0.5]) for (const mag of [4, 9]) {
-      const W = W0 * mag, H = H0 * mag, P = packSrLocs(locs, 'z', zc, mode);
+      const W = W0 * mag, H = H0 * mag, P = packSrLocs(locs, 'z', zc, mode, mag);
       const params = { W, H, mag, blurPx, zColor: zc, zlo: -200, zhi: 250, renderMode: mode, lutName: 'viridis' };
       const g = await gpuViewportInit(P, mode);
       let worst = 0, badFrac = 0, normRel = 0, n = 0;
@@ -47,7 +47,7 @@ try {
   const chunked = await page.evaluate(async () => {
     const rnd = mulberry32(3), n = 20000, locs = [];
     for (let i = 0; i < n; i++) locs.push({ x: rnd() * 80, y: rnd() * 60, z: rnd() * 400, lpx: 0.05, lpy: 0.05 });
-    const mag = 6, W = 480, H = 360, P = packSrLocs(locs, 'z', true, 'precision');
+    const mag = 6, W = 480, H = 360, P = packSrLocs(locs, 'z', true, 'precision', mag);
     const params = { W, H, mag, blurPx: 0.3, zColor: true, zlo: 0, zhi: 400, renderMode: 'precision', lutName: 'viridis' };
     const eng = await getGpuEngine(), saved = eng.limits.maxStorageBufferBindingSize;
     const g1 = await gpuViewportInit(P, 'precision');

@@ -56,6 +56,7 @@ const ROSTER = [
   T('io', 'load-clears', 'test-load-clears-state.mjs'),
   T('io', 'loc-formats', 'test-loc-formats.mjs'),
   T('io', 'picasso', 'test-picasso-hdf5.mjs'),
+  T('cpu', 'pixel-convention', 'test-pixel-convention.mjs'),
   T('harness', 'report', 'test-report-generation.mjs'),
   T('harness', 'datasets', 'datasets.test.mjs'),
   T('harness', 'cross-report', 'test-cross-report.mjs'),

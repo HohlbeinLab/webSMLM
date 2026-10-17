@@ -237,7 +237,16 @@ what makes GUI and command-line use interchangeable.
   - PSF-model fitting (`psfmle`) and `detection_mergeRadius` live on the `psf_fitting` branch.
 
 - **render** — accumulates locs into `srFull` (dense, O(W·H)); `view` is zoom/pan (zoom = CSS px
-  per srFull px). Locs reach the renderer packed (`packSrLocs()`: Float64 x/y/colour/lpx/lpy,
+  per srFull px).
+  - **Pixel convention** (`LOC_PX_EDGE` = 0.5): a loc's x/y puts camera pixel i's centre at x = i (the
+    fitters, Picasso, ground truth); the panels, masks and ThunderSTORM-style files use the pixel-edge
+    frame (pixel i spans [i, i+1)). The half pixel is added only at that boundary: `packSrLocs()`/
+    `packSrLocs3d()`/the GPU upload via `srLocShift(mag, renderMode)` ('fixed'/'dither' bin with round(),
+    'precision' integrates [k, k+1), hence the mode argument), the tracks overlay, the SR crop, the table's
+    x/y, `segIndexForLoc()`, CSV/ground-truth/track-data export (+) and CSV/.smlm import (−; Picasso none).
+    Analysis never sees it. CSV exports are marked `"id [webSMLM]"` (ThunderSTORM keeps reading it as `id`).
+    A Picasso `hdf2ts` CSV (unquoted header, ids from 0) is read without the shift and with frames from 0.
+    Test: `tests/cpu/test-pixel-convention.mjs`. Locs reach the renderer packed (`packSrLocs()`: Float64 x/y/colour/lpx/lpy,
   transferred to the render worker, no structured clone of loc objects); `srAccumulate()` is the
   one accumulator (whole image or a window), `srColorize()` the one colour map.
   - `renderMode`: `'fixed'` (default: bin + one blur `rblur`), `'precision'` (each loc splats its
@@ -450,8 +459,8 @@ what makes GUI and command-line use interchangeable.
     the % sample draws once per track id over the full list (stable subsets).
    - Per-cell tracking (`linkTracksPerCell()`) takes `segLabels` as a parameter (headless-safe).
        Interactive mask rendering and `cellIdForLoc()` both use the mask's original
-       camera-pixel coordinates. `segIndexForLoc()` floors finite coordinates
-       into the pixel interval `[x,x+1)×[y,y+1)` for both CSV bounds and tracking;
+       camera-pixel coordinates. `segIndexForLoc()` floors `x + LOC_PX_EDGE` (the
+       pixel-edge frame, see render) into `[x,x+1)×[y,y+1)` for both CSV bounds and tracking;
        never stretch a mask to the CSV bounding box or
        reconstruction canvas. `parseCsvLocs()` converts nm positions using Pixel size;
        `rescaleLoadedCsv()` updates pixel-valued fields, drift and CSV bounds on a

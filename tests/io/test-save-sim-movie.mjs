@@ -38,7 +38,7 @@ try {
     const f0 = [...byFrame.keys()].sort((a, b) => a - b)[0], g = byFrame.get(f0)[0], px = simSaved.stack.px;
     const first = rows[1].split(',').map(Number);
     return { out, names: saved.map(s => s.name), header: rows[0], nRows: rows.length - 1, expected,
-      firstOk: first[0] === f0 + 1 && Math.abs(first[1] - (g.x * px + simSaved.drift.dx(f0))) < 0.06 && Math.abs(first[4] - g.x * px) < 0.06,
+      firstOk: first[0] === f0 + 1 && Math.abs(first[1] - ((g.x + LOC_PX_EDGE) * px + simSaved.drift.dx(f0))) < 0.06 && Math.abs(first[4] - (g.x + LOC_PX_EDGE) * px) < 0.06,
       driftUsed: Math.abs(simSaved.drift.dx(simSaved.stack.n - 1)) > 1 };
   });
   for (const o of r.out) {

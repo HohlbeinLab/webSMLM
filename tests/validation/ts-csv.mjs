@@ -50,6 +50,9 @@ export function readThunderstormCsv(path) {
 // in nm, so divide by pxnm), `frame` 0-based. frame0 is passed in already converted (webSMLM's CSV
 // is 1-based, Picasso's 0-based) and is deliberately NOT coerced: a missing frame column gives NaN,
 // which assertScorerLocs() rejects, instead of `|0` silently filing the loc in frame 0.
+// No half-pixel shift: Picasso's hdf2ts writes x·pixelsize (pixel centres at i·px, as the
+// scorer). A webSMLM CSV (header "id [webSMLM]") is in ThunderSTORM's convention instead and
+// would need x_nm/pxnm − 0.5; the harness takes webSMLM's locs from analyze(), not a CSV.
 export function toScorerLoc(row, frame0, pxnm) {
   const loc = { frame: frame0, x: row.x_nm / pxnm, y: row.y_nm / pxnm, photons: row.intensity_photon };
   const u = row.uncertainty_nm ?? row.uncertainty_xy_nm;   // webSMLM / Picasso hdf2ts column names

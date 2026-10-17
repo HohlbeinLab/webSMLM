@@ -14,7 +14,8 @@ try {
     const base = { bx0: 30, by0: 30, bx1: 70, by1: 70, X0: 50, Y0: 50, Z0: 0, ox: 12, oy: 7, px: 100 };
     const xfOf = (tilt, rot, maxN = 0) => { const th = tilt * Math.PI / 180, ph = rot * Math.PI / 180;
       return { ...base, ct: Math.cos(th), st: Math.sin(th), cr: Math.cos(ph), sr: Math.sin(ph), maxN }; };
-    const pk = (t, r, mode = 'fixed', maxN = 0) => { const xf = xfOf(t, r, maxN); const P = packSrLocs3d(locs, 'z', true, mode, xf); return { P, xf }; };
+    const pk = (t, r, mode = 'fixed', maxN = 0) => { const xf = xfOf(t, r, maxN); const P = packSrLocs3d(locs, 'z', true, mode, xf, 8); return { P, xf }; };
+    const sh = srLocShift(8, 'fixed');   // the half-pixel render offset (LOC_PX_EDGE), added to every packed position
     const inBox = locs.filter(L => L.x >= 30 && L.x < 70 && L.y >= 30 && L.y < 70);
     const a = pk(0, 0), s90 = pk(90, 0), s180 = pk(180, 0), r360 = pk(0, 360), r90 = pk(0, 90), prec = pk(60, 30, 'precision'), cap = pk(0, 0, 'fixed', 500);
     const maxd = (A, B, f) => { let m = 0; for (let i = 0; i < A.n; i++) m = Math.max(m, Math.abs(A[f][i] - B[f][i])); return m; };
@@ -22,18 +23,18 @@ try {
     // Pixel identity: normal render of the box's locs vs the 0°/0° 3D pack, whose domain origin is an integer srFull-px offset.
     const mag = 8, Ox = 100, Oy = 60, W = 800, H = 800, bxl = locs.filter(L => L.x >= 30 && L.x < 70 && L.y >= 30 && L.y < 70);
     const xi = xfOf(0, 0); xi.ox = Ox / mag; xi.oy = Oy / mag;
-    const PN = packSrLocs(bxl, 'z', false, 'fixed'), P3 = packSrLocs3d(locs, 'z', false, 'fixed', xi);
+    const PN = packSrLocs(bxl, 'z', false, 'fixed', mag), P3 = packSrLocs3d(locs, 'z', false, 'fixed', xi, mag);
     const rn = srRenderRegion(PN, null, W, H, 240, 240, 320, 320, 1, mag, 0, false, 0, 1, 'fixed', null);
     const r3 = srRenderRegion(P3, null, W, H, 240 - Ox, 240 - Oy, 320, 320, 1, mag, 0, false, 0, 1, 'fixed', null);
     let pixDiff = 0; for (let i = 0; i < rn.dv.length; i++) if (rn.dv[i] !== r3.dv[i]) pixDiff++;
     return {
       pixDiff, nIn: inBox.length, n0: a.P.n, nInReported: a.xf.nIn,
-      ident: Math.max(...inBox.map((L, i) => Math.max(Math.abs(a.P.x[i] - (L.x - 12)), Math.abs(a.P.y[i] - (L.y - 7))))),
+      ident: Math.max(...inBox.map((L, i) => Math.max(Math.abs(a.P.x[i] - sh - (L.x - 12)), Math.abs(a.P.y[i] - sh - (L.y - 7))))),
       zc: a.P.c[5] === L0.z,
-      side: [s90.P.x[5] - (L0.x - 12), s90.P.y[5] - (50 - 7 - L0.z / 100)],
-      flip: [s180.P.x[5] - (L0.x - 12), s180.P.y[5] - (2 * 50 - 7 - L0.y)],
+      side: [s90.P.x[5] - sh - (L0.x - 12), s90.P.y[5] - sh - (50 - 7 - L0.z / 100)],
+      flip: [s180.P.x[5] - sh - (L0.x - 12), s180.P.y[5] - sh - (2 * 50 - 7 - L0.y)],
       rot360: Math.max(maxd(a.P, r360.P, 'x'), maxd(a.P, r360.P, 'y')),
-      rot90: [r90.P.x[5] - (50 - 12 + (L0.y - 50)), r90.P.y[5] - (50 - 7 - (L0.x - 50))],
+      rot90: [r90.P.x[5] - sh - (50 - 12 + (L0.y - 50)), r90.P.y[5] - sh - (50 - 7 - (L0.x - 50))],
       precHasLp: !!prec.P.lpx && prec.P.lpx.every(Number.isFinite),
       fixedNoLp: a.P.lpx === null,
       capN: cap.P.n, capIn: cap.xf.nIn,
