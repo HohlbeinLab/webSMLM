@@ -65,7 +65,7 @@ below for what it does.
 
 | Button | id | Does |
 |---|---|---|
-| **Load data** | `loadBtn` | Opens a file picker accepting EITHER a movie (one multi-frame TIFF or BigTIFF, a native Nikon `.nd2`, a FITS file, or Ctrl/Cmd+click several files to combine them into one stack, natural-sorted by filename — either several single-frame TIFFs, one file = one frame, e.g. a per-frame camera dump, OR several multi-frame TIFFs from ONE continuous acquisition split purely by size, each file = a chunk of frames; which one is auto-detected from the first file's own frame count) OR a single CSV previously written by **Save localisations**, OR a single JSON file webSMLM saved — smFRET traces (**Save traces**), settings (**Save settings**) or a 3D calibration — told apart by the file's own `format` field (older settings/calibration files without one are recognised by their contents). Movie vs. CSV vs. JSON is detected by file extension; mixing types in one selection is refused with a logged error — pick one type at a time. See **in/out**/**pipeline** below. |
+| **Load data** | `loadBtn` | Opens a file picker accepting EITHER a movie (one multi-frame TIFF or BigTIFF, a native Nikon `.nd2`, a FITS file, or Ctrl/Cmd+click several files to combine them into one stack, natural-sorted by filename — either several single-frame TIFFs, one file = one frame, e.g. a per-frame camera dump, OR several multi-frame TIFFs from ONE continuous acquisition split purely by size, each file = a chunk of frames; which one is auto-detected from the first file's own frame count) OR a single localization file — a CSV written by **Save localisations** (or ThunderSTORM), or an `.smlm` archive (ShareLoc.XYZ; see [§6](#6-csv-export-format)) — OR a single JSON file webSMLM saved — smFRET traces (**Save traces**), settings (**Save settings**) or a 3D calibration — told apart by the file's own `format` field (older settings/calibration files without one are recognised by their contents). Movie vs. localization file (`.csv`/`.smlm`) vs. JSON is detected by file extension; mixing types in one selection is refused with a logged error — pick one type at a time. See **in/out**/**pipeline** below. |
 | **Simulate movie** | `genBtn` | Generates a synthetic stack from the *Simulation* module — no file needed, useful for a quick smoke-test or teaching demo. |
 | **Load settings** | `loadSetBtn` | Opens a `.json` file (as saved by **Save settings**) and applies every recognised `{id: value}` pair to the `PARAMS` registry — unknown/legacy keys are logged and ignored, not errored on. |
 | **Save settings** | `saveSetBtn` | Dumps the *current* value of every `PARAMS` entry (not just ones with a page control) to a `webSMLM_settings.json` file — see [§4](#4-settings-json-format). |
@@ -415,7 +415,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 
 | GUI action | Terminal function | Notes |
 |---|---|---|
-| Load data | `loadFiles(fileList)` | a `File` array/`FileList`; auto-detects movie vs. CSV vs. JSON (a JSON goes through `loadJsonFile(file)`, which routes by its `format` field) |
+| Load data | `loadFiles(fileList)` | a `File` array/`FileList`; auto-detects movie vs. localization file (`.csv`/`.smlm`) vs. JSON (a JSON goes through `loadJsonFile(file)`, which routes by its `format` field) |
 | Load calibration… | `loadCalibrationJson(file)` | |
 | Load settings | `loadSettingsJson(file)` | |
 | Simulate movie | `runSimulation()` | no args — reads the current Simulation |
@@ -3977,6 +3977,34 @@ the round trip losslessly:
   made that assumption wrong: the shifted coordinates no longer lined up
   with an externally-supplied segmentation image.
 
+**Other localization formats** — **Load data** also reads **`.smlm`** archives
+([smlm-file-format](https://github.com/imodpasteur/smlm-file-format) 0.2, the
+format of ShareLoc.XYZ). All formats go through one column mapper
+(`makeLocColumnMapper()`), so a column means the same in every format:
+ThunderSTORM names with a `[unit]` (`x [nm]`), the same names after ShareLoc's
+renaming (`sigma_nm_`, `intensity_photon_`), and the `.smlm` standard names
+(`x_precision`, `y_precision`, `z_precision`, `background`). Columns webSMLM has
+no use for (`id`, `chi2`, …) are listed in the log and dropped.
+
+- An `.smlm` file is a ZIP (deflate or stored, ZIP64 supported) holding
+  `manifest.json` and binary tables. Rows are stored one after another, each
+  column little-endian in manifest order. The spec text doesn't say so; the
+  reference Python reader and real ShareLoc files do. Table entries are
+  decompressed as a stream (`DecompressionStream`, or the bundled pako in older
+  browsers), so the archive is never held in memory whole.
+- Data types `uint8/16/32`, `int8/16/32`, `float32/64`; a column with a shape
+  other than 1 (an image patch per row) is skipped. A per-column `offset` from
+  the file's entry is added to the stored value.
+- Lengths default to nm; a column's declared unit (`um`, `angstrom`, `px`, …)
+  is converted. As for a CSV, the current **Pixel size (nm)** converts them to
+  camera pixels.
+- Frame numbers are taken as 1-based, as ThunderSTORM writes them (the spec
+  doesn't say).
+- Several tables (channels) are merged into one list with a `!!!` note: webSMLM
+  has no channel column yet. Image entries (widefield, masks) are ignored.
+- Before reading, the row count in `manifest.json` is checked against the
+  memory budget (`LOC_ROW_BYTES` per localization).
+
 ---
 
 ## 7 · Calibration JSON format
@@ -4050,9 +4078,10 @@ const result = await window.webSMLM.analyze({
   auto-detected "several single-frame files" vs. "several chunks of one
   continuous acquisition" cases — see **in/out**), loaded via the existing
   `loadTiffFile`/`loadTiffFilesAuto`. One of the two is required.
-- **`config.file` ending in `.csv`** (v0.11.13) — the headless equivalent of
-  loading a CSV via **Load data** (same extension-only dispatch), not
-  a movie at all: parsed directly via `parseCsvLocs()`, skipping Localize
+- **`config.file` ending in `.csv` or `.smlm`** (v0.11.13; `.smlm` since
+  v0.13.4) — the headless equivalent of loading a localization file via
+  **Load data** (same extension-only dispatch), not a movie at all: parsed
+  directly via `parseLocTableFile()`, skipping Localize
   (and so `method`/`psf`/`winr`/…), `cropX0`–`cropY1`, `estimateGainOffset`,
   and any calibration entirely — none of those apply without raw pixel data.
   Everything downstream (`sSmlmPair`, `correctDrift`, `computeNeNA`/`FRC`,
@@ -4768,6 +4797,9 @@ What this tool borrows from, and where to read more.
 **sSMLM pairing — distance-fit background model**
 - Philip, J. *The Probability Distribution of the Distance Between Two Random Points in a Box.* Technical Report TRITA-MAT-07-MA-10, Dept. of Mathematics, Royal Institute of Technology (KTH), Stockholm, 2007. — the rectangle-profile background PDF `sSmlmBgPdfRect()` (MODULE: sSMLM) uses; this report is widely mis-cited as "1991" (a mixup with an unrelated AMS Mathematics Subject Classification footnote year on the same title page) — 2007 is correct, verified against the report's own internal references and report number.
 - Solomon, H. *Geometric Probability*, SIAM, 1978, p. 129 — the circular-profile background PDF `sSmlmBgPdfDisk()` uses, via Wolfram MathWorld's ["Disk Line Picking"](https://mathworld.wolfram.com/DiskLinePicking.html) entry.
+
+**File formats**
+- SMLM file format (`.smlm`), specification 0.2 and reference readers, imod-pasteur: <https://github.com/imodpasteur/smlm-file-format> — the format `parseSmlmLocs()` reads.
 
 **Spot detection & thresholding**
 - "ThunderSTORM: a comprehensive ImageJ plug-in for PALM and STORM data analysis and super-resolution imaging," M. Ovesný, P. Křížek, J. Borkovec, Z. Švindrych, G. M. Hagen, *Bioinformatics* **30**(16), 2389–2390 (2014). [doi:10.1093/bioinformatics/btu202](https://doi.org/10.1093/bioinformatics/btu202)

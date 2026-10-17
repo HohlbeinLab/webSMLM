@@ -237,6 +237,14 @@ export const DATASETS = Object.freeze({
     parameters: { exposureMs: 30, frameIntervalMs: 32.02 },
     scenarios: ['load', 'smfret'], scientificValidation: false,
   },
+  // ShareLoc.XYZ export in the .smlm format (6.9 M localizations); private
+  // fixture, also found at experimental_data/data.smlm.
+  sharelocSmlm: {
+    label: 'ShareLoc .smlm localization table',
+    localPath: 'shareloc',
+    files: { localizations: file('SHARELOC_SMLM', 'data.smlm') },
+    scenarios: ['load'], scientificValidation: false,
+  },
   bigtiff: {
     label: 'BigTIFF stack',
     localPath: 'bigtiff',

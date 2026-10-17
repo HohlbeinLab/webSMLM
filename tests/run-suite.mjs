@@ -54,6 +54,7 @@ const ROSTER = [
   T('io', 'rotate', 'test-rotate-movie.mjs'),
   T('io', 'save-sim', 'test-save-sim-movie.mjs'),
   T('io', 'load-clears', 'test-load-clears-state.mjs'),
+  T('io', 'loc-formats', 'test-loc-formats.mjs'),
   T('harness', 'report', 'test-report-generation.mjs'),
   T('harness', 'datasets', 'datasets.test.mjs'),
   T('harness', 'cross-report', 'test-cross-report.mjs'),
