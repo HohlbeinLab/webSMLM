@@ -237,13 +237,18 @@ export const DATASETS = Object.freeze({
     parameters: { exposureMs: 30, frameIntervalMs: 32.02 },
     scenarios: ['load', 'smfret'], scientificValidation: false,
   },
-  // ShareLoc.XYZ export in the .smlm format (6.9 M localizations); private
-  // fixture, also found at experimental_data/data.smlm.
+  // ShareLoc.XYZ sample in the .smlm format: microtubules immuno-labelled with
+  // Alexa 647 (A. Aristov), 6.9 M localizations, CC BY 4.0.
   sharelocSmlm: {
-    label: 'ShareLoc .smlm localization table',
+    label: 'ShareLoc .smlm microtubules (Alexa 647, sample 8)',
+    source: 'https://doi.org/10.5281/zenodo.5507548',
     localPath: 'shareloc',
     files: { localizations: file('SHARELOC_SMLM', 'data.smlm') },
     scenarios: ['load'], scientificValidation: false,
+    download: { type: 'files', files: [{ name: 'data.smlm', bytes: 225264303,
+      url: 'https://zenodo.org/api/records/5507548/files/sample-8/data.smlm/content' }] },
+    sha256: { 'data.smlm': 'bb3ccd51d65ce159ccf78271e358848347398addb322bee24560ac8e0e8a027c' },
+    bytes: { 'data.smlm': 225264303 },
   },
   bigtiff: {
     label: 'BigTIFF stack',

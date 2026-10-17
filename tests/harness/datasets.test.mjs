@@ -29,7 +29,7 @@ test('documented benchmark datasets expose paths, parameters, and scenarios', ()
   assert.equal(DATASETS['cas12a-scrambled'].download.files.length, 7);
   assert.equal(DATASETS['npc-beads'].scientificValidation, false);
   assert.deepEqual(Object.entries(DATASETS).filter(([, dataset]) => dataset.download).map(([key]) => key).sort(), [
-    'cas12a-scrambled', 'cas12a-segmentation', 'epfl-as-beads', 'epfl-as-hd', 'epfl-as-ld', 'epfl-bp250', 'epfl-dh', 'gatta80r', 'npc-beads', 'ssmlm', 'storm3d',
+    'cas12a-scrambled', 'cas12a-segmentation', 'epfl-as-beads', 'epfl-as-hd', 'epfl-as-ld', 'epfl-bp250', 'epfl-dh', 'gatta80r', 'npc-beads', 'sharelocSmlm', 'ssmlm', 'storm3d',
   ]);
 });
 

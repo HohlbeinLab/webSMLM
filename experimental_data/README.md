@@ -260,6 +260,21 @@ npm --prefix tools run bench:dataset:cas12a-targeting
 npm --prefix tools run bench:dataset:cas12a-scrambled
 ```
 
+## Dataset VIII — ShareLoc localization table (.smlm)
+
+Microtubules immuno-labelled with Alexa 647, with widefield images (sample 8),
+A. Aristov, shared through ShareLoc.XYZ:
+[zenodo.org/records/5507548](https://zenodo.org/records/5507548) (CC BY 4.0).
+Only `sample-8/data.smlm` is used: 6,924,277 localizations in the `.smlm`
+format, ThunderSTORM columns renamed by ShareLoc (`sigma_nm_`,
+`intensity_photon_`, …), x/y in nm, frames 97–30000. It exercises **Load data**
+for `.smlm` files (`tests/io/test-loc-formats.mjs`, which also looks for
+`experimental_data/data.smlm`).
+
+```sh
+npm --prefix tools run data:download:shareloc-smlm
+```
+
 ## Useful properties to note for benchmarking
 
 When adding a stack, record these — they determine which speed optimizations
