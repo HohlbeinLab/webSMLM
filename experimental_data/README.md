@@ -265,6 +265,8 @@ npm --prefix tools run bench:dataset:cas12a-scrambled
 Microtubules immuno-labelled with Alexa 647, with widefield images (sample 8),
 A. Aristov, shared through ShareLoc.XYZ:
 [zenodo.org/records/5507548](https://zenodo.org/records/5507548) (CC BY 4.0).
+ShareLoc: Ouyang et al., *Nat. Methods* **19**, 1331–1333 (2022),
+[doi:10.1038/s41592-022-01659-0](https://doi.org/10.1038/s41592-022-01659-0).
 Only `sample-8/data.smlm` is used: 6,924,277 localizations in the `.smlm`
 format, ThunderSTORM columns renamed by ShareLoc (`sigma_nm_`,
 `intensity_photon_`, …), x/y in nm, frames 97–30000. It exercises **Load data**

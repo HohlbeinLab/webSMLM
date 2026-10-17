@@ -3979,7 +3979,9 @@ the round trip losslessly:
 
 **Other localization formats** — **Load data** also reads **`.smlm`** archives
 ([smlm-file-format](https://github.com/imodpasteur/smlm-file-format) 0.2, the
-format of ShareLoc.XYZ). All formats go through one column mapper
+format of ShareLoc.XYZ; Ouyang et al., *Nat. Methods* **19**, 1331–1333 (2022),
+[doi:10.1038/s41592-022-01659-0](https://doi.org/10.1038/s41592-022-01659-0) —
+see [§9](#9-references-further-reading)). All formats go through one column mapper
 (`makeLocColumnMapper()`), so a column means the same in every format:
 ThunderSTORM names with a `[unit]` (`x [nm]`), the same names after ShareLoc's
 renaming (`sigma_nm_`, `intensity_photon_`), and the `.smlm` standard names
@@ -4799,6 +4801,7 @@ What this tool borrows from, and where to read more.
 - Solomon, H. *Geometric Probability*, SIAM, 1978, p. 129 — the circular-profile background PDF `sSmlmBgPdfDisk()` uses, via Wolfram MathWorld's ["Disk Line Picking"](https://mathworld.wolfram.com/DiskLinePicking.html) entry.
 
 **File formats**
+- W. Ouyang, J. Bai, M. K. Singh, C. Leterrier, P. Barthelemy, S. F. H. Barnett, T. Klein, M. Sauer, P. Kanchanawong, N. Bourg, M. M. Cohen, B. Lelandais, C. Zimmer, "ShareLoc — an open platform for sharing localization microscopy data," *Nat. Methods* **19**(11), 1331–1333 (2022). [doi:10.1038/s41592-022-01659-0](https://doi.org/10.1038/s41592-022-01659-0) — the ShareLoc.XYZ platform and its `.smlm` file format; please cite it when you use `.smlm` data.
 - SMLM file format (`.smlm`), specification 0.2 and reference readers, imod-pasteur: <https://github.com/imodpasteur/smlm-file-format> — the format `parseSmlmLocs()` reads.
 
 **Spot detection & thresholding**
