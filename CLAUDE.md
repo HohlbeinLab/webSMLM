@@ -105,8 +105,8 @@ what makes GUI and command-line use interchangeable.
     `byteLen` as a bound. **FITS** (experimental, camera-movie subset): row 1 is at the bottom, so
     output row `y` reads source row `h−1−y`.
   - Stacks may carry `residentBytes` (the decoded cache, for the memory guards and Mem readout;
-    a getter on the streaming fallback). Simulated stacks set it (all frames cached); not yet set by `loadTiffSequence()`/`makeConcatStack()`/
-    `loadNd2File()`/`loadFitsFile()`. `framesTransferable` is set only on decode-per-call stacks:
+    a getter on the streaming fallback). Simulated stacks set it (all frames cached); `makeConcatStack()` sums its parts'. `loadTiffSequence()`/
+    `loadNd2File()`/`loadFitsFile()` decode per call and cache nothing, so they leave it unset (0). `framesTransferable` is set only on decode-per-call stacks:
     only those frames may be *transferred* to workers (a cached stack returns the same array every
     call; transferring it would detach the cache). Guarded by `tests/gpu/test-frame-cache-integrity.mjs`.
   - **Localization files** (Load data, headless `file`): `parseLocTableFile()` dispatches `.csv`

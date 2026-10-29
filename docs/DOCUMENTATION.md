@@ -3898,6 +3898,15 @@ Written by **Save localisations** (`exportCSV()`), ThunderSTORM-compatible:
 - ThunderSTORM's importer skips any row with an empty cell. webSMLM writes an
   empty cell where an optional value is missing (e.g. `z` for a failed z fit),
   so such rows don't reach ThunderSTORM.
+- **Columns that are empty for some localizations are left out whole.**
+  ThunderSTORM skips every row that has an empty cell, so a CSV with blanks
+  would lose those localizations on import. An optional column (`z`, `sigma_z`,
+  `dist`, `x2`/`y2`, `D_coeff`, …) that has a value for only some localizations
+  is therefore not written, and the log names it (Save localisations, and the
+  CLI / `analyze()` log). Typical cases: `z` when some 3D fits failed;
+  `D_coeff`, which only tracks that pass the length filter have. A `.smlm` keeps
+  such columns (a missing value is NaN). `uncertainty` stays a core column and
+  is empty for a localization with no photons.
 - `z [nm]` only present for a real 3D result (a 3D fit method).
 - `sigma [nm]` is kept under that literal name (not `sigma_xy`, which the
   in-app table uses) specifically for ThunderSTORM compatibility.
@@ -4397,9 +4406,18 @@ const result = await window.webSMLM.analyze({
   unconditionally (not a `--exportCsvRows` CLI flag) and writes each
   streamed chunk straight to `result.csv`, verbatim (not NDJSON-wrapped —
   see **Streaming per-record exports** below).
+- `config.exportLocFormats` — optional array, `['smlm']`, `['hdf5']` or both
+  (not a `PARAMS` entry): also builds the Save localisations files (§6) of the
+  same localizations as the CSV. With `onRecord` they stream as
+  `onRecord('smlm' | 'hdf5', [base64 chunk])` (the CLI writes `result.smlm` /
+  `result.hdf5`; `--exportSmlm`, `--exportPicasso`); without it
+  `analyze()` returns them as Blobs in `locFiles.smlm` / `locFiles.hdf5`.
+  Any other entry throws. On a CSV, `.smlm` or Picasso input, `pxnm` converts
+  the nm values to pixels (the page's Pixel size field is not consulted).
 - `config.onRecord(kind, batch)` — optional, paired with the five flags
   above. `kind` is one of `'spt_tracks'`/`'sSmlm_candidates'`/
-  `'calibration_beads'`/`'pcfo_tiles'`/`'csv'`; `batch` is a plain array —
+  `'calibration_beads'`/`'pcfo_tiles'`/`'csv'` (and `'smlm'`/`'hdf5'` for
+  `exportLocFormats`, one base64 string per batch); `batch` is a plain array —
   up to 2000 plain objects for the first four (`makeRecordEmitter()`'s
   default batch size — not load-bearing, just a write/memory tradeoff), or
   a single already-formatted multi-row CSV text chunk for `'csv'` (which

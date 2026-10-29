@@ -29,6 +29,7 @@
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sptTrack --segmentation mask.tif --segAreaMin 50 --segAreaMax 5000
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --exportHistograms photons,sigma,bg
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sptTrack --exportTrackData
+//   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --exportSmlm --exportPicasso   (also result.smlm / result.hdf5)
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --sSmlmPair --exportSSmlmCandidates
 //   node webSMLM-cli.mjs --calibration beadstack.tif --calibrationOnly --exportCalibrationPoints
 //   node webSMLM-cli.mjs --file stack.tif --pxnm 100 --estimateGainOffset --exportPcfoTiles
@@ -251,7 +252,11 @@ const RECORD_FILENAMES = {
   calibration_beads: 'calibration_beads.ndjson',
   pcfo_tiles: 'pcfo_tiles.ndjson',
   csv: 'result.csv',
+  smlm: 'result.smlm',
+  hdf5: 'result.hdf5',
 };
+// --exportSmlm / --exportPicasso: the file arrives as base64 chunks, written as bytes.
+const BINARY_KINDS = new Set(['smlm', 'hdf5']);
 const recordStreams = new Map();   // kind -> {stream, count}
 function writeRecordBatch(kind, batch) {
   let entry = recordStreams.get(kind);
@@ -263,11 +268,12 @@ function writeRecordBatch(kind, batch) {
     // MODULE: export) — written verbatim, not as an NDJSON record. A real
     // CSV file needs its own header row (already the very first chunk),
     // not a JSON schema line.
-    if (kind !== 'csv') stream.write(JSON.stringify({ _schema: `webSMLM.${kind}.v1` }) + '\n');
+    if (kind !== 'csv' && !BINARY_KINDS.has(kind)) stream.write(JSON.stringify({ _schema: `webSMLM.${kind}.v1` }) + '\n');
     entry = { stream, count: 0 };
     recordStreams.set(kind, entry);
   }
   if (kind === 'csv') { for (const chunk of batch) entry.stream.write(chunk); }
+  else if (BINARY_KINDS.has(kind)) { for (const chunk of batch) entry.stream.write(Buffer.from(chunk, 'base64')); }
   else for (const rec of batch) entry.stream.write(JSON.stringify(rec) + '\n');
   entry.count += batch.length;
 }
@@ -362,6 +368,8 @@ try {
                      : (spec.type === 'enum' || spec.type === 'text') ? String(raw) : +raw;
       } else if (key === 'correctDrift' || key === 'computeNeNA' || key === 'computeFRC' || key === 'calibrationOnly' || key === 'estimateGainOffset' || key === 'sSmlmPair' || key === 'sSmlmPreview' || key === 'smfretLocateSOI' || key === 'sptTrack' || key === 'exportPlots' || key === 'exportTrackData' || key === 'exportSSmlmCandidates' || key === 'exportCalibrationPoints' || key === 'exportPcfoTiles') {
         config[key] = raw === '1' || raw === 'true' || raw === true;
+      } else if (key === 'exportSmlm' || key === 'exportPicasso') {
+        if (raw === '1' || raw === 'true' || raw === true) (config.exportLocFormats = config.exportLocFormats || []).push(key === 'exportSmlm' ? 'smlm' : 'hdf5');
       } else if (key === 'calFirst' || key === 'calLast' || key === 'cropX0' || key === 'cropY0' || key === 'cropX1' || key === 'cropY1') {
         config[key] = +raw;
       } else if (key === 'exportHistograms' || key === 'tableFilters') {
@@ -435,7 +443,7 @@ try {
   // (~5000 rows each), not a row count, which would read as a bizarrely
   // small "record" total; result.csv gets its own explicit line below,
   // using result.nLocalizations (the real row count) instead.
-  const recordFiles = [...recordStreams.entries()].filter(([kind]) => kind !== 'csv').map(([kind, { count }]) =>
+  const recordFiles = [...recordStreams.entries()].filter(([kind]) => kind !== 'csv' && !BINARY_KINDS.has(kind)).map(([kind, { count }]) =>
     `${RECORD_FILENAMES[kind] || kind + '.ndjson'} (${count.toLocaleString()} record${count === 1 ? '' : 's'})`);
 
   const calibOutName = (calibPath ? basename(calibPath).replace(/\.(ome\.)?tiff?$/i, '') : 'webSMLM') + '_calib.json';
@@ -479,7 +487,7 @@ try {
       sSmlmPair: result.sSmlmPair, sSmlmPreview: result.sSmlmPreview, spt: result.spt,
     }, null, 2));
 
-    const extra = [...plotFiles, ...recordFiles];
+    const extra = [...plotFiles, ...recordFiles, ...[...BINARY_KINDS].filter(k => recordStreams.has(k)).map(k => RECORD_FILENAMES[k])];
     // timings is null for a CSV input (analyze() skips Localize entirely — no
     // Run to time, see webSMLM.html's own analyze() comment on isCsv).
     const timingNote = result.timings ? ` in ${Math.round(result.timings.runMs)} ms` : '';

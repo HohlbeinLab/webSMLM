@@ -9,7 +9,7 @@
 //      io.load_locs() and export_thunderstorm().
 //   3. A column missing for some locs (z) is left out of the Picasso file, with a note.
 // Needs python3 with numpy and h5py; skips otherwise.
-import { launchPage } from '../lib/launch.mjs';
+import { launchPage, repoRoot } from '../lib/launch.mjs';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,7 +29,7 @@ const PX = 107;
 
 const { browser, page } = await launchPage({ headless: true });
 try {
-  await page.evaluate(px => { $('pxnm').value = px; $('pxnm').dispatchEvent(new Event('change')); }, PX);
+  await page.evaluate(px => { window.PX0 = px; $('pxnm').value = px; $('pxnm').dispatchEvent(new Event('change')); }, PX);
   // Three loc sets: 2D (some with per-axis widths), 3D complete, 3D with z missing for some.
   const out = await page.evaluate(async px => {
     let s = 12345; const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
@@ -118,6 +118,39 @@ print(json.dumps({'n': int(len(locs)), 'cols': list(locs.columns), 'x0': float(l
       console.log(`  ${k}: .hdf5 — h5py, Load data and Picasso io.load_locs() agree (${pc.n} rows kept${nNeg ? `, ${nNeg} negative dropped by Picasso` : ''}); columns ${pc.cols.join(', ')}`);
     } else console.log(`  ${k}: .hdf5 — h5py and Load data agree (Picasso not installed: set PICASSO_PYTHON to check with io.load_locs())`);
   }
+  // CSV: ThunderSTORM skips any row with an empty cell, so a column that is empty for some locs is left out whole.
+  const csv = await page.evaluate(() => {
+    const base = i => ({ frame: i, x: 1 + i, y: 2 + i, photons: 1000, bg: 2, bgstd: 1, sigma: 1.2, lpx: 0.1, lpy: 0.1 });
+    const part = Array.from({ length: 6 }, (_, i) => ({ ...base(i), z: i % 3 ? i * 10 : NaN, lpz: 12, D_coeff: i < 2 ? 0.5 : undefined, track_id: i }));
+    const full = Array.from({ length: 6 }, (_, i) => ({ ...base(i), z: i * 10, lpz: 12 }));
+    const f = locs => { const r = buildCsvText(locs, 100, 1.3), lines = r.parts.join('').trim().split('\n'); return { head: lines[0], omitted: r.omitted, empty: lines.slice(1).filter(l => l.split(',').some(c => c === '')).length }; };
+    return { part: f(part), full: f(full) };
+  });
+  assert.deepEqual(csv.part.omitted, ['z [nm]', 'D_coeff [um^2/s]']);
+  assert.ok(!csv.part.head.includes('z [nm]') && !csv.part.head.includes('D_coeff') && csv.part.head.includes('track_id') && !csv.part.head.includes('sigma_z'), csv.part.head);   // sigma_z goes with z
+  assert.equal(csv.part.empty, 0, 'no row of the CSV has an empty cell');
+  assert.deepEqual(csv.full.omitted, []); assert.ok(csv.full.head.includes('z [nm]')); assert.equal(csv.full.empty, 0);
+  console.log('  CSV: a column empty for some localizations (z, D_coeff) is left out and named; complete columns stay');
+  // Headless: analyze({exportLocFormats}) returns Blobs; the CLI streams the same files (--exportSmlm --exportPicasso).
+  const csvIn = ['"id [webSMLM]","frame","x [nm]","y [nm]","sigma [nm]","intensity [photon]","offset [photon]","bkgstd [photon]","uncertainty [nm]"',
+    ...Array.from({ length: 400 }, (_, i) => `${i + 1},${1 + (i % 20)},${1000 + 13 * i},${800 + 7 * i},130,${900 + i},5,2,15`)].join('\n') + '\n';
+  const head = await page.evaluate(async text => {
+    const r = await window.webSMLM.analyze({ file: new File([text], 'in.csv'), pxnm: PX0, exportLocFormats: ['smlm', 'hdf5'] });
+    let bad = null; try { await window.webSMLM.analyze({ file: new File([text], 'in.csv'), pxnm: PX0, exportLocFormats: ['xml'] }); } catch (e) { bad = e.message; }
+    return { smlm: r.locFiles.smlm.size, hdf5: r.locFiles.hdf5.size, bad };
+  }, csvIn);
+  assert.ok(head.smlm > 1000 && head.hdf5 > 1000, JSON.stringify(head)); assert.match(head.bad, /exportLocFormats lists "xml"/);
+  const inCsv = join(dir, 'in.csv'); writeFileSync(inCsv, csvIn);
+  execFileSync('node', [join(repoRoot, 'tools', 'webSMLM-cli.mjs'), '--file', inCsv, '--pxnm', String(PX), '--exportSmlm', '--exportPicasso', '--out', join(dir, 'cli')], { stdio: 'ignore' });
+  const cli = JSON.parse(py(python, `
+import zipfile, json, sys, h5py, numpy as np
+z = zipfile.ZipFile(sys.argv[1] + '/result.smlm'); assert z.testzip() is None
+man = json.loads(z.read('manifest.json')); n = man['files'][0]['rows']
+f = h5py.File(sys.argv[1] + '/result.hdf5', 'r'); d = f['locs'][...]
+print(json.dumps({'smlm_rows': n, 'h5_rows': int(len(d)), 'x0': float(d['x'][0]), 'px': json.loads(f['metadata'][()])[0]['Pixelsize']}))`, join(dir, 'cli')));
+  assert.equal(cli.smlm_rows, 400); assert.equal(cli.h5_rows, 400); assert.equal(cli.px, PX);
+  close(cli.x0, 1000 / PX - 0.5, 2e-6, 'CLI hdf5 x');
+  console.log('  analyze({exportLocFormats}) returns Blobs; the CLI writes result.smlm / result.hdf5 (400 rows, read in Python)');
   // The button path without the File System Access API: each format downloads under the name of the source stack.
   for (const [fmt, ext] of [['csv', '.csv'], ['smlm', '.smlm'], ['hdf5', '.hdf5']]) {
     await page.evaluate(() => {

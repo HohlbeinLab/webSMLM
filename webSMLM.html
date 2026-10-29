@@ -88,23 +88,23 @@
     params           2769  PARAMS registry, param controls, log/terminal helpers, memory defaults
     in/out           3784  TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
     simulation       4012  synthetic stack generator ("Simulate movie")
-    validation       7075  ground-truth scoring for simulated data ("Compare to GT")
-    detect           8058  band-pass (wavelet/DoG/box) + local-maxima detection
-    fit              8314  phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render           8971  super-resolution accumulation, view, colour maps, plots
-    workers         11040  frame-parallel detect/fit worker pool
-    gpu             11684  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          14031  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  14646  astigmatic width-vs-z bead calibration
-    drift           15058  AIM and cross-correlation drift correction
-    locprecision    16089  NeNA and FRC
-    sSMLM           17256  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          17862  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             19970  single-particle tracking and diffusion coefficients
-    pipeline        21468  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   22552  Micro-Manager/pycromanager bridge (experimental)
-    table           25732  localizations table, filters, histograms, clustering
-    headless API    26423  window.webSMLM.analyze()/analyzeBatch()
+    validation       7077  ground-truth scoring for simulated data ("Compare to GT")
+    detect           8060  band-pass (wavelet/DoG/box) + local-maxima detection
+    fit              8316  phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render           8973  super-resolution accumulation, view, colour maps, plots
+    workers         11042  frame-parallel detect/fit worker pool
+    gpu             11686  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          14033  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  14653  astigmatic width-vs-z bead calibration
+    drift           15065  AIM and cross-correlation drift correction
+    locprecision    16096  NeNA and FRC
+    sSMLM           17263  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          17869  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             19977  single-particle tracking and diffusion coefficients
+    pipeline        21475  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   22559  Micro-Manager/pycromanager bridge (experimental)
+    table           25739  localizations table, filters, histograms, clustering
+    headless API    26430  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1761,7 +1761,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-17d</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-17e</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -6770,6 +6770,8 @@ function makeConcatStack(stacks, names){
     while(lo<hi){ const mid=(lo+hi+1)>>1; if(starts[mid]<=fi) lo=mid; else hi=mid-1; }
     return lo; };
   return {w,h,n,px,streaming:stacks.some(s=>s.streaming),
+    // The parts' decoded caches together (a getter: a part's cache can shrink).
+    get residentBytes(){ return stacks.reduce((a,s)=>a+(s.residentBytes||0),0); },
     getFrame(){ throw new Error('Concatenated stack: use getFrames()'); },
     async getFrames(s,e){
       e=Math.min(e,n); if(e<=s) return [];
@@ -14094,38 +14096,42 @@ const CSV_TEXT_MAX_CHARS=500_000_000;
 // ThunderSTORM-compatible CSV from locs, returned as ~5000-row chunk strings
 // (`parts`, for new Blob(parts)), never one huge string. Pure.
 function buildCsvText(locs, px, sigPSF){
-  const has3d=locs.some(L=>isFinite(L.z));       // include a z column only for 3D results
-  const hasZUnc=has3d && locs.some(L=>isFinite(L.lpz));   // z-precision only available from MLE 3D (see zFromWidths)
+  // ThunderSTORM skips every row with an empty cell, so an optional column
+  // that is empty for only some locs is left out whole (named in `omitted`).
+  const omitted=[];
+  const keep=(name, has, full)=>{ if(has && !locs.every(full)){ omitted.push(name); return false; } return has; };
+  const has3d=keep('z [nm]', locs.some(L=>isFinite(L.z)), L=>isFinite(L.z));   // a z column only for 3D results
+  const hasZUnc=has3d && keep('sigma_z [nm]', locs.some(L=>isFinite(L.lpz)), L=>isFinite(L.lpz));   // z-precision only available from MLE 3D (see zFromWidths)
   // sSMLM's inter-order distance is its own field, independent of z (see
   // MODULE: sSMLM / pairCore) — its own optional column, not a z alias.
-  const hasDist=locs.some(L=>isFinite(L.dist));
+  const hasDist=keep('dist [nm]', locs.some(L=>isFinite(L.dist)), L=>isFinite(L.dist));
   // x2/y2 + pairAngle: sSMLM paired output (not "angle", which is the rotated
   // fitter's own angle).
-  const hasX2Y2=locs.some(L=>isFinite(L.x2)&&isFinite(L.y2));
-  const hasPairAngle=locs.some(L=>isFinite(L.pairAngle));
+  const hasX2Y2=keep('x2/y2 [nm]', locs.some(L=>isFinite(L.x2)&&isFinite(L.y2)), L=>isFinite(L.x2)&&isFinite(L.y2));
+  const hasPairAngle=keep('pairAngle [deg]', locs.some(L=>isFinite(L.pairAngle)), L=>isFinite(L.pairAngle));
   const isClustered=locs.length && locs[0].nMerged!==undefined;   // temporal clustering was applied — see clusterEvents
   // per-axis width — set by the two elliptical fitters (mle3d/gaussmleEll,
   // MODULE: fit) on every loc, not just an sSMLM-paired subset; independent
   // of hasEllSSmlm below (that one's specifically the paired 0th/1st columns).
-  const hasSxSy=locs.some(L=>isFinite(L.sx)&&isFinite(L.sy));
+  const hasSxSy=keep('sigma_x/sigma_y [nm]', locs.some(L=>isFinite(L.sx)&&isFinite(L.sy)), L=>L.sx>0&&L.sy>0);
   // Fitted ellipse rotation (gaussmleEll only; radians, exported in degrees):
   // per emitter with free angle, the fixed sSmlmAngleCenter otherwise.
-  const hasAngle=locs.some(L=>isFinite(L.angle));
-  const hasSigma1st=locs.some(L=>L.sigma1st!==undefined);   // sSMLM paired output only — see pairCore
+  const hasAngle=keep('angle [deg]', locs.some(L=>isFinite(L.angle)), L=>isFinite(L.angle));
+  const hasSigma1st=keep('sigma1st [nm]', locs.some(L=>L.sigma1st!==undefined), L=>L.sigma1st>0);   // sSMLM paired output only — see pairCore
   // sx0th/sy0th/sx1st/sy1st: per-axis widths of both orders (elliptical fit +
   // sSMLM pairing), always set together.
-  const hasEllSSmlm=locs.some(L=>L.sx0th!==undefined);
+  const hasEllSSmlm=keep('sx0th/sy0th/sx1st/sy1st [nm]', locs.some(L=>L.sx0th!==undefined), L=>L.sx0th>0&&L.sy0th>0&&L.sx1st>0&&L.sy1st>0);
   // sxAA/syAA: AA-channel width (smfretEnrichPairedWithAA()).
-  const hasAA=locs.some(L=>L.sxAA!==undefined);
+  const hasAA=keep('sx_AA/sy_AA [nm]', locs.some(L=>L.sxAA!==undefined), L=>L.sxAA>0&&L.syAA>0);
   // spt: track_id on every localization once Track has run; D_coeff only on
   // locs whose track passed the length filter — see trackDiffusionCoeffs().
-  const hasTrackId=locs.some(L=>L.track_id!==undefined);
-  const hasDCoeff=locs.some(L=>isFinite(L.D_coeff));
+  const hasTrackId=keep('track_id', locs.some(L=>L.track_id!==undefined), L=>L.track_id!==undefined);
+  const hasDCoeff=keep('D_coeff [um^2/s]', locs.some(L=>isFinite(L.D_coeff)), L=>isFinite(L.D_coeff));
   // cell_id/cell_area: per-cell tracking only; −1 = no qualifying cell (as
   // sptPALM-Python).
-  const hasCellId=locs.some(L=>L.cell_id!==undefined);
+  const hasCellId=keep('cell_id/cell_area [px]', locs.some(L=>L.cell_id!==undefined), L=>L.cell_id!==undefined&&L.cell_area!==undefined);
   // llr: the MLE shape-test statistic (mean log-likelihood ratio per pixel, PARAMS.shapeTest).
-  const hasLlr=locs.some(L=>isFinite(L.llr));
+  const hasLlr=keep('llr', locs.some(L=>isFinite(L.llr)), L=>isFinite(L.llr));
   const zcol=has3d?'"z [nm]",':'';
   // "sigma [nm]" kept as-is (not "sigma_xy") for ThunderSTORM CSV compatibility;
   // sigma_z/dist/sigma1st/track_id/D_coeff are webSMLM-specific additions,
@@ -14184,7 +14190,7 @@ function buildCsvText(locs, px, sigPSF){
     if(buf.length>=5000){ parts.push(buf.join('\n')+'\n'); buf=[]; }   // chunked: avoid one huge string
   }
   if(buf.length) parts.push(buf.join('\n')+'\n');
-  return { parts, has3d, hasZUnc, isClustered, nNoSigma };
+  return { parts, has3d, hasZUnc, isClustered, nNoSigma, omitted };
 }
 // Uncompressed 16-bit greyscale multi-page TIFF, one strip per page, returned as Blob parts so
 // no single buffer holds the whole movie. ImageJ-style description (images/frames, unit=micron,
@@ -14269,6 +14275,7 @@ async function exportLocs(format){
       const r=buildCsvText(locs, px, sigPSF);
       blob=new Blob(r.parts,{type:T.mime+';charset=utf-8'});
       if(r.nNoSigma) notes.push(`${r.nNoSigma.toLocaleString()} rows use the assumed σ_PSF (phasor does not fit a width).`);
+      if(r.omitted.length) notes.push(`!!! CSV: column(s) ${r.omitted.join(', ')} left out — empty for some localizations, and ThunderSTORM skips every row with an empty cell. Save a .smlm to keep them.`);
     }else if(format==='smlm'){
       blob=await buildSmlmBlob(locs, px, sigPSF, target.name);
     }else{
@@ -14396,11 +14403,11 @@ function packTableRows(cols, locs, from, to){
   return new Uint8Array(buf);
 }
 // All rows of a table as chunks (yielding to the UI between them).
-async function packTable(cols, locs, onChunk){
+async function packTable(cols, locs, onChunk, onProgress=setProg){
   const CH=100000, t0=performance.now(); let lastTick=t0;
   for(let i=0;i<locs.length;i+=CH){
     onChunk(packTableRows(cols, locs, i, Math.min(locs.length,i+CH)));
-    if(performance.now()-lastTick>200){ setProg(100*(i+CH)/locs.length); await tick(); lastTick=performance.now(); }
+    if(performance.now()-lastTick>200){ onProgress(100*(i+CH)/locs.length); await tick(); lastTick=performance.now(); }
   }
 }
 
@@ -14446,7 +14453,7 @@ function zipBlob(entries){
 }
 // .smlm (see parseSmlmLocs()): manifest.json plus one binary table, positions
 // in nm in ThunderSTORM's pixel-edge frame, frames from 1.
-async function buildSmlmBlob(locs, px, sigPSF, fileName){
+async function buildSmlmBlob(locs, px, sigPSF, fileName, onProgress=setProg){
   const cols=smlmTableColumns(locs, px, sigPSF), fmtName='smlm-table(binary)';
   const manifest={format_version:'0.2', name:fileName.replace(/\.smlm$/i,''),
     description:`Localizations exported by webSMLM (${locs.length} rows; positions in nm, pixel centres at (i+0.5)·pixel size, frames from 1)`,
@@ -14455,7 +14462,7 @@ async function buildSmlmBlob(locs, px, sigPSF, fileName){
     files:[{name:'table1.bin', type:'table', format:fmtName, channel:'default', rows:locs.length}]};
   const man=zipEntryWriter('manifest.json', false), tab=zipEntryWriter('table1.bin', true);
   man.push(new TextEncoder().encode(JSON.stringify(manifest,null,1)));
-  await packTable(cols, locs, u8=>tab.push(u8));
+  await packTable(cols, locs, u8=>tab.push(u8), onProgress);
   return zipBlob([man.finish(), tab.finish()]);
 }
 
@@ -14509,7 +14516,7 @@ function hdf5LocsHead(cols, n, metaText){
 // Picasso .hdf5 (+ embedded metadata): positions in camera px with pixel
 // centres at i, frames from 0 (Picasso's own convention, no LOC_PX_EDGE). field:
 // the camera frame size and the movie's frame count, for Picasso's metadata.
-async function buildPicassoBlob(locs, px, sigPSF, fileName, field={}){
+async function buildPicassoBlob(locs, px, sigPSF, fileName, field={}, onProgress=setProg){
   const {cols, dropped, unused}=picassoTableColumns(locs, px, sigPSF), notes=[];
   let maxX=0, maxY=0, maxF=0, nNeg=0;
   for(const L of locs){ if(L.x>maxX) maxX=L.x; if(L.y>maxY) maxY=L.y; if(L.frame>maxF) maxF=L.frame; if(L.x<0||L.y<0) nNeg++; }
@@ -14517,7 +14524,7 @@ async function buildPicassoBlob(locs, px, sigPSF, fileName, field={}){
     'Frames':Math.max(maxF+1, field.frames||0), 'Height':Math.max(field.h||0, Math.ceil(maxY+1)), 'Width':Math.max(field.w||0, Math.ceil(maxX+1)), 'Pixelsize':px}];
   const {head, dataStart}=hdf5LocsHead(cols, locs.length, JSON.stringify(info));
   const parts=[head];
-  await packTable(cols, locs, u8=>parts.push(u8));
+  await packTable(cols, locs, u8=>parts.push(u8), onProgress);
   const total=dataStart+locs.length*4*cols.length;
   if(total>=2**32) notes.push('!!! the file is above 4 GB; some HDF5 readers may refuse it.');
   if(dropped.length) notes.push(`!!! Picasso drops every row with a missing value, so column(s) ${dropped.join(', ')} (missing for some localizations) were left out.`);
@@ -24239,10 +24246,10 @@ function locTableBounds(locs){
 // lastResult. Uses only the CSV (nm/photon values) plus current Pixel
 // size/Magnification for the internal grid; `stack` is untouched and the raw
 // panel stays unavailable.
-function parseCsvLocs(text, onLog=()=>{}){
+function parseCsvLocs(text, onLog=()=>{}, px=paramValue('pxnm')){
   const lines=text.split(/\r?\n/).filter(l=>l.length);
   if(!lines.length) throw new Error('empty file');
-  const headers=lines[0].split(','), px=paramValue('pxnm');
+  const headers=lines[0].split(',');
   // Pixel convention (LOC_PX_EDGE). ThunderSTORM and webSMLM (since v0.13.4,
   // marked "id [webSMLM]") put pixel centres at (i+0.5)·pixel size. Picasso's
   // ThunderSTORM export (picasso hdf2ts, written by pandas: unquoted header,
@@ -24322,7 +24329,7 @@ async function zipEntryText(file, e){ return new Response(await zipEntryStream(f
 // are taken as 1-based, as ThunderSTORM writes them (the spec does not say).
 const SMLM_DTYPES={uint8:[1,'getUint8'], int8:[1,'getInt8'], uint16:[2,'getUint16'], int16:[2,'getInt16'],
   uint32:[4,'getUint32'], int32:[4,'getInt32'], float32:[4,'getFloat32'], float64:[8,'getFloat64']};
-async function parseSmlmLocs(file, {onLog=()=>{}, onProgress=()=>{}, memBudgetGB=Infinity}={}){
+async function parseSmlmLocs(file, {onLog=()=>{}, onProgress=()=>{}, memBudgetGB=Infinity, px=paramValue('pxnm')}={}){
   const zip=await zipDirectory(file), me=zip.get('manifest.json');
   if(!me) throw new Error('no manifest.json in the archive — not a .smlm file');
   const man=JSON.parse(await zipEntryText(file, me));
@@ -24332,7 +24339,7 @@ async function parseSmlmLocs(file, {onLog=()=>{}, onProgress=()=>{}, memBudgetGB
   const budget=effectiveMemBudgetBytes(memBudgetGB);
   if(totalRows*LOC_ROW_BYTES>budget.bytes)
     throw new Error(`${totalRows.toLocaleString()} localizations need about ${(totalRows*LOC_ROW_BYTES/1073741824).toFixed(1)} GB, above the memory budget of ${(budget.bytes/1073741824).toFixed(1)} GB — raise Total memory budget or use a smaller file`);
-  const px=paramValue('pxnm'), locs=[];
+  const locs=[];
   let done=0, lastTick=performance.now();
   for(const fi of tables){
     const fmt=(man.formats||{})[fi.format];
@@ -24574,7 +24581,7 @@ async function parseLocTableFile(file, opts={}){
   if(/\.smlm$/i.test(file.name||'')) return parseSmlmLocs(file, opts);
   if(/\.(hdf5|h5)$/i.test(file.name||'')) return parsePicassoLocs(file, opts);
   const text = typeof file.text==='function' ? await file.text() : new TextDecoder().decode(await file.arrayBuffer());
-  return parseCsvLocs(text, opts.onLog);
+  return parseCsvLocs(text, opts.onLog, opts.px);
 }
 // Keep CSV positions in nm when Pixel size changes, including cached paired
 // and tracked rows. The mask stays on its original camera-pixel grid.
@@ -25636,7 +25643,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.4-dev · build 2026-10-17d — Save localisations also writes .smlm (ShareLoc) and Picasso .hdf5 files.`);
+log(`webSMLM v0.13.4-dev · build 2026-10-17e — CSV leaves out columns that are empty for some localizations; headless .smlm/.hdf5 export; analyze() converts CSV/.smlm nm with pxnm.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
@@ -26517,6 +26524,10 @@ function calibFromJson(o){
 //                          flags — see makeRecordEmitter()'s own comment and
 //                          docs/DOCUMENTATION.md §8 for the NDJSON schema
 //                          each kind writes to when the CLI is the caller.
+//   exportLocFormats      — optional ['smlm','hdf5']: also build result.smlm /
+//                          result.hdf5 (Save localisations' files). Streamed
+//                          through onRecord(kind, [base64 chunk]) when there is
+//                          one, else returned as Blobs in `locFiles`.
 //   onRecord              — optional (kind, batch) callback, see above —
 //                          tools/webSMLM-cli.mjs forwards it to a real NDJSON
 //                          file per kind via console.log, the same live
@@ -26620,7 +26631,7 @@ async function analyze(config){
     if(mx>=1 && cfg.mag>mx){ onLog(`Magnification lowered from ${cfg.mag} to ${mx} (canvas limit ${CANVAS_MAX_DIM} px for a ${w}×${h} px frame).`); cfg.mag=mx; } };
   let r, locs, pcfo=null, stack=null;   // stack hoisted (null for CSV) so the correlation drift method can reach it
   if(isCsv){
-    const parsed = await parseLocTableFile(cfg.file, {onLog, memBudgetGB:cfg.memBudgetGB});
+    const parsed = await parseLocTableFile(cfg.file, {onLog, memBudgetGB:cfg.memBudgetGB, px:cfg.pxnm});
     if(!parsed.locs.length) throw new Error('analyze(): the localization file has no data rows');
     if(parsed.coordsInPx && parsed.px>0 && parsed.px!==cfg.pxnm) onLog(`!!! The file's metadata gives a pixel size of ${parsed.px} nm; this run uses pxnm=${cfg.pxnm} (set pxnm to match).`);
     locs = parsed.locs;
@@ -26774,8 +26785,9 @@ async function analyze(config){
   // so the table accounts for the whole wall clock (see STAGE_META's comment).
   phases.postprocessMs=performance.now()-postprocessT0;
   const csvT0=performance.now();
-  const {parts} = await runStage('exportCsv', stageCtx,
+  const {parts, omitted} = await runStage('exportCsv', stageCtx,
     () => buildCsvText(locs, cfg.pxnm, cfg.psf), null);
+  if(omitted.length) onLog(`!!! CSV: column(s) ${omitted.join(', ')} left out — empty for some localizations, and ThunderSTORM skips every row with an empty cell.`);
   phases.csvMs=performance.now()-csvT0;
   // exportCsvRows: stream buildCsvText()'s ~5000-row chunks through onRecord
   // instead of returning them (the return value crosses CDP as one blob).
@@ -26788,6 +26800,27 @@ async function analyze(config){
     const totalChars=parts.reduce((a,p)=>a+p.length,0);
     csvParts=parts;
     csvText=totalChars<=CSV_TEXT_MAX_CHARS ? parts.join('') : null;
+  }
+  // exportLocFormats: ['smlm','hdf5'] also writes result.smlm / result.hdf5
+  // (the same files as Save localisations). With onRecord they stream as
+  // base64 chunks (a whole file would cross the DevTools Protocol as one
+  // string); without it they come back as Blobs in `locFiles`.
+  let locFiles=null;
+  for(const fmt of cfg.exportLocFormats||[]){
+    if(!['smlm','hdf5'].includes(fmt)) throw new Error(`analyze(): exportLocFormats lists "${fmt}"; use smlm and/or hdf5 (the CSV is always returned)`);
+    let blob;
+    if(fmt==='smlm') blob=await buildSmlmBlob(locs, cfg.pxnm, cfg.psf, 'result.smlm', ()=>{});
+    else{
+      const pr=await buildPicassoBlob(locs, cfg.pxnm, cfg.psf, 'result.hdf5', {w:r.w, h:r.h, frames:stack?stack.n:0}, ()=>{});
+      blob=pr.blob; for(const n of pr.notes) onLog(n);
+    }
+    if(cfg.onRecord){
+      for(let o=0;o<blob.size;o+=3<<20){   // a multiple of 3 bytes: each chunk is complete base64
+        const u8=new Uint8Array(await blob.slice(o,o+(3<<20)).arrayBuffer()); let bin='';
+        for(let i=0;i<u8.length;i+=8192) bin+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));
+        cfg.onRecord(fmt,[btoa(bin)]);
+      }
+    } else (locFiles=locFiles||{})[fmt]=blob;
   }
   // Warn about gain 1 / offset 0 here too (headless has no Save localisations click).
   if(cfg.gain===1 && cfg.camoffset===0){
@@ -26871,7 +26904,7 @@ async function analyze(config){
            // Absent for CSV input (no Run).
            stageTimings: mergedStages,
            drift, nena, frc, truthScore, w:r.w, h:r.h, px:cfg.pxnm, mag:cfg.mag,
-           calib, calibJsonText, pcfo, sSmlmPreview, sSmlmPair, spt, plots };
+           calib, calibJsonText, pcfo, sSmlmPreview, sSmlmPair, spt, plots, locFiles };
 }
 // analyze() over several files with one config; sequential (one shared
 // worker pool) and fail-fast.

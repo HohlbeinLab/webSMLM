@@ -29,10 +29,24 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 - **Simulator realism, after the 2026-09-19 photophysics/background/scoring work** — what it
   showed and what it leaves open:
-  - **The detector's sensitivity limit is now a visible number**: ~440 photons/frame for 50%
-    detection on the defaults (wavelet, k=4). Worth a sweep of `k` and the three detection filters
-    against the recall-vs-photons curve — the tooling makes that a loop, and the default `k` has
-    never been chosen against a measured curve.
+  - **The detector's sensitivity limit is a measured number, and k = 4 sits at the knee** (build
+    2026-10-17e, `tests/validation/bench-detection-sweep.mjs`; 2D movie, log-normal blink brightness
+    CV 1.5, sparse, spherical MLE, shape test off, two seeds, backgrounds 10 and 40 photons/px).
+    Wavelet, k = 2 → 8: detection reaches 50% at ≈ 165 → 520 photons/frame; recall of blinks of
+    300–1000 photons falls 0.83 → 0.33 (bg 10), false positives per 1000 frames 224 → 5. Against ≈ 3500
+    true positives per 1000 frames (at k = 4) that is 0.6% false at k = 4 and 1% at k = 3 on a clean background;
+    at bg 40 it is 0.7% at k = 4, 1.4% at k = 3.5, 4% at k = 3 and 12% at k = 2.5. Lowering k to 3.5
+    buys 4–5 points of recall in the 300–1000 band for up to 2× the false positives (bg 40), so the default
+    stays. DoG gives about half the wavelet's false positives for slightly fewer detections at the same k
+    (recall 0.67 against 0.70 at k = 4, bg 10).
+    The box filter's plain intensity threshold looks better than both on this movie (threshold 16:
+    recall 0.83–0.86 with 1–26 false positives) but only because the simulated background is flat;
+    its threshold is in raw filtered intensity, so it depends on gain and offset, and a structured
+    background would break it — not a reason to change either default.
+    Still open: the simulated frames have no structure at the PSF's own scale (hot pixels,
+    out-of-focus light, autofluorescence), which is what makes real false positives, so the false-
+    positive columns are a floor. Repeat with out-of-focus emitters (Zernike PSF, `simulation_hazeRatio`)
+    and on the real datasets before moving a default.
   - **NeNA vs ground truth, first data point**: 2.9 nm (NeNA) vs 3.4 nm per axis (scored), on one
     multi-blink run. One point is not a validation — repeat across photon levels and blink
     lengths, since NeNA's consecutive-frame pairing favours long, full-frame blinks.
