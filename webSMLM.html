@@ -95,16 +95,16 @@
     workers         11040  frame-parallel detect/fit worker pool
     gpu             11684  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
     export          14031  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  14383  astigmatic width-vs-z bead calibration
-    drift           14795  AIM and cross-correlation drift correction
-    locprecision    15826  NeNA and FRC
-    sSMLM           16993  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          17599  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             19707  single-particle tracking and diffusion coefficients
-    pipeline        21205  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   22289  Micro-Manager/pycromanager bridge (experimental)
-    table           25469  localizations table, filters, histograms, clustering
-    headless API    26160  window.webSMLM.analyze()/analyzeBatch()
+    3D calibration  14646  astigmatic width-vs-z bead calibration
+    drift           15058  AIM and cross-correlation drift correction
+    locprecision    16089  NeNA and FRC
+    sSMLM           17256  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          17862  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             19970  single-particle tracking and diffusion coefficients
+    pipeline        21468  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   22552  Micro-Manager/pycromanager bridge (experimental)
+    table           25732  localizations table, filters, histograms, clustering
+    headless API    26423  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1761,7 +1761,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-17c</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.4-dev · build 2026-10-17d</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1791,7 +1791,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button class="danger" id="stopBtn" title="Stop the running Localize (localizations found so far are kept), drift correction or 3D calibration (both discarded), or end a live-streaming session" disabled>Stop</button>
       </div>
       <div class="btnrow">
-        <button id="saveBtn" disabled title="Save the localizations as a ThunderSTORM-compatible CSV (localizations only — plots via Save plot/image, settings via Save settings)">Save localisations</button>
+        <button id="saveBtn" disabled title="Save the localizations as a ThunderSTORM-compatible CSV, a .smlm (ShareLoc) or a Picasso .hdf5 — pick the type in the dialog (localizations only — plots via Save plot/image, settings via Save settings)">Save localisations</button>
         <button id="saveImgBtn" disabled title="Save a window (left or right) as an image — plots also offer SVG in the save dialog's file-type dropdown">Save plot/image</button>
       </div>
       <div class="btnrow" style="margin-top:6px">
@@ -14240,28 +14240,291 @@ function encodeTiff16(frames, w, h, {pxNm=0, frameTimeS=0, extraDesc='', bigTiff
   }
   return {parts, big, bytes:pos};
 }
-// "Save localisations": builds the ThunderSTORM-compatible CSV (via buildCsvText())
-// from the current filtered/cropped locs and offers it through saveBlob().
-async function exportCSV(){
+// "Save localisations": the current filtered/cropped locs as a ThunderSTORM CSV
+// (buildCsvText()), a .smlm (ShareLoc) or a Picasso .hdf5. One dialog offers
+// all three and the chosen file type decides (saveLocalisations()); the three
+// exportXxx() functions skip the choice. Logged as the matching call.
+const LOC_SAVE_TYPES={
+  csv:{ext:'.csv', desc:'CSV (ThunderSTORM)', mime:'text/csv', call:'exportCSV()'},
+  smlm:{ext:'.smlm', desc:'.smlm (ShareLoc)', mime:'application/zip', call:'exportSmlm()'},
+  hdf5:{ext:'.hdf5', desc:'HDF5 (Picasso)', mime:'application/x-hdf5', call:'exportPicasso()'},
+};
+function saveLocalisations(){ return exportLocs(null); }
+function exportCSV(){ return exportLocs('csv'); }
+function exportSmlm(){ return exportLocs('smlm'); }
+function exportPicasso(){ return exportLocs('hdf5'); }
+async function exportLocs(format){
   if(!lastResult||!lastResult.locs.length){ log('!!! Save localisations: no localisations — run Localize first.'); return; }
   const locs=renderLocs||lastResult.locs, {px}=lastResult;   // export the filtered/cropped subset, same as the reconstruction
   const gain=paramValue('gain'), camoffset=paramValue('camoffset'), sigPSF=paramValue('psf');
-  const {parts, isClustered, nNoSigma} = buildCsvText(locs, px, sigPSF);
-  const blob=new Blob(parts,{type:'text/csv;charset=utf-8'});
   // name after the source stack: "foo.ome.tif" -> "foo_locs.csv"
-  const suggestedName=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_locs.csv';
-  const saved=await saveBlob(blob,suggestedName,'CSV (ThunderSTORM)','text/csv','.csv');
+  const base=stackName.replace(/\.(ome\.)?tiff?$/i,'').replace(/\.[^.]*$/,'')+'_locs';
+  const target=await pickLocSaveTarget(format, base);
+  if(!target){ log('Export cancelled.'); return; }
+  format=target.format;
+  const T=LOC_SAVE_TYPES[format];
+  let blob, notes=[];
+  try{
+    if(format==='csv'){
+      const r=buildCsvText(locs, px, sigPSF);
+      blob=new Blob(r.parts,{type:T.mime+';charset=utf-8'});
+      if(r.nNoSigma) notes.push(`${r.nNoSigma.toLocaleString()} rows use the assumed σ_PSF (phasor does not fit a width).`);
+    }else if(format==='smlm'){
+      blob=await buildSmlmBlob(locs, px, sigPSF, target.name);
+    }else{
+      const r=await buildPicassoBlob(locs, px, sigPSF, target.name, {w:lastResult.w, h:lastResult.h, frames:stack?stack.n:0});
+      blob=r.blob; notes=r.notes;
+    }
+  }catch(err){ setProg(null); log(`!!! Save localisations failed: ${err.message}.`); return; }
+  setProg(null);
+  const saved=await writeLocSave(target, blob);
   if(!saved){ log('Export cancelled.'); return; }
+  const isClustered=locs[0].nMerged!==undefined;
   log(`Exported ${locs.length.toLocaleString()} ${isClustered?'events':'localizations'} as ${saved} (${(blob.size/1048576).toFixed(1)} MB)${renderLocs?` — filtered subset (${lastResult.locs.length.toLocaleString()} total localizations before filters)`:''}.`);
-  log('This CSV is also written automatically as result.csv by any CLI/analyze() run — no extra flag needed.');
-  if(nNoSigma) log(`note: ${nNoSigma.toLocaleString()} rows use the assumed σ_PSF (phasor does not fit a width).`);
+  if(format==='csv') log('This CSV is also written automatically as result.csv by any CLI/analyze() run — no extra flag needed.');
+  for(const n of notes) log(n);
   if(gain===1&&camoffset===0){
-    log('!!! gain 1 / offset 0 — “intensity [photon]” is in ADU, not photons.');
+    log('!!! gain 1 / offset 0 — photon values are in ADU, not photons.');
     log('The uncertainty column scales as 1/√N and is therefore not physically');
     log('meaningful until a real ADU→photon conversion is entered.');
   }
-  // Logged as exportCSV() (no parameters beyond the current result).
-  logCmd({}, 'exportCSV()');
+  logCmd({}, T.call);
+}
+// Where to save: the native dialog offering the requested type (all three when
+// `format` is null; the type is read from the chosen name's extension), or a
+// plain download without the File System Access API (then CSV unless asked).
+// -> {format, name, handle} or null (cancelled).
+async function pickLocSaveTarget(format, base){
+  const typeOf=name=>Object.keys(LOC_SAVE_TYPES).find(k=>name.toLowerCase().endsWith(LOC_SAVE_TYPES[k].ext))||'csv';
+  const kinds=format ? [format] : Object.keys(LOC_SAVE_TYPES);
+  if(window.showSaveFilePicker){
+    try{
+      const h=await window.showSaveFilePicker({suggestedName:base+LOC_SAVE_TYPES[kinds[0]].ext,
+        types:kinds.map(k=>({description:LOC_SAVE_TYPES[k].desc, accept:{[LOC_SAVE_TYPES[k].mime]:[LOC_SAVE_TYPES[k].ext]}}))});
+      return {format:format||typeOf(h.name), name:h.name, handle:h};
+    }catch(err){ if(err&&err.name==='AbortError') return null;   // cancelled
+      log(`(save dialog unavailable: ${err&&err.message||err})`); }
+  } else if(!_dlHintShown){
+    _dlHintShown=true;
+    log('(Save-As dialogs need http(s); on a local file:// page the browser downloads instead.');
+    log('Enable “Ask where to save each file” in your browser to be prompted for a location.)');
+  }
+  format=format||'csv';
+  return {format, name:base+LOC_SAVE_TYPES[format].ext, handle:null};
+}
+async function writeLocSave(target, blob){
+  if(target.handle){
+    const ws=await target.handle.createWritable(); await ws.write(blob); await ws.close();
+    return target.handle.name;
+  }
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=target.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  return target.name;
+}
+
+// Localisation precision of one loc in nm, as the CSV's "uncertainty" column:
+// the fitter's own CRLB when it has one, else the Thompson formula.
+function locUncertaintyNm(L, px, sigPSF){
+  if(isFinite(L.lpx)&&isFinite(L.lpy)) return Math.sqrt((L.lpx*L.lpx+L.lpy*L.lpy)/2)*px;
+  return precisionNm((L.sigma>0?L.sigma:sigPSF)*px, px, Math.max(0,L.photons||0), Math.max(0,L.bgstd||0));
+}
+// Table columns of the .smlm export, the CSV's set in the same units (nm,
+// photons, degrees; names LOC_COLUMNS reads back) with positions in the
+// pixel-edge frame (LOC_PX_EDGE). Missing values are NaN. {name, unit, dtype,
+// get} per column; every column but frame is a float32.
+function smlmTableColumns(locs, px, sigPSF){
+  const any=f=>locs.some(f), E=LOC_PX_EDGE, col=(name,unit,get)=>({name, unit, dtype:name==='frame'?'uint32':'float32', get});
+  const nm=(name,f)=>col(name,'nm',L=>isFinite(L[f])&&L[f]>0 ? L[f]*px : NaN);
+  const cols=[col('frame','frame',L=>(L.frame|0)+1), col('x','nm',L=>(L.x+E)*px), col('y','nm',L=>(L.y+E)*px)];
+  if(any(L=>isFinite(L.z))) cols.push(col('z','nm',L=>L.z));
+  cols.push(col('intensity','photon',L=>Math.max(0,L.photons||0)), col('offset','photon',L=>Math.max(0,L.bg||0)),
+            col('bkgstd','photon',L=>Math.max(0,L.bgstd||0)), col('sigma','nm',L=>(L.sigma>0?L.sigma:sigPSF)*px),
+            col('uncertainty','nm',L=>locUncertaintyNm(L,px,sigPSF)));
+  if(any(L=>isFinite(L.z)&&isFinite(L.lpz))) cols.push(col('sigma_z','nm',L=>L.lpz));
+  if(any(L=>isFinite(L.sx)&&isFinite(L.sy))) cols.push(nm('sigma_x','sx'), nm('sigma_y','sy'));
+  if(any(L=>isFinite(L.angle))) cols.push(col('angle','deg',L=>isFinite(L.angle)?L.angle*180/Math.PI:NaN));
+  if(any(L=>isFinite(L.dist))) cols.push(col('dist','nm',L=>L.dist));
+  if(any(L=>isFinite(L.x2)&&isFinite(L.y2))) cols.push(col('x2','nm',L=>(L.x2+E)*px), col('y2','nm',L=>(L.y2+E)*px));
+  if(any(L=>isFinite(L.pairAngle))) cols.push(col('pairAngle','deg',L=>L.pairAngle));
+  if(any(L=>L.sigma1st!==undefined)) cols.push(nm('sigma1st','sigma1st'));
+  if(any(L=>L.sx0th!==undefined)) cols.push(nm('sx0th','sx0th'), nm('sy0th','sy0th'), nm('sx1st','sx1st'), nm('sy1st','sy1st'));
+  if(any(L=>L.sxAA!==undefined)) cols.push(nm('sx_AA','sxAA'), nm('sy_AA','syAA'));
+  if(locs[0].nMerged!==undefined) cols.push(col('n_merged','frame',L=>L.nMerged||1));
+  if(any(L=>L.track_id!==undefined)) cols.push(col('track_id','',L=>L.track_id!==undefined?L.track_id:NaN));
+  if(any(L=>isFinite(L.D_coeff))) cols.push(col('D_coeff','um^2/s',L=>L.D_coeff));
+  if(any(L=>L.cell_id!==undefined)) cols.push(col('cell_id','',L=>L.cell_id!==undefined?L.cell_id:NaN), col('cell_area','px',L=>L.cell_area!==undefined?L.cell_area:NaN));
+  if(any(L=>isFinite(L.llr))) cols.push(col('llr','',L=>L.llr));
+  return cols;
+}
+// Columns Picasso's own localization tables have (camera px, frames from 0,
+// z/lpz in nm, pixel centres at i: no LOC_PX_EDGE) plus z/lpz. Picasso drops
+// every row with a NaN in any column, so a column that is missing for some
+// locs (z, lpz, sx/sy) is left out whole; dropped lists their names. The
+// rest of the loc fields have no Picasso column ('unused': names only).
+function picassoTableColumns(locs, px, sigPSF){
+  const col=(name,get,dtype='float32')=>({name, dtype, get}), whole=get=>locs.every(L=>isFinite(get(L)));
+  const sig=L=>L.sigma>0 ? L.sigma : sigPSF;
+  const lp=(L,v)=>{ if(!isFinite(v)) v=locUncertaintyNm(L,px,sigPSF)/px; return isFinite(v) ? v : sig(L); };   // no precision (no photons): the PSF width
+  const cols=[col('frame',L=>L.frame|0,'uint32'), col('x',L=>L.x), col('y',L=>L.y),
+    col('photons',L=>Math.max(0,L.photons||0)),
+    col('sx',L=>L.sx>0?L.sx:sig(L)), col('sy',L=>L.sy>0?L.sy:sig(L)),
+    col('bg',L=>Math.max(0,L.bg||0)),
+    col('lpx',L=>lp(L,L.lpx)), col('lpy',L=>lp(L,L.lpy))];
+  const dropped=[];
+  for(const c of [col('z',L=>L.z), col('lpz',L=>L.lpz)]){
+    if(!locs.some(L=>isFinite(c.get(L)))) continue;
+    if(whole(c.get)) cols.push(c); else dropped.push(c.name);
+  }
+  const unused=[['angle',L=>isFinite(L.angle)], ['dist',L=>isFinite(L.dist)], ['x2/y2',L=>isFinite(L.x2)], ['pairAngle',L=>isFinite(L.pairAngle)],
+    ['sigma1st',L=>L.sigma1st!==undefined], ['sx0th…',L=>L.sx0th!==undefined], ['sx_AA/sy_AA',L=>L.sxAA!==undefined],
+    ['n_merged',L=>L.nMerged!==undefined], ['track_id',L=>L.track_id!==undefined], ['D_coeff',L=>isFinite(L.D_coeff)],
+    ['cell_id',L=>L.cell_id!==undefined], ['llr',L=>isFinite(L.llr)]].filter(([,f])=>locs.some(f)).map(([n])=>n);
+  return {cols, dropped, unused};
+}
+// Rows [from,to) of a table as little-endian 4-byte values, column after column
+// within a row (the .smlm binary layout, also the HDF5 compound's packed layout).
+function packTableRows(cols, locs, from, to){
+  const rl=cols.length*4, buf=new ArrayBuffer((to-from)*rl), dv=new DataView(buf);
+  for(let i=from, b=0; i<to; i++, b+=rl){
+    const L=locs[i];
+    for(let j=0;j<cols.length;j++){
+      const c=cols[j], v=c.get(L), o=b+4*j;
+      if(c.dtype==='uint32') dv.setUint32(o,v,true); else dv.setFloat32(o,v,true);
+    }
+  }
+  return new Uint8Array(buf);
+}
+// All rows of a table as chunks (yielding to the UI between them).
+async function packTable(cols, locs, onChunk){
+  const CH=100000, t0=performance.now(); let lastTick=t0;
+  for(let i=0;i<locs.length;i+=CH){
+    onChunk(packTableRows(cols, locs, i, Math.min(locs.length,i+CH)));
+    if(performance.now()-lastTick>200){ setProg(100*(i+CH)/locs.length); await tick(); lastTick=performance.now(); }
+  }
+}
+
+// CRC-32 (zip, PNG): crc32Update(0xFFFFFFFF, bytes) chained, finished with ^0xFFFFFFFF.
+const CRC32_TABLE=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1 ? 0xEDB88320^(c>>>1) : c>>>1; t[n]=c>>>0; } return t; })();
+function crc32Update(c, u8){ for(let i=0;i<u8.length;i++) c=CRC32_TABLE[(c^u8[i])&255]^(c>>>8); return c>>>0; }
+// One ZIP entry assembled from pushed chunks, stored or raw-deflated (pako).
+function zipEntryWriter(name, deflate){
+  const parts=[], d=deflate ? new pako.Deflate({raw:true, level:6}) : null;
+  let crc=0xFFFFFFFF, usize=0, csize=0;
+  if(d) d.onData=c=>{ parts.push(c); csize+=c.length; };
+  return {
+    push(u8){ crc=crc32Update(crc,u8); usize+=u8.length; if(d) d.push(u8,false); else { parts.push(u8); csize+=u8.length; } },
+    finish(){ if(d) d.push(new Uint8Array(0),true); return {name, parts, crc:(crc^0xFFFFFFFF)>>>0, csize, usize, method:d?8:0}; },
+  };
+}
+// A ZIP archive (no ZIP64: each entry and the archive must stay below 4 GB) from finished entries.
+function zipBlob(entries){
+  const enc=new TextEncoder(), now=new Date();
+  const dosTime=(now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1), dosDate=((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate();
+  const parts=[], central=[]; let pos=0;
+  for(const e of entries){
+    const nm=enc.encode(e.name);
+    if(e.csize>=0xFFFFFFFF || e.usize>=0xFFFFFFFF || pos>=0xFFFFFFFF) throw new Error('too many localizations for a .smlm file (4 GB limit of the ZIP format without ZIP64)');
+    const lh=new DataView(new ArrayBuffer(30+nm.length));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0,true); lh.setUint16(8,e.method,true);
+    lh.setUint16(10,dosTime,true); lh.setUint16(12,dosDate,true); lh.setUint32(14,e.crc,true); lh.setUint32(18,e.csize,true); lh.setUint32(22,e.usize,true);
+    lh.setUint16(26,nm.length,true);
+    new Uint8Array(lh.buffer).set(nm,30);
+    const ch=new DataView(new ArrayBuffer(46+nm.length));
+    ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(10,e.method,true);
+    ch.setUint16(12,dosTime,true); ch.setUint16(14,dosDate,true); ch.setUint32(16,e.crc,true); ch.setUint32(20,e.csize,true); ch.setUint32(24,e.usize,true);
+    ch.setUint16(28,nm.length,true); ch.setUint32(42,pos,true);
+    new Uint8Array(ch.buffer).set(nm,46);
+    central.push(new Uint8Array(ch.buffer));
+    parts.push(new Uint8Array(lh.buffer), ...e.parts);
+    pos+=30+nm.length+e.csize;
+  }
+  const cdSize=central.reduce((n,c)=>n+c.length,0), end=new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true); end.setUint16(8,entries.length,true); end.setUint16(10,entries.length,true);
+  end.setUint32(12,cdSize,true); end.setUint32(16,pos,true);
+  return new Blob([...parts, ...central, end.buffer],{type:'application/zip'});
+}
+// .smlm (see parseSmlmLocs()): manifest.json plus one binary table, positions
+// in nm in ThunderSTORM's pixel-edge frame, frames from 1.
+async function buildSmlmBlob(locs, px, sigPSF, fileName){
+  const cols=smlmTableColumns(locs, px, sigPSF), fmtName='smlm-table(binary)';
+  const manifest={format_version:'0.2', name:fileName.replace(/\.smlm$/i,''),
+    description:`Localizations exported by webSMLM (${locs.length} rows; positions in nm, pixel centres at (i+0.5)·pixel size, frames from 1)`,
+    formats:{[fmtName]:{type:'table', mode:'binary', extension:'.bin', columns:cols.length,
+      headers:cols.map(c=>c.name), dtype:cols.map(c=>c.dtype), shape:cols.map(()=>1), units:cols.map(c=>c.unit)}},
+    files:[{name:'table1.bin', type:'table', format:fmtName, channel:'default', rows:locs.length}]};
+  const man=zipEntryWriter('manifest.json', false), tab=zipEntryWriter('table1.bin', true);
+  man.push(new TextEncoder().encode(JSON.stringify(manifest,null,1)));
+  await packTable(cols, locs, u8=>tab.push(u8));
+  return zipBlob([man.finish(), tab.finish()]);
+}
+
+// Minimal HDF5 file for Picasso: a root group with the compound dataset /locs
+// (4-byte columns, contiguous) and the string dataset /metadata (Picasso's
+// JSON metadata, read by Picasso >= 0.11 and parsePicassoLocs()). Superblock
+// v0, v1 object headers, symbol-table group, the layout h5py writes by default
+// (readHdf5Table() reads it back). Returns the file's bytes before the table
+// data, which follows at `dataStart`.
+function hdf5LocsHead(cols, n, metaText){
+  const enc=new TextEncoder(), meta=enc.encode(metaText+'\0'), rowLen=4*cols.length;
+  const a8=v=>Math.ceil(v/8)*8, UNDEF=-1;   // UNDEF: the all-ones address
+  // growable little-endian writer
+  const W=()=>{ const a=[]; const w={
+    u8(...v){ a.push(...v); return w; }, u16(v){ a.push(v&255,(v>>8)&255); return w; },
+    u32(v){ a.push(v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255); return w; },
+    u64(v){ return v<0 ? w.u32(0xFFFFFFFF).u32(0xFFFFFFFF) : w.u32(v%4294967296).u32(Math.floor(v/4294967296)); },
+    pad(len){ while(a.length<len) a.push(0); return w; }, str(s){ a.push(...enc.encode(s)); return w; },
+    get length(){ return a.length; }, bytes(){ return Uint8Array.from(a); } }; return w; };
+  const msgBytes=(type,d)=>{ const w=W().u16(type).u16(a8(d.length)).u8(0,0,0,0); for(const b of d) w.u8(b); return w.pad(8+a8(d.length)).bytes(); };
+  const header=msgs=>{ const body=msgs.reduce((s,m)=>s+m.length,0), w=W().u8(1,0).u16(msgs.length).u32(1).u32(body).pad(16); for(const m of msgs) for(const b of m) w.u8(b); return w.bytes(); };
+  // datatypes
+  const f32=W().u8(0x11,0x20,31,0).u32(4).u16(0).u16(32).u8(23,8,0,23).u32(127).bytes();
+  const u32t=W().u8(0x10,0,0,0).u32(4).u16(0).u16(32).bytes();
+  const cmp=W().u8(0x16).u8(cols.length&255,cols.length>>8,0).u32(rowLen);
+  cols.forEach((c,j)=>{ const nb=enc.encode(c.name); cmp.str(c.name).u8(0).pad(cmp.length+a8(nb.length+1)-nb.length-1).u32(4*j).pad(cmp.length+28); for(const b of (c.dtype==='uint32'?u32t:f32)) cmp.u8(b); });
+  // fixed layout up to the two dataset headers
+  const ROOT=96, HEAP=ROOT+40, TREE=HEAP+32+32, SNOD=TREE+544, LOCS=SNOD+328;
+  const space1=[1,1,0,0,0,0,0,0, ...W().u64(n).bytes()], spaceScalar=[1,0,0,0,0,0,0,0];
+  const fill=[2,2,2,0], metaType=W().u8(0x13,0x10,0,0).u32(meta.length).bytes();
+  const sizeOf=(dt,sp)=>16+(8+a8(sp.length))+(8+a8(dt.length))+(8+8)+(8+24);
+  const META=LOCS+sizeOf(cmp.bytes(),space1), dataMeta=META+sizeOf(metaType,spaceScalar), dataStart=a8(dataMeta+meta.length);
+  const dsHead=(dt,sp,addr,size)=>header([msgBytes(1,sp), msgBytes(3,dt), msgBytes(5,fill),
+    msgBytes(8,[3,1,...W().u64(addr).u64(size).bytes()])]);
+  // pieces
+  const sb=W().u8(0x89,0x48,0x44,0x46,0x0d,0x0a,0x1a,0x0a, 0,0,0,0,0,8,8,0).u16(4).u16(16).u32(0).u64(0).u64(UNDEF).u64(dataStart+n*rowLen).u64(UNDEF)
+    .u64(0).u64(ROOT).u32(1).u32(0).u64(TREE).u64(HEAP).bytes();
+  const root=header([msgBytes(0x11, [...W().u64(TREE).u64(HEAP).bytes()])]);
+  const heap=W().str('HEAP').u8(0,0,0,0).u64(32).u64(1).u64(HEAP+32).pad(32)
+    .str('').pad(40).str('locs').pad(48).str('metadata').pad(64).bytes();   // data segment: '', 'locs' at 8, 'metadata' at 16
+  const tree=W().str('TREE').u8(0,0).u16(1).u64(UNDEF).u64(UNDEF).u64(0).u64(SNOD).u64(16).pad(544).bytes();
+  const snod=W().str('SNOD').u8(1,0).u16(2).u64(8).u64(LOCS).u32(0).u32(0).pad(8+40).u64(16).u64(META).u32(0).u32(0).pad(8+80).pad(328).bytes();
+  const head=new Uint8Array(dataStart);
+  let o=0; for(const p of [sb, root]){ head.set(p,o); o+=p.length; }
+  head.set(heap, HEAP); head.set(tree, TREE); head.set(snod, SNOD);
+  head.set(dsHead(cmp.bytes(), space1, dataStart, n*rowLen), LOCS);
+  head.set(dsHead(metaType, spaceScalar, dataMeta, meta.length), META);
+  head.set(meta, dataMeta);
+  return {head, dataStart};
+}
+// Picasso .hdf5 (+ embedded metadata): positions in camera px with pixel
+// centres at i, frames from 0 (Picasso's own convention, no LOC_PX_EDGE). field:
+// the camera frame size and the movie's frame count, for Picasso's metadata.
+async function buildPicassoBlob(locs, px, sigPSF, fileName, field={}){
+  const {cols, dropped, unused}=picassoTableColumns(locs, px, sigPSF), notes=[];
+  let maxX=0, maxY=0, maxF=0, nNeg=0;
+  for(const L of locs){ if(L.x>maxX) maxX=L.x; if(L.y>maxY) maxY=L.y; if(L.frame>maxF) maxF=L.frame; if(L.x<0||L.y<0) nNeg++; }
+  const info=[{'Generated by':'webSMLM', 'Byte Order':'<', 'File':fileName,
+    'Frames':Math.max(maxF+1, field.frames||0), 'Height':Math.max(field.h||0, Math.ceil(maxY+1)), 'Width':Math.max(field.w||0, Math.ceil(maxX+1)), 'Pixelsize':px}];
+  const {head, dataStart}=hdf5LocsHead(cols, locs.length, JSON.stringify(info));
+  const parts=[head];
+  await packTable(cols, locs, u8=>parts.push(u8));
+  const total=dataStart+locs.length*4*cols.length;
+  if(total>=2**32) notes.push('!!! the file is above 4 GB; some HDF5 readers may refuse it.');
+  if(dropped.length) notes.push(`!!! Picasso drops every row with a missing value, so column(s) ${dropped.join(', ')} (missing for some localizations) were left out.`);
+  if(nNeg) notes.push(`!!! ${nNeg.toLocaleString()} localizations lie at a negative x or y; Picasso discards those when it opens the file.`);
+  if(unused.length) notes.push(`Picasso has no column for ${unused.join(', ')} — save a CSV or .smlm to keep them.`);
+  notes.push('Positions are in camera pixels (pixel centres at i, frames from 0), the metadata is embedded in the file (Picasso 0.11 and later; older versions also need a .yaml).');
+  return {blob:new Blob(parts,{type:'application/x-hdf5'}), notes};
 }
 
 // What each window holds and how to name its export, or null if empty ('sr'
@@ -24559,7 +24822,7 @@ $('file').addEventListener('change', async e=>{
   const fs=[...e.target.files]; e.target.value='';
   await loadFiles(fs);
 });
-$('saveBtn').addEventListener('click',exportCSV);
+$('saveBtn').addEventListener('click',saveLocalisations);
 $('saveImgBtn').addEventListener('click',saveImageClicked);
 $('clearLogBtn').addEventListener('click',()=>{ logHistory=[]; $('logText').textContent=''; $('exportLogBtn').disabled=true; });
 // Toggles how logged commands are shown (JS vs CLI) and rewrites the whole
@@ -25373,7 +25636,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.4-dev · build 2026-10-17c — pixel-centre convention: reconstruction, masks, CSV import/export aligned (half pixel).`);
+log(`webSMLM v0.13.4-dev · build 2026-10-17d — Save localisations also writes .smlm (ShareLoc) and Picasso .hdf5 files.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

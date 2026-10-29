@@ -345,7 +345,17 @@ what makes GUI and command-line use interchangeable.
   (frames, PSF planes) are described under **Simulation**. WGSL strings can't share
   functions (e.g. `erfApprox()` is duplicated); no backticks or `${` in comments inside them.
 
-- **export** — ThunderSTORM-compatible CSV (`buildCsvText()` returns ~5000-row `parts`, never one
+- **export** — **Save localisations** (`saveLocalisations()`: one dialog, the chosen extension picks the
+  writer; `exportCSV()`/`exportSmlm()`/`exportPicasso()` skip the choice, all through `exportLocs(format)`).
+  `.smlm` (`buildSmlmBlob()`: ZIP via `zipEntryWriter()`/`zipBlob()`, pako raw deflate, CRC-32, no ZIP64;
+  columns from `smlmTableColumns()`, the CSV's set in nm with `LOC_PX_EDGE`, names `LOC_COLUMNS` reads
+  back) and Picasso `.hdf5` (`buildPicassoBlob()`: `hdf5LocsHead()` writes a minimal h5py-style file,
+  superblock v0 + v1 object headers + symbol-table group, `/locs` compound of 4-byte columns, `/metadata`
+  a fixed-length JSON string; `picassoTableColumns()`: Picasso's names, px, frames from 0, no pixel-edge
+  shift, a column missing for some locs is left out because Picasso drops rows with NaN). A new loc field
+  goes in `buildCsvText()` and `smlmTableColumns()` (and `LOC_COLUMNS` to read it back). Test:
+  `tests/io/test-save-loc-formats.mjs` (h5py, and Picasso when `PICASSO_PYTHON`/python3 has it).
+  ThunderSTORM-compatible CSV (`buildCsvText()` returns ~5000-row `parts`, never one
   string). Optional columns appear only when a loc carries the field (`sigma_x/y`, `angle`, `x2/y2/
   pairAngle`, `sx0th…`, `sx_AA/sy_AA`, `cell_id/cell_area`, `track_id/D_coeff`, `llr`). `analyze()` returns
   `csvParts` always and `csvText` only below `CSV_TEXT_MAX_CHARS`; `config.exportCsvRows` streams

@@ -71,7 +71,7 @@ below for what it does.
 | **Save settings** | `saveSetBtn` | Dumps the *current* value of every `PARAMS` entry (not just ones with a page control) to a `webSMLM_settings.json` file — see [§4](#4-settings-json-format). |
 | **Localize** | `runBtn` | Runs detection + fitting over the Localisation frame range (**First/Last frame**, the whole stack by default) of the loaded/simulated movie, then renders the reconstruction — the main action. Disabled until a stack is loaded. |
 | **Stop** | `stopBtn` | Requests an early stop of a running **Localize**, **Correct drift** or **3D calibration**, or ends a live-streaming session. Localize keeps whatever localizations were gathered so far (a partial result is still valid). Drift correction previews the partial curve but doesn't apply it. Calibration discards everything instead — a calibration fit needs the WHOLE configured z-range, so a partial one would be silently biased, not just smaller; press **Calibrate** again to restart with a narrower/correct frame range. |
-| **Save localisations** | `saveBtn` | Exports the current (filtered) localizations as a ThunderSTORM-compatible CSV — see [§6](#6-csv-export-format). Disabled until there are localizations. |
+| **Save localisations** | `saveBtn` | Exports the current (filtered) localizations. The save dialog offers three file types and the one you choose decides: a ThunderSTORM-compatible CSV, a `.smlm` (ShareLoc) or a Picasso `.hdf5` — see [§6](#6-csv-export-format). Disabled until there are localizations. |
 | **Save plot/image** | `saveImgBtn` | Opens a chooser (if both panels have content) to export the raw/reconstruction/plot window shown. The raw frame or reconstruction always saves as a supersampled PNG. A plot (calibration/drift/NeNA/FRC/PCFO/line-profile/histogram) instead opens a save dialog offering **both** PNG and SVG as file types — pick the format in the dialog's own "Save as type" dropdown. (Browsers without a native save-file dialog, e.g. Safari/Firefox, fall back to a PNG download — SVG needs the native dialog to choose.) |
 | **View data/filtering** | `tableBtn` | Opens the sortable, filterable localizations table — see [§5](#5-table--filter-grammar). Disabled until there are localizations; during **Live streaming** this enables as soon as any localization has arrived, same as **Correct drift**/NeNA/FRC — see [§2](#table)'s "Available during Live streaming" note for what's restricted (committing a new filter) vs. not (browsing/sorting/histograms). Loading a CSV back in (via **Load data** above) works exactly as after a Run — table, reconstruction, NeNA/FRC/drift/re-export all function on it, using only what's in the CSV plus the *current* Pixel size / Magnification controls; there's no raw frame data, so `stack` is left untouched and re-detection/live preview stay unavailable for CSV-loaded data — see [§6](#6-csv-export-format). |
 | **Quick guide** | `helpBtn` | Opens the in-app quick-reference modal (guided workflow, acknowledgements, licence). Shares its row with **View data/filtering**. |
@@ -456,7 +456,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Fix SOI x,y (unchecked) | `clearSmfretFixSOI()` | |
 | Show raw frame/time trace (smFRET) | `toggleSmfretTraceMode()` | |
 | Committing a table filter | `commitFilter()` / `resetFilters()` | reads `#tableFilter`'s current text |
-| Save localisations (CSV) | `exportCSV()` | |
+| Save localisations | `saveLocalisations()` (dialog: CSV, `.smlm` or Picasso `.hdf5`) / `exportCSV()` / `exportSmlm()` / `exportPicasso()` | the last three skip the choice |
 | Save settings | `saveSettingsJson()` | |
 | Save calibration | `exportCalibration()` | |
 | Save plot/image | `saveImageClicked()` / `exportPanel('sr'\|'raw')` / `saveBothPanels()` | "Both windows" in the picker saves left then right in one call |
@@ -3969,6 +3969,32 @@ Written by **Save localisations** (`exportCSV()`), ThunderSTORM-compatible:
 - `intensity`/`offset`/`bkgstd` are already true photon units (gain/offset
   applied inside the fit) — if gain is still 1 and offset 0 (i.e. never set),
   a warning is logged that the exported "photon" values are really raw ADU.
+
+**Other file types** — the same **Save localisations** dialog also writes:
+
+- **`.smlm`** (`exportSmlm()`; ShareLoc / the SMLM file format 0.2): a ZIP with
+  `manifest.json` and one binary table, the CSV's columns in the same units (nm,
+  photons, degrees) and the same pixel convention (positions in ThunderSTORM's
+  pixel-edge frame, frames from 1). Every column is a 32-bit float except the
+  frame; a missing value is NaN. The table is deflate-compressed. The archive
+  stays below 4 GB (no ZIP64).
+- **Picasso `.hdf5`** (`exportPicasso()`): Picasso's own layout, a compound
+  dataset `/locs` (`frame` as uint32, the rest float32) and the JSON metadata
+  embedded as `/metadata` (Picasso 0.11 and later open it without a `.yaml`;
+  older versions also need one). Columns: `frame` (from 0), `x`, `y`, `sx`, `sy`,
+  `lpx`, `lpy` in camera pixels with pixel centres at *i* (Picasso's convention,
+  so no half pixel is added), `photons`, `bg`, and `z`/`lpz` in nm for a 3D
+  result. Picasso discards any row with an empty cell when it opens a file, so a
+  column that is missing for some localizations is left out whole, and the log
+  says so; localizations at a negative x or y are discarded by Picasso as well.
+  Fields Picasso has no column for (angle, pairing, tracks, cells, `llr`, …) are
+  listed in the log: save a CSV or `.smlm` to keep them. The metadata holds the
+  pixel size, the camera frame size and the number of frames.
+
+Both load back through **Load data** (§1). The files are written by
+`buildSmlmBlob()` and `buildPicassoBlob()`; the HDF5 file is a minimal writer
+of the structure `h5py` produces, checked against `h5py` and Picasso 0.11.3
+(`tests/io/test-save-loc-formats.mjs`).
 
 **Loading it back** — **Load data** (`parseCsvLocs()`) is the reverse: reads
 the header to find which optional columns are present, then rebuilds a full
