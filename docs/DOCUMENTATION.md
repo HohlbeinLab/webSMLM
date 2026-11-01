@@ -4950,6 +4950,9 @@ What this tool borrows from, and where to read more.
 **Overview**
 - "Single-molecule localization microscopy," M. Lelek et al., *Nat. Rev. Methods Primers* **1**, 39 (2021). [doi:10.1038/s43586-021-00038-x](https://doi.org/10.1038/s43586-021-00038-x)
 
+**Acknowledgements**
+- We thank the following people for providing directly or indirectly experimental data for testing purposes: Christophe Leterrier, Kristin Grußmayer, Jonathan Jeffet (Ebenstein lab), Roman Tsukanov (Enderlein lab), Jonas Ries, Michael Schlierf, Lorenzo Olivi, Sabina Caneva, Jarno Mäkelä, Ben Tumulero, Andrey Aristov (Zimmer lab),...
+
 ---
 
 ## 10 · Changelog
