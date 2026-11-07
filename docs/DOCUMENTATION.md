@@ -1248,6 +1248,24 @@ cap is twice as high; it matches the CPU result to well below a nanometre and is
 (about 1.4 s against 23 s for 40 million pairs; each cost evaluation scales with the pair count, a run needs roughly 40–150 of them, and the log reports the time of the first); otherwise the main thread does the work, yielding to the UI. The
 progress bar covers the pair search and each length scale. Test: `tests/gpu/test-comet-drift.mjs`.
 
+**DME** (`dmeDrift()`, **experimental**, 2D), drift estimation by entropy minimization (Cnossen et al., *Opt. Express* 29, 27961
+(2021)) with a learned temporal prior. It maximises `mean_i log(1 + Σ_j exp(−|uᵢ−uⱼ|²/2))` over all pairs in different frames
+closer than 3 kernel widths (`u` = drift-corrected position / kernel width; the kernel width is the mode of the per-localization
+precision), a bound on the entropy of the corrected localizations. **Temporal model** (`driftDmeMode`): **Fixed bins** is the
+classic DME: a Catmull-Rom spline with one knot per **Frames per bin** (`driftDmeFpb`; empty = about 20 000 localizations per
+bin), started from AIM and from zero drift (the start with the higher score at the coarsest kernel is continued), kernel 4 → 2 → 1
+× the precision with 4/2/1× coarser knots, L-BFGS at each level. **Learned temporal prior** (default) adds, on top, per-segment
+Newton measurements of the drift (gradient and 2×2 curvature of the score for shifting one segment) that a small 1D
+convolutional network (333 k parameters, trained on simulated measurement sequences; weights in the generated *DME smoother
+weights* block, `tools/dme/export_smoother_weights.py`) turns into a drift curve, in 5 passes at kernel 4, 2, 1, 1, 1×. The segment
+length (6–192 frames) and the start — or plain bins, when they fit better — are chosen without ground truth by a spatial
+cross-fit: the drift estimated on one half of an 8×8-tile checkerboard is scored on the other half's localizations and vice
+versa. On dense or very precise localizations (DECODE, SIMFLUX) it tracks drift on scales of hundreds of frames that fixed bins
+average out; on sparse ones the cross-fit falls back to bins. Score kernels: a static cell grid (cell = 4 kernel widths) rebuilt
+once any frame's drift moved by more than half a kernel width, one GPU thread per localization in cell order (no pair list, no
+atomics), equal to the CPU to ~1e-5; the network runs on the GPU too. Without the GPU, at most 300 000 localizations are used
+(a deterministic share). Stop discards the run. Test: `tests/gpu/test-dme-drift.mjs`.
+
 ### Ground-truth scoring (`validation`) {#validation}
 
 Compares the localizations against the simulator's own ground truth — the
@@ -3416,13 +3434,15 @@ the corrected result's own precision/resolution).
 |---|---|---|---|---|---|---|
 | `samplePct` | Sampling (AIM & NeNA) % | number (int) | 5 | 100 | 5 | 100 |
 | `driftSeg` | Average # of frames | number (int) | 5 | 2000 | 5 | 100 |
-| `driftMethod` | Drift correction method | enum (`aim`, `correlation`, `comet`) | — | — | — | `aim` |
+| `driftMethod` | Drift correction method | enum (`aim`, `correlation`, `comet`, `dme`) | — | — | — | `aim` |
 | `driftCometSeg` | Frames per window | number (int) | 1 | 2000 | 1 | 5 |
 | `driftCometRadius` | Max drift (nm) | number | 20 | 5000 | 10 | 400 |
 | `driftCometMinLocs` | Min localizations per window | number (int) | 0 | 100000 | 50 | 250 |
 | `driftCometSmooth` | Smoothing (windows) | number (int) | 1 | 99 | 2 | 5 |
 | `driftCometSigma` | Final length scale (nm) | number | 0 | 50 | 0.5 | empty = auto (from the localization precision; 0 means the same) |
 | `driftCometMaxPairs` | Max pairs (millions) | number (int) | 1 | 400 | 1 | 20 |
+| `driftDmeMode` | Temporal model | enum (`learned`, `bins`) | — | — | — | `learned` |
+| `driftDmeFpb` | Frames per bin | number (int) | 0 | 20000 | 1 | empty = auto (about 20 000 localizations per bin; 0 means the same) |
 | `driftRoi` | Drift search radius (nm) | number | 10 | 1000 | 10 | 120 |
 | `driftZ` | Correct z too (3D) | bool | — | — | — | true |
 | `frc3d` | 3D shells (FSC) | bool | — | — | — | false (not yet implemented — UI placeholder) |

@@ -42,6 +42,7 @@ const ROSTER = [
   T('gpu', 'frc-pixelsize', 'test-frc-pixelsize.mjs'),
   T('gpu', 'sim-memory', 'test-sim-memory.mjs'),
   T('gpu', 'comet-drift', 'test-comet-drift.mjs'),
+  T('gpu', 'dme-drift', 'test-dme-drift.mjs'),
   T('cpu', 'viewport', 'test-viewport-render.mjs'),
   T('cpu', 'cellfield-worker', 'test-cellfield-worker.mjs'),
   T('cpu', 'mle-variance', 'test-mle-vs-aperture-variance.mjs'),

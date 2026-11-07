@@ -242,3 +242,7 @@ appear automatically, with a generic table when no specialized summary exists.
 
 See [GPU testing](gpu/README.md) and
 [Picasso cross-validation](validation/README.md) for harness-specific details.
+
+`WEBSMLM_BROWSER_ARGS` (space-separated) passes extra flags to the browser `tests/lib/launch.mjs` starts — e.g. on a headless
+Linux machine without a display, `--enable-unsafe-webgpu --enable-features=Vulkan` gives WebGPU through SwiftShader (correctness
+checks only, not GPU speed).
