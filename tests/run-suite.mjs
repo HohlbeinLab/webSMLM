@@ -69,6 +69,7 @@ const ROSTER = [
   B('gpu', 'fit', 'bench-fit.mjs'),
   B('gpu', 'render', 'bench-render.mjs'),
   B('gpu', 'frc', 'bench-frc.mjs'),
+  B('gpu', 'dme-drift', 'bench-dme-drift.mjs'),
   B('gpu', 'simulation', 'bench-simulation.mjs', full ? ['--full'] : []),
   B('gpu', 'stages', 'bench-gpu-stages.mjs'),
   B('gpu', '3d-fit', 'bench-3d-fit.mjs'),

@@ -404,7 +404,9 @@ what makes GUI and command-line use interchangeable.
     split of the same grid would empty a half). Score kernels `WGSL_DME_PASS1/PASS2/FRAMES` (static grid, cell 4σ, rebuilt when a
     frame moved > σ/2, so exact; 16 B/loc per buffer); `dmeEvaluator()` falls back to its CPU loop on any GPU error. CPU-only runs
     keep at most `DME_CPU_MAX_LOCS` localizations (deterministic `mix32` share). Stop → `DmeStopped`, `d.dmeStopped`, nothing applied.
-    Test: `tests/gpu/test-dme-drift.mjs` (GPU half skipped without an adapter).
+    Test: `tests/gpu/test-dme-drift.mjs` (GPU half skipped without an adapter). Bench: `tests/gpu/bench-dme-drift.mjs` (1 M locs:
+    8 s bins, 37–46 s learned, same on an RTX 4060 and an integrated Radeon; bottleneck is the JS `dmeBuildGrid()` per evaluator
+    and the AIM start, not the kernels — see docs/DOCUMENTATION.md, DME).
   - `drawDriftCurve()`'s green/magenta/blue palette is the app's reference pairing for two-curve plots.
 
 - **locprecision** — NeNA (Endesfelder fit, `nenaPrecision()`) and FRC (`prepareFrc()`,

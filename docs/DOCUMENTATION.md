@@ -1266,6 +1266,20 @@ once any frame's drift moved by more than half a kernel width, one GPU thread pe
 atomics), equal to the CPU to ~1e-5; the network runs on the GPU too. Without the GPU, at most 300 000 localizations are used
 (a deterministic share). Stop discards the run. Test: `tests/gpu/test-dme-drift.mjs`.
 
+DME runtime in Chrome (`tests/gpu/bench-dme-drift.mjs`, simulated, 10 000 frames; laptop with an RTX 4060 and a Radeon 780M
+integrated GPU, which give about the same times):
+
+| localizations | Fixed bins | Learned temporal prior |
+|---|---|---|
+| 100 k | 0.8–1.6 s | 7–16 s |
+| 300 k | 2.4–3.9 s | 14–28 s |
+| 1 M | 8 s | 37–46 s |
+| 3 M | 23 s | 114–122 s |
+
+On the CPU, 100 k localizations take 39 s (bins) and 336 s (learned). Equal times on both GPUs mean the GPU kernels are not
+the limit: at 1 M localizations, half the score-evaluation time of the learned prior is the cell grid rebuilt in JavaScript
+(`dmeBuildGrid()`, 191 times, as each `dmeEvaluator()` builds its own), and the AIM start takes about 40% of the fixed-bins run.
+
 ### Ground-truth scoring (`validation`) {#validation}
 
 Compares the localizations against the simulator's own ground truth — the
