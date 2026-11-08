@@ -97,14 +97,14 @@
     export          14041  ThunderSTORM-compatible CSV, plot/image export
     3D calibration  14661  astigmatic width-vs-z bead calibration
     drift           15073  AIM, COMET, DME and cross-correlation drift correction
-    locprecision    16820  NeNA and FRC
-    sSMLM           17987  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          18593  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             20701  single-particle tracking and diffusion coefficients
-    pipeline        22199  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   23283  Micro-Manager/pycromanager bridge (experimental)
-    table           26463  localizations table, filters, histograms, clustering
-    headless API    27154  window.webSMLM.analyze()/analyzeBatch()
+    locprecision    16955  NeNA and FRC
+    sSMLM           18122  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          18728  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             20836  single-particle tracking and diffusion coefficients
+    pipeline        22334  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   23418  Micro-Manager/pycromanager bridge (experimental)
+    table           26598  localizations table, filters, histograms, clustering
+    headless API    27289  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1761,7 +1761,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.5-dev · build 2026-11-08a</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.5-dev · build 2026-11-08b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -15740,7 +15740,8 @@ async function cometDrift(locs, nFrames, px, cfg, frame0, onProgress, shouldStop
      rule fpb or a tenth of it, or the bins result itself) are chosen without ground truth by a spatial cross-fit: drift
      from one half of an 8x8-tile checkerboard is scored on the other half's localizations, and vice versa.
    Score/gradient/curvature: dmeEvaluator() (CPU) or the WGSL_DME_* kernels (GPU, same pair set, ~1e-5 relative).
-   Neighbours: a static cell grid (cell = 3 + 1 sigma) built at the drift of the last rebuild; the kernels shift every
+   Neighbours: a static cell grid (cell = 3 + 1 sigma) built at the drift of the last rebuild (on the GPU: count, prefix
+   scan, scatter and a per-cell sort, from localizations uploaded once per run); the kernels shift every
    localization by its frame's drift change since then and the grid is rebuilt once any frame moved more than 0.5 sigma,
    so the pair set is exact at every evaluation (no pair list, no atomics). 2D only.
    =========================================================================== */
@@ -15793,12 +15794,14 @@ function dmeBuildGrid(X,Y,frame,n,sigmaS,dBuild){
 // Score, per-frame gradient d score / d drift_f (px^-1) and per-frame curvature blocks (xx, xy, yy; px^-2: twice the
 // "own end" term sum_i [Hk_i/Z_i - gk_i gk_i^T/Z_i^2] / N, Hk_i = sum_j (d d^T - I) K_ij, gk_i = -sum_j d K_ij).
 // eng = GPU engine or null. Returns {evaluate(d Float64Array 2F, needHess), onGpu, destroy()}.
-async function dmeEvaluator(X,Y,frame,F,sigmaS,eng){
+// cache: optional Map (ctx.gpuData) of GPU-resident localization sets shared by the evaluators of one dmeDrift() run.
+async function dmeEvaluator(X,Y,frame,F,sigmaS,eng,cache=null){
   const n=X.length; let G=null, dBuild=null, gpu=null;
-  const rebuild=d=>{ if(G){ let mx=0; for(let k=0;k<d.length;k++) mx=Math.max(mx,Math.abs(d[k]-dBuild[k])); if(mx/sigmaS<=DME_SKIN/2) return false; }
-    dBuild=Float64Array.from(d); G=dmeBuildGrid(X,Y,frame,n,sigmaS,dBuild); return true; };
-  if(eng){ try{ gpu=await dmeGpuSetup(eng,n,F); }catch(_){ gpu=null; } }
+  const rebuild=d=>{ if(dBuild){ let mx=0; for(let k=0;k<d.length;k++) mx=Math.max(mx,Math.abs(d[k]-dBuild[k])); if(mx/sigmaS<=DME_SKIN/2) return false; }
+    dBuild=Float64Array.from(d); G=null; return true; };            // the grid itself is built by the GPU or, lazily, the CPU
+  if(eng){ try{ gpu=await dmeGpuSetup(eng,X,Y,frame,F,sigmaS,cache); }catch(_){ gpu=null; } }
   const cpu=async(d,needHess)=>{
+    if(!G) G=dmeBuildGrid(X,Y,frame,n,sigmaS,dBuild);
     const {nx,ny,start,qx,qy,qf,qc}=G, r2=DME_CUTOFF*DME_CUTOFF;
     const ux=new Float64Array(n), uy=new Float64Array(n);
     for(let q=0;q<n;q++){ const f=qf[q]; ux[q]=qx[q]-(d[2*f]-dBuild[2*f])/sigmaS; uy[q]=qy[q]-(d[2*f+1]-dBuild[2*f+1])/sigmaS; }
@@ -15827,7 +15830,7 @@ async function dmeEvaluator(X,Y,frame,F,sigmaS,eng){
     get onGpu(){ return !!gpu; },
     async evaluate(d,needHess){
       const rebuilt=rebuild(d);
-      if(gpu){ try{ return await gpu.evaluate(G,dBuild,d,sigmaS,rebuilt); }
+      if(gpu){ try{ return await gpu.evaluate(dBuild,d,rebuilt); }
         catch(err){ log(`!!! DME GPU failed (${String(err.message).slice(0,120)}) — continuing on the CPU.`); gpu.destroy(); gpu=null; } }
       return cpu(d,needHess);
     },
@@ -15932,41 +15935,172 @@ fn main(@builtin(workgroup_id) w: vec3u, @builtin(num_workgroups) nwg: vec3u, @b
   }
   if (t == 0u && f < nf) { outf[2u * f] = s0[0]; outf[2u * f + 1u] = s1[0]; }
 }`;
+// GPU cell grid (see dmeEvaluator()), rebuilt on the GPU from the GPU-resident localizations (dmeGpuData()):
+// count per cell (atomics) -> exclusive prefix scan (multi-level) -> scatter to cell order -> per-cell insertion sort by
+// frame-order position (deterministic order, like the CPU's counting sort), which also writes the frame-grouped index.
+const WGSL_DME_GRID_HEAD=`
+struct GP { n:u32, nx:u32, ny:u32, nc:u32, invS:f32, cell:f32, pad0:f32, pad1:f32 };
+@group(0) @binding(0) var<uniform> g: GP;
+@group(0) @binding(1) var<storage, read> raw: array<vec4u>;     // x, y (f32 bits, minus their minimum), frame, frame-order position
+@group(0) @binding(2) var<storage, read> off: array<vec2f>;     // per frame: (min - drift at build) / sigma - grid origin
+fn dmeU(r: vec4u) -> vec2f { return vec2f(bitcast<f32>(r.x), bitcast<f32>(r.y)) * g.invS + off[r.z]; }
+fn dmeCellOf(u: vec2f) -> u32 {
+  let cx = min(u32(max(floor(u.x / g.cell), 0.0)), g.nx - 1u); let cy = min(u32(max(floor(u.y / g.cell), 0.0)), g.ny - 1u);
+  return cx + g.nx * cy;
+}`;
+const WGSL_DME_GRID_COUNT=WGSL_DME_GRID_HEAD+`
+@group(0) @binding(3) var<storage, read_write> cnt: array<atomic<u32>>;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(num_workgroups) nwg: vec3u) {
+  let i = gid.y * (nwg.x * 64u) + gid.x;
+  if (i >= g.n) { return; }
+  atomicAdd(&cnt[dmeCellOf(dmeU(raw[i]))], 1u);
+}`;
+const WGSL_DME_GRID_SCATTER=WGSL_DME_GRID_HEAD+`
+@group(0) @binding(3) var<storage, read> cellStart: array<u32>;
+@group(0) @binding(4) var<storage, read_write> fill: array<atomic<u32>>;
+@group(0) @binding(5) var<storage, read_write> cpts: array<vec4u>;
+@group(0) @binding(6) var<storage, read_write> cellOfQ: array<u32>;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(num_workgroups) nwg: vec3u) {
+  let i = gid.y * (nwg.x * 64u) + gid.x;
+  if (i >= g.n) { return; }
+  let r = raw[i]; let u = dmeU(r); let c = dmeCellOf(u);
+  let q = cellStart[c] + atomicAdd(&fill[c], 1u);
+  cpts[q] = vec4u(bitcast<u32>(u.x), bitcast<u32>(u.y), r.z, r.w); cellOfQ[q] = c;
+}`;
+const WGSL_DME_GRID_SORT=`
+struct GP { n:u32, nx:u32, ny:u32, nc:u32, invS:f32, cell:f32, pad0:f32, pad1:f32 };
+@group(0) @binding(0) var<uniform> g: GP;
+@group(0) @binding(1) var<storage, read> cellStart: array<u32>;
+@group(0) @binding(2) var<storage, read_write> cpts: array<vec4u>;
+@group(0) @binding(3) var<storage, read_write> idx: array<u32>;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(num_workgroups) nwg: vec3u) {
+  let c = gid.y * (nwg.x * 64u) + gid.x;
+  if (c >= g.nc) { return; }
+  let s0 = cellStart[c]; let s1 = cellStart[c + 1u];
+  for (var q = s0 + 1u; q < s1; q = q + 1u) {
+    let v = cpts[q]; var j = q;
+    loop { if (j <= s0) { break; } let pv = cpts[j - 1u]; if (pv.w <= v.w) { break; } cpts[j] = pv; j = j - 1u; }
+    cpts[j] = v;
+  }
+  for (var q = s0; q < s1; q = q + 1u) { idx[cpts[q].w] = q; }
+}`;
+// Exclusive scan of a[0..m) in blocks of 256 (block totals to sums), and the add-back of the scanned block totals.
+const WGSL_DME_SCAN_HEAD=`
+struct SP { m:u32, p0:u32, p1:u32, p2:u32 };
+@group(0) @binding(0) var<uniform> s: SP;
+@group(0) @binding(1) var<storage, read_write> a: array<u32>;
+@group(0) @binding(2) var<storage, read_write> sums: array<u32>;`;
+const WGSL_DME_SCAN=WGSL_DME_SCAN_HEAD+`
+var<workgroup> sh: array<u32, 256>;
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) w: vec3u, @builtin(num_workgroups) nwg: vec3u, @builtin(local_invocation_index) t: u32) {
+  let b = w.y * nwg.x + w.x; let i = b * 256u + t;
+  var v = 0u; if (i < s.m) { v = a[i]; }
+  sh[t] = v; workgroupBarrier();
+  for (var o = 1u; o < 256u; o = o * 2u) {
+    var x = 0u; if (t >= o) { x = sh[t - o]; }
+    workgroupBarrier(); sh[t] = sh[t] + x; workgroupBarrier();
+  }
+  if (i < s.m) { a[i] = sh[t] - v; }
+  if (t == 255u && b * 256u < s.m) { sums[b] = sh[255]; }
+}`;
+const WGSL_DME_SCAN_ADD=WGSL_DME_SCAN_HEAD+`
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) w: vec3u, @builtin(num_workgroups) nwg: vec3u, @builtin(local_invocation_index) t: u32) {
+  let b = w.y * nwg.x + w.x; let i = b * 256u + t;
+  if (i < s.m) { a[i] = a[i] + sums[b]; }
+}`;
+
 // Largest localization count one GPU evaluator takes (16 B per localization per buffer).
 function dmeGpuMaxLocs(eng){ const lim=eng.device.limits; return Math.floor(Math.min(lim.maxStorageBufferBindingSize,lim.maxBufferSize)/16); }
-async function dmeGpuSetup(eng,n,F){
-  const device=eng.device, U=GPUBufferUsage, bufs=[], mk=(size,usage,label)=>{ const b=eng.mkBuf(Math.max(16,size),usage,label); bufs.push(b); return b; };
+// One localization set on the GPU, uploaded once per dmeDrift() run (cache = ctx.gpuData, keyed by the X array; without a
+// cache the evaluator owns it): positions minus their minimum (f32), frame, position in frame order; frame starts; and
+// per-frame min/max (CPU) for the exact grid bounds at any drift in O(F).
+function dmeGpuData(eng,X,Y,frame,F,cache){
+  const hit=cache&&cache.get(X); if(hit) return hit;
+  const n=X.length, U=GPUBufferUsage; let xm=Infinity, ym=Infinity;
+  for(let i=0;i<n;i++){ if(X[i]<xm) xm=X[i]; if(Y[i]<ym) ym=Y[i]; }
+  const fx0=new Float64Array(F).fill(Infinity), fx1=new Float64Array(F).fill(-Infinity), fy0=new Float64Array(F).fill(Infinity), fy1=new Float64Array(F).fill(-Infinity);
+  const fs=new Uint32Array(F+1); for(let i=0;i<n;i++) fs[frame[i]+1]++;
+  for(let f=0;f<F;f++) fs[f+1]+=fs[f];
+  const at=fs.slice(0,F), raw=new Float32Array(4*n), rawU=new Uint32Array(raw.buffer);
+  for(let i=0;i<n;i++){ const f=frame[i], x=X[i], y=Y[i];
+    raw[4*i]=x-xm; raw[4*i+1]=y-ym; rawU[4*i+2]=f; rawU[4*i+3]=at[f]++;
+    if(x<fx0[f]) fx0[f]=x; if(x>fx1[f]) fx1[f]=x; if(y<fy0[f]) fy0[f]=y; if(y>fy1[f]) fy1[f]=y; }
+  const bRaw=eng.mkBuf(Math.max(16,16*n),U.STORAGE|U.COPY_DST,'dme:raw'), bFs=eng.mkBuf(4*(F+1),U.STORAGE|U.COPY_DST,'dme:fstart');
+  eng.device.queue.writeBuffer(bRaw,0,raw); eng.device.queue.writeBuffer(bFs,0,fs);
+  const D={n,xm,ym,fx0,fx1,fy0,fy1,bRaw,bFs,destroy(){ for(const b of [bRaw,bFs]){ try{ b.destroy(); }catch(_){} } }};
+  if(cache) cache.set(X,D);
+  return D;
+}
+async function dmeGpuSetup(eng,X,Y,frame,F,sigmaS,cache){
+  const device=eng.device, U=GPUBufferUsage, n=X.length, bufs=[], mk=(size,usage,label)=>{ const b=eng.mkBuf(Math.max(16,size),usage,label); bufs.push(b); return b; };
   if(n>dmeGpuMaxLocs(eng)) throw new Error('too many localizations for one GPU buffer');
-  const p1=await eng.compilePipeline('dme-pass1',WGSL_DME_PASS1,'main',{WG:64}), p2=await eng.compilePipeline('dme-pass2',WGSL_DME_PASS2,'main',{WG:64}), pf=await eng.compilePipeline('dme-frames',WGSL_DME_FRAMES,'main');
-  const bPar=mk(32,U.UNIFORM|U.COPY_DST,'dme:params'), bCell=mk(4*n,U.STORAGE|U.COPY_DST,'dme:cell'), bPts=mk(16*n,U.STORAGE|U.COPY_DST,'dme:pts');
-  const bShift=mk(8*F,U.STORAGE|U.COPY_DST,'dme:shift'), bO1=mk(16*n,U.STORAGE,'dme:o1'), bO2=mk(16*n,U.STORAGE,'dme:o2'), bPer=mk(16*n,U.STORAGE,'dme:per');
-  const bIdx=mk(4*n,U.STORAGE|U.COPY_DST,'dme:idx'), bFs=mk(4*(F+1),U.STORAGE|U.COPY_DST,'dme:fstart'), bOut=mk(32*F,U.STORAGE|U.COPY_SRC,'dme:out'), bStage=mk(32*F,U.MAP_READ|U.COPY_DST,'dme:stage');
-  let bStart=null, bind1=null, bind2=null, bindF=null;
-  const nWG=Math.ceil(n/64), dx=Math.min(nWG,65535), dy=Math.ceil(nWG/65535), fx=Math.min(F,65535), fy=Math.ceil(F/65535);
-  const upload=G=>{
-    const pts=new Float32Array(4*n), ptsU=new Uint32Array(pts.buffer);
-    for(let q=0;q<n;q++){ pts[4*q]=G.qx[q]; pts[4*q+1]=G.qy[q]; ptsU[4*q+2]=G.qf[q]; }
-    device.queue.writeBuffer(bPts,0,pts); device.queue.writeBuffer(bCell,0,G.qc);
-    if(bStart) bStart.destroy();
-    bStart=eng.mkBuf(Math.max(16,4*(G.nc+1)),U.STORAGE|U.COPY_DST,'dme:cellStart'); device.queue.writeBuffer(bStart,0,G.start);
-    const fs=new Uint32Array(F+1); for(let q=0;q<n;q++) fs[G.qf[q]+1]++;
-    for(let f=0;f<F;f++) fs[f+1]+=fs[f];
-    const at=fs.slice(0,F), idx=new Uint32Array(n); for(let q=0;q<n;q++) idx[at[G.qf[q]]++]=q;
-    device.queue.writeBuffer(bIdx,0,idx); device.queue.writeBuffer(bFs,0,fs);
+  const C=(k,code,c)=>eng.compilePipeline(k,code,'main',c);
+  const p1=await C('dme-pass1',WGSL_DME_PASS1,{WG:64}), p2=await C('dme-pass2',WGSL_DME_PASS2,{WG:64}), pf=await C('dme-frames',WGSL_DME_FRAMES);
+  const pCount=await C('dme-grid-count',WGSL_DME_GRID_COUNT), pScat=await C('dme-grid-scatter',WGSL_DME_GRID_SCATTER), pSort=await C('dme-grid-sort',WGSL_DME_GRID_SORT);
+  const pScan=await C('dme-scan',WGSL_DME_SCAN), pAdd=await C('dme-scan-add',WGSL_DME_SCAN_ADD);
+  const D=dmeGpuData(eng,X,Y,frame,F,cache);
+  const bPar=mk(32,U.UNIFORM|U.COPY_DST,'dme:params'), bGP=mk(32,U.UNIFORM|U.COPY_DST,'dme:gridParams'), bCell=mk(4*n,U.STORAGE,'dme:cell'), bPts=mk(16*n,U.STORAGE,'dme:pts');
+  const bShift=mk(8*F,U.STORAGE|U.COPY_DST,'dme:shift'), bOff=mk(8*F,U.STORAGE|U.COPY_DST,'dme:off'), bO1=mk(16*n,U.STORAGE,'dme:o1'), bO2=mk(16*n,U.STORAGE,'dme:o2'), bPer=mk(16*n,U.STORAGE,'dme:per');
+  const bIdx=mk(4*n,U.STORAGE,'dme:idx'), bOut=mk(32*F,U.STORAGE|U.COPY_SRC,'dme:out'), bStage=mk(32*F,U.MAP_READ|U.COPY_DST,'dme:stage');
+  const maxWG=device.limits.maxComputeWorkgroupsPerDimension, lim=Math.min(device.limits.maxStorageBufferBindingSize,device.limits.maxBufferSize);
+  const disp=(enc,pipe,bind,nwg)=>{ const ps=enc.beginComputePass(); ps.setPipeline(pipe); ps.setBindGroup(0,bind); ps.dispatchWorkgroups(Math.min(nwg,maxWG),Math.ceil(nwg/maxWG)); ps.end(); };
+  const bg=(pipe,list)=>device.createBindGroup({layout:pipe.getBindGroupLayout(0),entries:list.map((buffer,binding)=>({binding,resource:{buffer}}))});
+  const bindF=bg(pf,[bPer,bO2,bIdx,D.bFs,bOut]);
+  // cell-count-sized buffers grow with the grid: cellStart (+ scan levels) and the scatter counters
+  let cap=0, grid=[], bStart=null, bFill=null, levels=[], bind1=null, bind2=null, bindCount=null, bindScat=null, bindSort=null, built=false;
+  const freeGrid=()=>{ for(const b of grid){ try{ b.destroy(); }catch(_){} } grid=[]; };
+  const ensure=m=>{
+    if(m<=cap) return;
+    if(4*m>lim) throw new Error(`DME: ${m.toExponential(1)} grid cells — over this GPU's buffer limit`);
+    freeGrid(); cap=Math.min(Math.ceil(m*1.25),Math.floor(lim/4));
+    const g=(size,usage,label)=>{ const b=eng.mkBuf(Math.max(16,size),usage,label); grid.push(b); return b; };
+    bStart=g(4*cap,U.STORAGE|U.COPY_DST,'dme:cellStart'); bFill=g(4*cap,U.STORAGE|U.COPY_DST,'dme:fill');
+    levels=[]; let arr=bStart, len=cap;
+    for(;;){ const nb=Math.ceil(len/256), sums=g(4*Math.max(1,nb),U.STORAGE,'dme:scanSums'), uni=g(16,U.UNIFORM|U.COPY_DST,'dme:scanParams');
+      levels.push({arr,sums,uni,scan:bg(pScan,[uni,arr,sums]),add:bg(pAdd,[uni,arr,sums])});
+      if(nb<=1) break; arr=sums; len=nb; }
+    bind1=bg(p1,[bPar,bCell,bStart,bPts,bShift,bO1,bO2]); bind2=bg(p2,[bPar,bCell,bStart,bPts,bShift,bO1,bO2,bPer]);
+    bindCount=bg(pCount,[bGP,D.bRaw,bOff,bStart]); bindScat=bg(pScat,[bGP,D.bRaw,bOff,bStart,bFill,bPts,bCell]); bindSort=bg(pSort,[bGP,bStart,bPts,bIdx]);
+  };
+  // grid at drift dB: bounds from the per-frame min/max (exactly the CPU grid's), then the GPU build, encoded into enc
+  const encodeBuild=(enc,dB)=>{
+    const cell=DME_CUTOFF+DME_SKIN; let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    for(let f=0;f<F;f++){ if(!(D.fx0[f]<=D.fx1[f])) continue;
+      const a=(D.fx0[f]-dB[2*f])/sigmaS, b=(D.fx1[f]-dB[2*f])/sigmaS, c=(D.fy0[f]-dB[2*f+1])/sigmaS, e=(D.fy1[f]-dB[2*f+1])/sigmaS;
+      if(a<x0)x0=a; if(b>x1)x1=b; if(c<y0)y0=c; if(e>y1)y1=e; }
+    const nx=Math.floor((x1-x0)/cell)+1, ny=Math.floor((y1-y0)/cell)+1, nc=nx*ny;
+    if(!(nc<=(1<<26))) throw new Error(`DME: ${nc.toExponential(1)} grid cells — the field of view is too large for this localization precision`);
+    ensure(nc+1);
+    const off=new Float32Array(2*F); for(let f=0;f<F;f++){ off[2*f]=(D.xm-dB[2*f])/sigmaS-x0; off[2*f+1]=(D.ym-dB[2*f+1])/sigmaS-y0; }
+    device.queue.writeBuffer(bOff,0,off);
+    const gp=new ArrayBuffer(32), gu=new Uint32Array(gp), gf=new Float32Array(gp);
+    gu[0]=n; gu[1]=nx; gu[2]=ny; gu[3]=nc; gf[4]=1/sigmaS; gf[5]=cell; device.queue.writeBuffer(bGP,0,gp);
     const par=new ArrayBuffer(32), pu=new Uint32Array(par), pfl=new Float32Array(par);
-    pu[0]=n; pu[1]=G.nx; pu[2]=G.ny; pfl[4]=DME_CUTOFF*DME_CUTOFF; device.queue.writeBuffer(bPar,0,par);
-    const bg=(pipe,list)=>device.createBindGroup({layout:pipe.getBindGroupLayout(0),entries:list.map((buffer,binding)=>({binding,resource:{buffer}}))});
-    bind1=bg(p1,[bPar,bCell,bStart,bPts,bShift,bO1,bO2]); bind2=bg(p2,[bPar,bCell,bStart,bPts,bShift,bO1,bO2,bPer]); bindF=bg(pf,[bPer,bO2,bIdx,bFs,bOut]);
+    pu[0]=n; pu[1]=nx; pu[2]=ny; pfl[4]=DME_CUTOFF*DME_CUTOFF; device.queue.writeBuffer(bPar,0,par);
+    enc.clearBuffer(bStart,0,4*(nc+1)); enc.clearBuffer(bFill,0,4*(nc+1));
+    const nWG=Math.ceil(n/64);
+    disp(enc,pCount,bindCount,nWG);
+    const ms=[]; let m=nc+1;                                          // scan cellStart[0..nc] in place: up the levels, then add back
+    for(const L of levels){ ms.push(m); device.queue.writeBuffer(L.uni,0,new Uint32Array([m,0,0,0])); const nb=Math.ceil(m/256);
+      disp(enc,pScan,L.scan,nb); if(nb<=1) break; m=nb; }
+    for(let k=ms.length-2;k>=0;k--) disp(enc,pAdd,levels[k].add,Math.ceil(ms[k]/256));
+    disp(enc,pScat,bindScat,nWG);
+    disp(enc,pSort,bindSort,Math.ceil(nc/64));
+    built=true;
   };
   return {
-    evaluate:(G,dB,d,sigmaS,rebuilt)=>runGpuExclusive(()=>withGpuErrorScopes(device,'GPU DME',async()=>{
-      if(rebuilt||!bind1) upload(G);
+    evaluate:(dB,d,rebuilt)=>runGpuExclusive(()=>withGpuErrorScopes(device,'GPU DME',async()=>{
+      const enc=device.createCommandEncoder({label:'dme:eval'});
+      if(rebuilt||!built) encodeBuild(enc,dB);
       const sh=new Float32Array(2*F); for(let k=0;k<2*F;k++) sh[k]=(d[k]-dB[k])/sigmaS;
       device.queue.writeBuffer(bShift,0,sh);
-      const enc=device.createCommandEncoder({label:'dme:eval'});
-      let ps=enc.beginComputePass(); ps.setPipeline(p1); ps.setBindGroup(0,bind1); ps.dispatchWorkgroups(dx,dy); ps.end();
-      ps=enc.beginComputePass(); ps.setPipeline(p2); ps.setBindGroup(0,bind2); ps.dispatchWorkgroups(dx,dy); ps.end();
-      ps=enc.beginComputePass(); ps.setPipeline(pf); ps.setBindGroup(0,bindF); ps.dispatchWorkgroups(fx,fy); ps.end();
+      const nWG=Math.ceil(n/64);
+      disp(enc,p1,bind1,nWG); disp(enc,p2,bind2,nWG); disp(enc,pf,bindF,F);
       enc.copyBufferToBuffer(bOut,0,bStage,0,32*F); eng.submit([enc.finish()]);
       await bStage.mapAsync(GPUMapMode.READ);
       const o=new Float32Array(bStage.getMappedRange().slice(0)); bStage.unmap();
@@ -15975,13 +16109,13 @@ async function dmeGpuSetup(eng,n,F){
       for(let f=0;f<F;f++){ score+=o[8*f+2]; grad[2*f]=o[8*f]/s1; grad[2*f+1]=o[8*f+1]/s1; hess[3*f]=o[8*f+3]/s2; hess[3*f+1]=o[8*f+4]/s2; hess[3*f+2]=o[8*f+5]/s2; }
       return {score:score/n,grad,hess};
     })),
-    destroy(){ for(const b of bufs){ try{ b.destroy(); }catch(_){} } if(bStart){ try{ bStart.destroy(); }catch(_){} } }
+    destroy(){ for(const b of bufs){ try{ b.destroy(); }catch(_){} } freeGrid(); if(!cache) D.destroy(); }
   };
 }
 
 // One spline level: maximize the score over knots fpb frames apart at kernel sigmaS, from per-frame drift d0 (px).
 async function dmeLevel(X,Y,frame,F,sigmaS,fpb,d0,ctx){
-  const B=dmeSplineBasis(F,fpb), ev=await dmeEvaluator(X,Y,frame,F,sigmaS,ctx.eng);
+  const B=dmeSplineBasis(F,fpb), ev=await dmeEvaluator(X,Y,frame,F,sigmaS,ctx.eng,ctx.gpuData);
   ctx.onGpu=ctx.onGpu||ev.onGpu;
   const knots=dmeFramesToKnots(B,d0);
   const fg=async k=>{ ctx.evals++; const r=await ev.evaluate(dmeKnotsToFrames(B,k),false), g=dmeFrameGradToKnots(B,r.grad);
@@ -16011,7 +16145,7 @@ async function dmeBins(X,Y,frame,F,sigma,fpb,ctx){
 // Per-segment (L frames) Newton measurements of the drift at kernel sigmaS around per-frame drift d: z [2T] (px) and
 // per-axis variances (J^-1)_dd [2T] (NaN = no measurement: curvature not negative definite).
 async function dmeSegmentMeasurements(X,Y,frame,F,sigmaS,d,L,ctx){
-  const ev=await dmeEvaluator(X,Y,frame,F,sigmaS,ctx.eng); let r;
+  const ev=await dmeEvaluator(X,Y,frame,F,sigmaS,ctx.eng,ctx.gpuData); let r;
   try{ ctx.evals++; r=await ev.evaluate(d,true); }finally{ ev.destroy(); }
   const N=X.length, T=Math.ceil(F/L), gs=new Float64Array(2*T), Hs=new Float64Array(3*T), dc=new Float64Array(2*T), cnt=new Float64Array(T);
   for(let f=0;f<F;f++){ const t=(f/L)|0; gs[2*t]+=r.grad[2*f]; gs[2*t+1]+=r.grad[2*f+1]; for(let a=0;a<3;a++) Hs[3*t+a]+=r.hess[3*f+a];
@@ -16088,7 +16222,7 @@ function dmeSubset(X,Y,frame,mask,want){
   for(let i=0,k=0;i<mask.length;i++) if(mask[i]===want){ x[k]=X[i]; y[k]=Y[i]; f[k++]=frame[i]; }
   return [x,y,f];
 }
-async function dmeScoreOf(X,Y,frame,F,sigma,d,ctx){ const ev=await dmeEvaluator(X,Y,frame,F,sigma,ctx.eng);
+async function dmeScoreOf(X,Y,frame,F,sigma,d,ctx){ const ev=await dmeEvaluator(X,Y,frame,F,sigma,ctx.eng,ctx.gpuData);
   try{ ctx.evals++; return (await ev.evaluate(d,false)).score; }finally{ ev.destroy(); } }
 
 // Learned mode: candidates (bins at fpb {rule, rule/10}; learned prior at DME_LEARNED_LFRAMES from those starts), each
@@ -16128,7 +16262,7 @@ async function dmeDrift(locs,nFrames,px,cfg,frame0,onProgress,shouldStop=()=>fal
   if(n<100) throw new Error(`DME needs at least 100 localizations (${n})`);
   const sigma=cfg.sigmaNm/px, fpbRule=cfg.fpb>0?cfg.fpb:dmeRuleFpb(n,F);
   if(keepP<1) onLog(`DME: using ${n.toLocaleString()} of ${locs.length.toLocaleString()} localizations (${eng?'GPU buffer limit':'CPU limit of '+DME_CPU_MAX_LOCS.toLocaleString()+'; enable "Use GPU acceleration" for more'}).`);
-  const ctx={eng,evals:0,onGpu:false,shouldStop,onProgress:p=>onProgress(Math.min(1,p)),
+  const ctx={eng,gpuData:eng?new Map():null,evals:0,onGpu:false,shouldStop,onProgress:p=>onProgress(Math.min(1,p)),
     aimInit:async(Xh,Yh,fh,Fh,fpb,sig)=>{   // AIM start (Ma et al.), on {x,y,frame} objects; returns drift (px) = -correction
       const sub=new Array(Xh.length); for(let i=0;i<Xh.length;i++) sub[i]={x:Xh[i],y:Yh[i],frame:fh[i]};
       const seg=Math.min(Math.max(fpb,Math.floor(Fh/8)),Math.max(fpb,Math.round(5000*Fh/Xh.length)));
@@ -16140,6 +16274,7 @@ async function dmeDrift(locs,nFrames,px,cfg,frame0,onProgress,shouldStop=()=>fal
     else { const r=await dmeLearned(X,Y,fr,F,sigma,fpbRule,ctx); d=r.d;
       info=r.best.kind==='learned'?`learned temporal prior, ${r.best.L}-frame segments (start: ${r.best.fpb} frames per bin)`:`cross-fit chose plain bins, ${r.best.fpb} frames per bin`; }
   }catch(err){ if(!(err instanceof DmeStopped)) throw err; stopped=true; }
+  finally{ if(ctx.gpuData){ await runGpuExclusive(()=>{}); for(const D of ctx.gpuData.values()) D.destroy(); } }
   if(!d) d=new Float64Array(2*F);
   const fdx=new Float64Array(F), fdy=new Float64Array(F);
   for(let f=0;f<F;f++){ fdx[f]=-d[2*f]; fdy[f]=-d[2*f+1]; }
@@ -26367,7 +26502,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.5-dev · build 2026-11-08a — DME drift correction (experimental) with a learned temporal prior.`);
+log(`webSMLM v0.13.5-dev · build 2026-11-08b — DME drift: the neighbour grid is built on the GPU.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));

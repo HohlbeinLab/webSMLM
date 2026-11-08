@@ -1263,22 +1263,24 @@ cross-fit: the drift estimated on one half of an 8×8-tile checkerboard is score
 versa. On dense or very precise localizations (DECODE, SIMFLUX) it tracks drift on scales of hundreds of frames that fixed bins
 average out; on sparse ones the cross-fit falls back to bins. Score kernels: a static cell grid (cell = 4 kernel widths) rebuilt
 once any frame's drift moved by more than half a kernel width, one GPU thread per localization in cell order (no pair list, no
-atomics), equal to the CPU to ~1e-5; the network runs on the GPU too. Without the GPU, at most 300 000 localizations are used
+atomics), equal to the CPU to ~1e-5. On the GPU the grid is built on the GPU too (count per cell, prefix scan, scatter, and a
+per-cell sort that makes the order deterministic), from localizations uploaded once per run; the network runs on the GPU too. Without the GPU, at most 300 000 localizations are used
 (a deterministic share). Stop discards the run. Test: `tests/gpu/test-dme-drift.mjs`.
 
-DME runtime in Chrome (`tests/gpu/bench-dme-drift.mjs`, simulated, 10 000 frames; laptop with an RTX 4060 and a Radeon 780M
-integrated GPU, which give about the same times):
+DME runtime in Chrome (`tests/gpu/bench-dme-drift.mjs`, simulated, 10 000 frames; RTX 4060 laptop GPU / Radeon 780M
+integrated GPU):
 
 | localizations | Fixed bins | Learned temporal prior |
 |---|---|---|
-| 100 k | 0.8–1.6 s | 7–16 s |
-| 300 k | 2.4–3.9 s | 14–28 s |
-| 1 M | 8 s | 37–46 s |
-| 3 M | 23 s | 114–122 s |
+| 100 k | 0.7 / 0.7 s | 4.9 / 5.6 s |
+| 300 k | 1.4 / 1.7 s | 7.7 / 8.8 s |
+| 1 M | 6.2 / 5.5 s | 21 / 22 s |
+| 3 M | 20 / 19 s | 55 / 62 s |
 
-On the CPU, 100 k localizations take 39 s (bins) and 336 s (learned). Equal times on both GPUs mean the GPU kernels are not
-the limit: at 1 M localizations, half the score-evaluation time of the learned prior is the cell grid rebuilt in JavaScript
-(`dmeBuildGrid()`, 191 times, as each `dmeEvaluator()` builds its own), and the AIM start takes about 40% of the fixed-bins run.
+On the CPU, 100 k localizations take 39 s (bins) and 336 s (learned). With the grid built in JavaScript (build 2026-11-08a),
+1 M took 8 s and 37–46 s. One score evaluation of 1 M localizations now takes 16 ms (RTX 4060) or 30 ms (Radeon 780M); the
+largest remaining cost is the AIM start (`aimDrift2D()`, CPU): 9.4 of 19.5 s for the learned prior at 1 M (5 runs: both
+checkerboard halves at two bin sizes, then all localizations), half of a fixed-bins run.
 
 ### Ground-truth scoring (`validation`) {#validation}
 

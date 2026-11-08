@@ -402,11 +402,14 @@ what makes GUI and command-line use interchangeable.
     `DME smoother weights` block: regenerate with `tools/dme/export_smoother_weights.py`, never edit) in 5 passes; segment length
     and start chosen by `dmeLearned()`'s spatial cross-fit on `dmeCheckerboard()` halves (balanced: a split aligned with an outer
     split of the same grid would empty a half). Score kernels `WGSL_DME_PASS1/PASS2/FRAMES` (static grid, cell 4σ, rebuilt when a
-    frame moved > σ/2, so exact; 16 B/loc per buffer); `dmeEvaluator()` falls back to its CPU loop on any GPU error. CPU-only runs
+    frame moved > σ/2, so exact; 16 B/loc per buffer). GPU grid build `WGSL_DME_GRID_COUNT/SCATTER/SORT` + `WGSL_DME_SCAN(_ADD)`
+    (atomic count, multi-level exclusive scan, scatter, per-cell insertion sort by frame-order position = deterministic), bounds
+    from per-frame min/max in O(F); localization sets live on the GPU once per run (`dmeGpuData()`, `ctx.gpuData` keyed by
+    the X array, destroyed at the end of `dmeDrift()`); `dmeBuildGrid()` is only the CPU path; `dmeEvaluator()` falls back to its CPU loop on any GPU error. CPU-only runs
     keep at most `DME_CPU_MAX_LOCS` localizations (deterministic `mix32` share). Stop → `DmeStopped`, `d.dmeStopped`, nothing applied.
     Test: `tests/gpu/test-dme-drift.mjs` (GPU half skipped without an adapter). Bench: `tests/gpu/bench-dme-drift.mjs` (1 M locs:
-    8 s bins, 37–46 s learned, same on an RTX 4060 and an integrated Radeon; bottleneck is the JS `dmeBuildGrid()` per evaluator
-    and the AIM start, not the kernels — see docs/DOCUMENTATION.md, DME).
+    ~6 s bins, ~21 s learned; one score evaluation 16 ms on an RTX 4060; the CPU AIM start is ~half the run — see
+    docs/DOCUMENTATION.md, DME).
   - `drawDriftCurve()`'s green/magenta/blue palette is the app's reference pairing for two-curve plots.
 
 - **locprecision** — NeNA (Endesfelder fit, `nenaPrecision()`) and FRC (`prepareFrc()`,
