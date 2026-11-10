@@ -94,17 +94,17 @@
     render           8973  super-resolution accumulation, view, colour maps, plots
     workers         11042  frame-parallel detect/fit worker pool
     gpu             11686  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          14033  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  14653  astigmatic width-vs-z bead calibration
-    drift           15065  AIM and cross-correlation drift correction
-    locprecision    16096  NeNA and FRC
-    sSMLM           17263  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          17869  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             19977  single-particle tracking and diffusion coefficients
-    pipeline        21475  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   22559  Micro-Manager/pycromanager bridge (experimental)
-    table           25739  localizations table, filters, histograms, clustering
-    headless API    26430  window.webSMLM.analyze()/analyzeBatch()
+    export          14051  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  14671  astigmatic width-vs-z bead calibration
+    drift           15083  AIM and cross-correlation drift correction
+    locprecision    16114  NeNA and FRC
+    sSMLM           17281  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          17887  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             19995  single-particle tracking and diffusion coefficients
+    pipeline        21493  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   22577  Micro-Manager/pycromanager bridge (experimental)
+    table           25757  localizations table, filters, histograms, clustering
+    headless API    26448  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1761,7 +1761,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.5-dev · build 2026-11-01a</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.5-dev · build 2026-11-10a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -11918,6 +11918,23 @@ async function initGpuEngine(){
     // subgroup sizes for the report; 'timestamp-query' measures real GPU-busy
     // time (else wall-clock around mapAsync).
     const wantFeatures = ['subgroups','timestamp-query'].filter(f => adapter.features && adapter.features.has(f));
+    // No requiredLimits on purpose: the device keeps WebGPU's DEFAULT limits
+    // (128 MiB per storage binding, 256 MiB per buffer, 256 invocations per
+    // workgroup, 8 storage buffers per stage), not the adapter's maxima. Every
+    // stage is sized against those defaults and against the app's own smaller
+    // caps — gpuBatchMb (16 MB) for a fit batch, 1<<22 locs for a viewport
+    // chunk, 128 MiB for a PCFO batch — so raising them moves almost nothing:
+    // measured on an Intel Xe-LPG adapter offering 2 GiB bindings, only the
+    // render chunk (8.4M -> 67M locs, a 1 GB upload buffer) and the
+    // whole-image render cap (33.5M -> 537M px, a 2 GB accumulator) change,
+    // both towards allocations this code deliberately avoids — past 128 MiB
+    // srRenderPlan() routes to the viewport path, which is the better one
+    // there anyway. Defaults also keep behaviour identical across GPUs and
+    // browsers, which is what the tests and the published benchmarks assume.
+    // What this gives up is workgroup tuning headroom (wg1D capped at 256, not
+    // 1024); request maxComputeInvocationsPerWorkgroup and
+    // maxComputeWorkgroupSizeX alone if a measurement ever shows a larger
+    // workgroup wins.
     const device = await adapter.requestDevice(wantFeatures.length ? {requiredFeatures:wantFeatures} : undefined);
     // Report uncaptured WebGPU errors in the in-app log (otherwise console
     // only). Diagnostic; never disables the engine.
@@ -11925,8 +11942,9 @@ async function initGpuEngine(){
       try{ log('(WebGPU error: '+((ev.error&&ev.error.message)||ev.error||'unknown')+')'); }catch(_){}
     });
     const engine = { available:true, device, adapter, _pipelines:new Map(),
-      // Real adapter limits, never the spec minimums: batch and dispatch sizes
-      // scale with the device.
+      // The GRANTED device limits (the spec defaults — see requestDevice()
+      // above), not adapter.limits: batch and dispatch sizes must be sized
+      // against what this device will actually accept.
       limits: { maxComputeWorkgroupSizeX: device.limits.maxComputeWorkgroupSizeX,
                 maxComputeWorkgroupSizeY: device.limits.maxComputeWorkgroupSizeY,
                 maxComputeWorkgroupsPerDimension: device.limits.maxComputeWorkgroupsPerDimension,
@@ -12988,7 +13006,7 @@ function makeGpuFitSlotPool(engine, spec, capacity, k2, nSlots){
 async function runGpuFitBatch(engine, spec, seedsA, seedsB, windows, nMax, r, eps, slot){
   const k2=(2*r+1)*(2*r+1);
   // Unreachable unless gpuBatchSize's sizing is wrong.
-  if(nMax*k2*4 > engine.limits.maxStorageBufferBindingSize) throw new Error(`${spec.key}: batch of ${nMax} candidates exceeds this adapter's ${fmtBytes(engine.limits.maxStorageBufferBindingSize)} storage-buffer limit — batching accumulator sizing bug.`);
+  if(nMax*k2*4 > engine.limits.maxStorageBufferBindingSize) throw new Error(`${spec.key}: batch of ${nMax} candidates exceeds this GPU's ${fmtBytes(engine.limits.maxStorageBufferBindingSize)} storage-buffer limit — batching accumulator sizing bug.`);
   const device=engine.device;
   // One shared layout per binding shape for pipeline and bind group (never
   // getBindGroupLayout(0) of an auto-layout pipeline).
@@ -13758,7 +13776,7 @@ fn main(@builtin(global_invocation_id) id:vec3u){
 function gpuDispatch2D(engine, threads){
   const wg=engine.wg1D, groups=Math.ceil(threads/wg), maxG=engine.limits.maxComputeWorkgroupsPerDimension;
   const gx=Math.min(groups, maxG), gy=Math.ceil(groups/gx);
-  if(gy>maxG) throw new Error(`${threads.toLocaleString()} GPU threads exceed this adapter's dispatch limits`);
+  if(gy>maxG) throw new Error(`${threads.toLocaleString()} GPU threads exceed this device's dispatch limits`);
   return {gx, gy, strideX:gx*wg};
 }
 // With Use GPU acceleration on, the simulator's GPU stages always run on the GPU when it is up — no
@@ -13814,14 +13832,14 @@ async function gpuSimFramesNow(engine, spec){
   if(!used.length) throw new Error('no PSF planes to splat from');
   const {bw, bh, off}=planes[used[0]].sum, planeLen=bw*bh;
   const planeBytes=used.length*planeLen*4;
-  if(planeBytes>maxBind) throw new Error(`the ${used.length} PSF planes this simulation uses need ${fmtBytes(planeBytes)} on the GPU, over this adapter's ${fmtBytes(maxBind)} buffer limit`);
+  if(planeBytes>maxBind) throw new Error(`the ${used.length} PSF planes this simulation uses need ${fmtBytes(planeBytes)} on the GPU, over this GPU's ${fmtBytes(maxBind)} buffer limit`);
   const planeBase=new Uint32Array(planes.length);
   const planeData=new Float32Array(used.length*planeLen);
   used.forEach((zi,k)=>{ planeBase[zi]=k*planeLen; planeData.set(planes[zi].sum.B, k*planeLen); });
   const created=[];
   const mk=(size,usage,label)=>{ const b=engine.mkBuf(size,usage,label); created.push(b); return b; };
   const frameBytes=w*h*4, maxOut=Math.min(64*1024*1024, maxBind);
-  if(frameBytes>maxOut) throw new Error(`one ${w}×${h} frame exceeds this adapter's buffer limit`);
+  if(frameBytes>maxOut) throw new Error(`one ${w}×${h} frame exceeds this GPU's buffer limit`);
   const batchFrames=Math.max(1, Math.floor(maxOut/frameBytes));
   const frames=new Array(n);
   let zClampedCount=0, zTotalCount=0;
@@ -13972,7 +13990,7 @@ async function gpuPsfPlanesNow(engine, cfg, nx, ny){
   const outPlane=nx*ny*4, midPlane=ny*M*8, pupilPlane=M*M*8;
   const cap=Math.min(64*1024*1024, maxBind);
   const batch=Math.max(1, Math.min(nz, Math.floor(cap/Math.max(outPlane, midPlane, pupilPlane))));
-  if(outPlane>cap) throw new Error(`one ${nx}×${ny} PSF plane exceeds this adapter's buffer limit`);
+  if(outPlane>cap) throw new Error(`one ${nx}×${ny} PSF plane exceeds this GPU's buffer limit`);
   const pupilPlan=psfPupilPlan(cfg, M, dk);
   const created=[], mk=(size,usage,label)=>{ const b=engine.mkBuf(size,usage,label); created.push(b); return b; };
   const slices=new Array(nz); let globalMax=0;
@@ -16527,7 +16545,7 @@ fn splitSeed(s:u32)->u32 { if(s==0u){return 0x243f6a88u;} if(s==1u){return 0x85a
 fn main(@builtin(global_invocation_id) id:vec3u){
   // 2D dispatch (rowStride = binWgX*WG, see frcResolutionGpuPrepared()'s own
   // comment) so a real-scale point count never needs more 1D workgroups than
-  // this adapter's maxComputeWorkgroupsPerDimension allows in ONE dimension.
+  // this GPU's maxComputeWorkgroupsPerDimension allows in ONE dimension.
   let i=id.y*p.rowStride+id.x; if(i>=p.nLoc){return;}
   let q=pos[i]; let hi=f32(p.n-1u);
   let x=u32(clamp((q.x-p.xmin)*p.scale,0.0,hi));
@@ -16611,9 +16629,9 @@ async function frcResolutionGpuPrepared(engine,prepared,onProgress=p=>setProg(10
     const {positions,xmin,ymin,extPx,N,nR,nSplit,freq,ringOffsets,ringIndices}=prepared;
     const lim=engine.limits, grid=N*N, complexBytes=grid*8, countBytes=grid*4;
     if(complexBytes>lim.maxStorageBufferBindingSize||complexBytes>lim.maxBufferSize)
-      throw new Error(`FFT ${N}² needs ${fmtBytes(complexBytes)} complex buffers, over this adapter's limit`);
+      throw new Error(`FFT ${N}² needs ${fmtBytes(complexBytes)} complex buffers, over this GPU's limit`);
     if(N*8>lim.maxComputeWorkgroupStorageSize)
-      throw new Error(`FFT ${N} needs ${fmtBytes(N*8)} workgroup storage, over this adapter's limit`);
+      throw new Error(`FFT ${N} needs ${fmtBytes(N*8)} workgroup storage, over this GPU's limit`);
     // Binning is the one dispatch that scales with loc count, so it runs as a
     // 2D dispatch (binWgX × binWgY): one dimension can't exceed
     // maxComputeWorkgroupsPerDimension (≥ 65535), which ~11M locs did. FFT
@@ -16622,7 +16640,7 @@ async function frcResolutionGpuPrepared(engine,prepared,onProgress=p=>setProg(10
     const totalBinWG=Math.ceil(positions.length/2/engine.wg1D);
     const binWgX=Math.min(totalBinWG,maxWG), binWgY=Math.ceil(totalBinWG/binWgX);
     if(N>maxWG||binWgY>maxWG)
-      throw new Error(`FFT ${N}² exceeds this adapter's dispatch limits`);
+      throw new Error(`FFT ${N}² exceeds this GPU's dispatch limits`);
     // Render buffers are retained for interactive reuse; release them before a
     // large FFT so the peak is the FRC working set, not both caches together.
     destroyGpuAccumCache();
@@ -17025,10 +17043,10 @@ async function pcfoTilePointsGpu(engine,stack,idx,S,kThresh,onProgress){
     const w=stack.w, h=stack.h, N=2*S, NN=N*N;
     const tilesX=Math.max(1,Math.floor(w/S)), tilesY=Math.max(1,Math.floor(h/S)), nTiles=tilesX*tilesY;
     const lim=engine.limits, maxWG=lim.maxComputeWorkgroupsPerDimension;
-    if(N*8>lim.maxComputeWorkgroupStorageSize) throw new Error(`FFT ${N} needs ${fmtBytes(N*8)} workgroup storage, over this adapter's limit`);
+    if(N*8>lim.maxComputeWorkgroupStorageSize) throw new Error(`FFT ${N} needs ${fmtBytes(N*8)} workgroup storage, over this GPU's limit`);
     const maxBytes=Math.min(lim.maxStorageBufferBindingSize, lim.maxBufferSize, 128*1048576);
     const TB=Math.max(1,Math.min(nTiles, Math.floor(maxBytes/(NN*8)), Math.floor(maxWG/N), maxWG));
-    if(NN*8>maxBytes) throw new Error(`a ${N}² tile needs ${fmtBytes(NN*8)}, over this adapter's buffer limit`);
+    if(NN*8>maxBytes) throw new Error(`a ${N}² tile needs ${fmtBytes(NN*8)}, over this GPU's buffer limit`);
     const filfac=1-Math.PI*kThresh*kThresh/4, norm=1/(filfac*NN)/NN;
     const device=engine.device, U=GPUBufferUsage, created=[];
     const mk=(size,usage,label)=>{ const b=engine.mkBuf(size,usage,label); created.push(b); return b; };
@@ -21711,7 +21729,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   if(config.useGpu && !gpuFitLargeEnough && gpuMethodSupported){
     onLog(`(GPU fit below crossover for ${(n*w*h).toLocaleString()} input pixels; running fit on CPU. GPU render is selected independently.)`);
   } else if(config.useGpu && gpuEngine.available && !gpuFitEligible){
-    const why = (method==='gaussmleEll'||method==='mle3d') ? `this adapter's storage-buffer limit (${gpuEngine.limits.maxStorageBuffersPerShaderStage}) is below the 7 the elliptical fit kernels need`
+    const why = (method==='gaussmleEll'||method==='mle3d') ? `this GPU's storage-buffer limit (${gpuEngine.limits.maxStorageBuffersPerShaderStage}) is below the 7 the elliptical fit kernels need`
               : !GPU_FIT_METHODS.has(method) && method!=='gaussmleEll' ? `method '${method}' — only ${[...GPU_FIT_METHODS,'gaussmleEll'].join('/')} are GPU-accelerated`
               : 'unknown reason';   // should be unreachable given the checks above
     onLog(`(GPU fit not available: ${why}; running fit on CPU. GPU render is unaffected.)`);
@@ -25643,7 +25661,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.5-dev · build 2026-11-01a — acknowledgement of the people who provided test data.`);
+log(`webSMLM v0.13.5-dev · build 2026-11-10a — the WebGPU device keeps the spec default limits by design; limit messages name the GPU, not the adapter.`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
