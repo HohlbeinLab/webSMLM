@@ -11690,7 +11690,7 @@ async function simulateFramesParallel(pool, ctx){
    back to CPU.
 
    requestAdapter() yields a single adapter (no multi-GPU on the web); we ask
-   for 'high-performance' and size everything from that adapter's own limits.
+   for 'high-performance' and size everything from the granted device limits (WebGPU's defaults, see initGpuEngine()).
    WGSL atomics are i32/u32 only (the render accumulate sums z in fixed point,
    Z_FIXED_SCALE) and compute is f32 only, so GPU fits are close to, not
    bit-identical with, the f64 CPU fits.
@@ -13817,7 +13817,7 @@ function packSimEmitters(spec, f0, f1, planeBase){
 //    bgOf(fi) -> the flat background, or bgMap's scale for this frame when bgMap is set,
 //    bgMap|null, offsetMap, simGain, readNoiseE, cam, noiseSeed, doNoise, onProgress}
 // Returns {frames, zClampedCount, zTotalCount} like simulateFramesParallel(). Frames are batched
-// so each output buffer stays within 64 MB and the adapter's own limits; batch k+1 is packed
+// so each output buffer stays within 64 MB and the device's limits; batch k+1 is packed
 // and submitted before batch k is read back, so CPU packing overlaps GPU work.
 function gpuSimFrames(engine, spec){
   return runGpuExclusive(()=>withGpuErrorScopes(engine.device,'GPU simulation',()=>gpuSimFramesNow(engine, spec)));
