@@ -12,8 +12,14 @@ Install the tools dependencies once:
 npm --prefix tools install
 ```
 
-`tests/lib/launch.mjs` tries the installed Chrome channel first, then the
-Playwright Chromium installed from `tools/`.
+`tests/lib/launch.mjs` uses installed Chrome by default, then bundled Chromium
+if Chrome is missing. Set `WEBSMLM_BROWSER=firefox` to use Playwright's Firefox
+build, `WEBSMLM_BROWSER=webkit` its WebKit (a Safari-like engine); install either separately with
+`node tools/node_modules/playwright/cli.js install firefox|webkit`.
+Those patched builds run the automated checks, while `tests/harness/test-native-firefox.mjs`
+checks release Firefox and ESR directly (Node 22+ and a native Firefox install
+required). Use `WEBSMLM_NATIVE_FIREFOX=firefox-esr` to select ESR, and
+`WEBSMLM_NATIVE_HEADLESS=0 WEBSMLM_NATIVE_GPU=1` to exercise actual WebGPU.
 
 ## Dashboard
 
@@ -126,11 +132,21 @@ Run one module directly when developing a test:
 node tests/gpu/bench-fit.mjs
 node tests/run-suite.mjs --only=bench-fit,bench-render
 node tests/run-suite.mjs --cpu --io          # group flags combine; none = every group
+WEBSMLM_BROWSER=firefox node tests/run-suite.mjs --tests-only --cpu --io --validation --gpu
+WEBSMLM_BROWSER=firefox node tests/harness/bench-browser-stages.mjs
+node tests/harness/test-native-firefox.mjs
 ```
+
+In PowerShell, set environment variables with `$env:WEBSMLM_BROWSER='firefox'`
+before the command. Set `WEBSMLM_TEST_NO_OPEN=1` in WSL or CI to keep the
+suite from opening its HTML report in a GUI browser. `bench-browser-stages.mjs`
+uses one seeded dataset, repeats PCFO, fit, render, and FRC three times, and
+writes timings under `tests/results/`.
 
 `run-suite.mjs` flags: `--gpu --cpu --io --livestream --harness --validation` (groups),
 `--tests-only`, `--benches-only`, `--full`, `--everything`, `--live-hardware`, and
-`--only=a,b` (script basenames without `.mjs`, or roster names).
+`--only=a,b` (script basenames without `.mjs`, or roster names), and `--browser=chrome|firefox|webkit`
+(sets `WEBSMLM_BROWSER`; the dashboard's `browsers:test:firefox` and `browsers:test:webkit` scripts use it).
 
 ## Real-data datasets
 

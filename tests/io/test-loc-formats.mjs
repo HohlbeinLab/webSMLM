@@ -132,6 +132,17 @@ try {
   }, (await import('node:fs')).readFileSync(smlmDeflate).toString('base64'));
   assert.equal(head.n, N, `analyze() on .smlm: ${JSON.stringify(head)}`);
   console.log(`  analyze({file:'….smlm'}): ${head.n} locs`);
+  // Some older browsers expose DecompressionStream but reject "deflate-raw".
+  // The bundled inflater must still be able to read a compressed .smlm.
+  const oldStream = await page.evaluate(async b64 => {
+    const original = window.DecompressionStream;
+    window.DecompressionStream = class { constructor() { throw new TypeError('deflate-raw unavailable'); } };
+    try {
+      const file = new File([Uint8Array.from(atob(b64), c => c.charCodeAt(0))], 'synthetic.smlm');
+      return (await window.webSMLM.analyze({ file, pxnm: 100 })).locs.length;
+    } finally { window.DecompressionStream = original; }
+  }, (await import('node:fs')).readFileSync(smlmDeflate).toString('base64'));
+  assert.equal(oldStream, N);
 
   // ---- 3. real ShareLoc .smlm (optional) ----
   const local = join(repoRoot, 'experimental_data', 'data.smlm');

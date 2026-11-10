@@ -85,26 +85,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params           2769  PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out           3784  TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation       4012  synthetic stack generator ("Simulate movie")
-    validation       7077  ground-truth scoring for simulated data ("Compare to GT")
-    detect           8060  band-pass (wavelet/DoG/box) + local-maxima detection
-    fit              8316  phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render           8973  super-resolution accumulation, view, colour maps, plots
-    workers         11042  frame-parallel detect/fit worker pool
-    gpu             11686  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          14033  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  14653  astigmatic width-vs-z bead calibration
-    drift           15065  AIM and cross-correlation drift correction
-    locprecision    16096  NeNA and FRC
-    sSMLM           17263  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          17869  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             19977  single-particle tracking and diffusion coefficients
-    pipeline        21475  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   22559  Micro-Manager/pycromanager bridge (experimental)
-    table           25739  localizations table, filters, histograms, clustering
-    headless API    26430  window.webSMLM.analyze()/analyzeBatch()
+    params           2774  PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out           3796  TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation       4024  synthetic stack generator ("Simulate movie")
+    validation       7089  ground-truth scoring for simulated data ("Compare to GT")
+    detect           8072  band-pass (wavelet/DoG/box) + local-maxima detection
+    fit              8328  phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render           8985  super-resolution accumulation, view, colour maps, plots
+    workers         11054  frame-parallel detect/fit worker pool
+    gpu             11702  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          14066  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  14683  astigmatic width-vs-z bead calibration
+    drift           15095  AIM and cross-correlation drift correction
+    locprecision    16126  NeNA and FRC
+    sSMLM           17300  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          17906  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             20014  single-particle tracking and diffusion coefficients
+    pipeline        21512  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   22596  Micro-Manager/pycromanager bridge (experimental)
+    table           25780  localizations table, filters, histograms, clustering
+    headless API    26471  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1655,6 +1655,9 @@ X.B(E,Y);return E}return J}())
   .logTerminalMobileNav{display:none;gap:6px;margin-top:6px}
   .logTerminalMobileNav button{width:auto;flex:1 1 0}
   .pill{display:inline-block;vertical-align:middle;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--surface);border:1px solid var(--surface);color:var(--muted)}
+  #compatNotice:not([hidden]){display:flex;align-items:center;gap:8px;margin:8px 16px;padding:7px 10px;border:1px solid var(--accent);border-radius:6px;background:var(--surface);color:var(--fg);font-size:12px}
+  #compatNotice span{flex:1}
+  #compatNotice button{width:auto;margin:0;padding:0 6px;font-size:16px;line-height:1.2}
   a{color:var(--accent)}
   .helpbtn{background:var(--surface);border:1px solid var(--surface);color:var(--accent)}
   /* Small icon-button size; shape and colours from the shared icon rule. */
@@ -1761,7 +1764,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.5-dev · build 2026-11-01a</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.5-dev · build 2026-11-10b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1773,6 +1776,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
     <button id="layoutToggleBtn" class="logbtn" title="Switch to stacked panels (full-width, one above the other)">Stack panels</button>
   </div>
 </header>
+<div id="compatNotice" role="status" aria-live="polite" hidden><span id="compatNoticeText"></span><button type="button" id="compatNoticeClose" title="Dismiss this notice" aria-label="Dismiss this notice">×</button></div>
 
 <div class="wrap">
   <aside class="sidebar">
@@ -2084,11 +2088,12 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <p>Tile size isn't a setting — it's chosen automatically from the field of view (aiming for a ~4×4 grid,
           rounded to a power of two since the noise-variance estimate needs an FFT, floored at 64px, and never below
           2×2) so there's nothing to re-tune per stack.</p>
-          <p>With <b>Use GPU acceleration</b> (Memory, rotation, GPU &amp; streaming) the tile FFTs run on the GPU —
-          the same numbers to f32 precision (e.g. 200 frames of a 846×1950 movie: ~37 s on the CPU, ~3 s on the
-          GPU); the Log reports which path ran and how long it took. Firefox (157 on macOS) runs the GPU path
-          no faster than the CPU (see the roadmap note on browser WebGPU performance): use Chrome or Safari for
-          time-critical work, or sample fewer frames (50 give the same gain on clean data).</p>
+          <p>With <b>Use GPU acceleration</b> (Memory, rotation, GPU &amp; streaming) the tile FFTs run on the GPU,
+          up to eight frames per readback. webSMLM measures how long a GPU readback takes in your browser and
+          uses the CPU instead when the readbacks would cost more than the job takes on the CPU (small jobs in
+          Firefox, whose readbacks are slow). Results match to f32 precision; the Log reports which path ran and
+          how long it took. If a job is slower with GPU enabled on your device, turn off <b>Use GPU
+          acceleration</b> or sample fewer frames (50 can give the same gain on clean data).</p>
         </div>
       </details>
       <details class="sim" id="calibBox">
@@ -3642,6 +3647,13 @@ const log = m => {
   if(atBottom) l.scrollTop=l.scrollHeight;
   $('exportLogBtn').disabled=false;
 };
+// Dismissible banner for a feature that failed and degraded (workers, GPU device loss). An absent
+// optional API (no save picker, no WebGPU) is expected on some browsers and only goes to the Log.
+function showCapabilityNotice(feature, reason, nextStep){
+  $('compatNoticeText').textContent=`${feature}: ${reason} ${nextStep}`;
+  $('compatNotice').hidden=false;
+}
+function dismissCapabilityNotice(){ $('compatNotice').hidden=true; }
 // A config as a tools/webSMLM-cli.mjs command (--key value, bare --flag for
 // true). Callers pass a curated subset, not every PARAMS value.
 function cliCommandFor(config){
@@ -11245,6 +11257,7 @@ async function getPool(){
     probe.terminate();
     if(!ok.pong){
       log(`(workers unavailable${ok.err?' — '+ok.err:''}; running single-threaded)`);
+      showCapabilityNotice('Localization worker', `This browser could not start Web Workers${ok.err?' ('+ok.err+')':''}. Localization will run single-threaded.`, 'Try localhost or update the browser for better speed.');
       return _pool=null;
     }
     // On memory-constrained devices cap the pool at 2: each worker holds a
@@ -11255,7 +11268,7 @@ async function getPool(){
       : Math.max(1,Math.min(12, navigator.hardwareConcurrency||4));
     _pool=[]; for(let i=0;i<nw;i++) _pool.push(new Worker(url));
     return _pool;
-  }catch(err){ log('(workers unavailable: '+err.message+' — single-threaded)'); return _pool=null; }
+  }catch(err){ log('(workers unavailable: '+err.message+' — single-threaded)'); showCapabilityNotice('Localization worker', 'Web Workers are unavailable; localization will run single-threaded.', 'Try localhost or update the browser for better speed.'); return _pool=null; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -11400,12 +11413,13 @@ async function getRenderWorker(){
     if(!ok.pong){
       probe.terminate();
       log(`  (render worker unavailable${ok.err?' — '+ok.err:''}; SR reconstruction will run on the main thread)`);
+      showCapabilityNotice('Reconstruction worker', `This browser could not start the render worker${ok.err?' ('+ok.err+')':''}; reconstruction will run on the main thread.`, 'Try localhost or update the browser for better speed.');
       return _renderWorker=null;
     }
     // Reuse the probed worker as the live one.
     wireRenderWorker(probe);
     return _renderWorker=probe;
-  }catch(err){ log(`  (render worker unavailable: ${err.message} — SR reconstruction will run on the main thread)`); return _renderWorker=null; }
+  }catch(err){ log(`  (render worker unavailable: ${err.message} — SR reconstruction will run on the main thread)`); showCapabilityNotice('Reconstruction worker', 'Web Workers are unavailable; reconstruction will run on the main thread.', 'Try localhost or update the browser for better speed.'); return _renderWorker=null; }
 }
 
 // fft1d() (MODULE: locprecision) runs on the radix-4 helpers and their per-N cache below; a worker
@@ -11524,12 +11538,13 @@ async function getPsfWorkerPool(){
     probe.terminate();
     if(!ok.pong){
       log(`(PSF workers unavailable${ok.err?' — '+ok.err:''}; building the PSF kernel on the main thread)`);
+      showCapabilityNotice('PSF worker', 'The PSF worker could not start; kernel building will run on the main thread.', 'Try localhost or update the browser for better speed.');
       return _psfPool=null;
     }
     const nw=isMemoryConstrainedDevice() ? Math.max(1,Math.min(2, navigator.hardwareConcurrency||2)) : Math.max(1,Math.min(8, navigator.hardwareConcurrency||4));   // 2 on a memory-constrained device: each worker holds its own plane buffers
     const pool=[]; for(let i=0;i<nw;i++){ const w=new Worker(url); wirePsfWorker(w); pool.push(w); }
     return _psfPool=pool;
-  }catch(err){ log(`(PSF workers unavailable: ${err.message} — building the PSF kernel on the main thread)`); return _psfPool=null; }
+  }catch(err){ log(`(PSF workers unavailable: ${err.message} — building the PSF kernel on the main thread)`); showCapabilityNotice('PSF worker', 'Web Workers are unavailable; kernel building will run on the main thread.', 'Try localhost or update the browser for better speed.'); return _psfPool=null; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -11634,13 +11649,14 @@ async function getSimWorkerPool(){
     probe.terminate();
     if(!ok.pong){
       log(`(simulation workers unavailable${ok.err?' — '+ok.err:''}; Simulate movie will run on the main thread)`);
+      showCapabilityNotice('Simulation worker', 'The simulation worker could not start; simulation will run on the main thread.', 'Try localhost or update the browser for better speed.');
       return _simPool=null;
     }
     // Capped at 2 on a memory-constrained device: every worker holds its own copy of the PSF kernel planes.
     const nw=isMemoryConstrainedDevice() ? Math.max(1,Math.min(2, navigator.hardwareConcurrency||2)) : Math.max(1,Math.min(12, navigator.hardwareConcurrency||4));
     const pool=[]; for(let i=0;i<nw;i++) pool.push(new Worker(url));
     return _simPool=pool;
-  }catch(err){ log(`(simulation workers unavailable: ${err.message} — Simulate movie will run on the main thread)`); return _simPool=null; }
+  }catch(err){ log(`(simulation workers unavailable: ${err.message} — Simulate movie will run on the main thread)`); showCapabilityNotice('Simulation worker', 'Web Workers are unavailable; simulation will run on the main thread.', 'Try localhost or update the browser for better speed.'); return _simPool=null; }
 }
 // Splats+noises every frame of "Simulate movie" across `pool`, batched with the SAME
 // workerBatchMin/Max/Target knobs (MODULE: params) runCore()'s own detect/fit dispatch uses —
@@ -12058,10 +12074,11 @@ async function initGpuEngine(){
     probeStaging.unmap(); probeStaging.destroy(); probeBuf.destroy();
     if(probeOut!==42) throw new Error('probe result mismatch');
     await tuneGpuWorkgroup(engine);
+    engine.readbackMs=await measureGpuReadbackMs(device);
     // Device loss disables the engine for the session (no retry).
-    device.lost.then(info=>{ log(`(GPU device lost${info&&info.message?' — '+info.message:''}; falling back to CPU for the rest of this session)`); engine.available=false; });
+    device.lost.then(info=>{ log(`(GPU device lost${info&&info.message?' — '+info.message:''}; falling back to CPU for the rest of this session)`); showCapabilityNotice('WebGPU', 'The GPU device was lost; analysis will use the CPU for this session.', 'Reload the page after checking your graphics driver.'); engine.available=false; });
     return engine;
-  }catch(err){ log('(WebGPU unavailable: '+(err&&err.message||err)+' — using CPU)'); return {available:false}; }
+  }catch(err){ log('(WebGPU unavailable: '+(err&&err.message||err)+' — using CPU)'); showCapabilityNotice('WebGPU', `GPU initialization failed (${err&&err.message||err}); analysis will use the CPU.`, 'Update the browser and graphics driver, or untick Use GPU acceleration.'); return {available:false}; }
 }
 // Cached-by-key GPUComputePipeline compile — same "compute once, reuse"
 // precedent as getLUT()'s _lutCache (MODULE: render), so repeated calls
@@ -12099,6 +12116,22 @@ async function buildGpuPipeline(engine, cacheKey, wgslCode, entryPoint, constant
   // An explicit `layout` makes bind groups portable across pipelines (needed
   // by the slot pool); without it, 'auto' as for one-shot render passes.
   return engine.device.createComputePipelineAsync({label:cacheKey, layout: layout || 'auto', compute});
+}
+// Median submit + mapAsync round trip of a 4-byte copy (ms, NaN if it cannot be measured): what each GPU readback batch
+// costs this browser and driver, which varies by ~20x (see pcfoGpuEligible()).
+async function measureGpuReadbackMs(device){
+  const U=GPUBufferUsage, t=[];
+  let src, dst;
+  try{
+    src=device.createBuffer({size:4,usage:U.COPY_SRC|U.COPY_DST}); dst=device.createBuffer({size:4,usage:U.MAP_READ|U.COPY_DST});
+    for(let i=0;i<6;i++){
+      const t0=performance.now(), enc=device.createCommandEncoder();
+      enc.copyBufferToBuffer(src,0,dst,0,4); device.queue.submit([enc.finish()]);
+      await dst.mapAsync(GPUMapMode.READ); dst.unmap(); t.push(performance.now()-t0);
+    }
+    t.shift(); t.sort((a,b)=>a-b); return t[t.length>>1];
+  }catch(_){ return NaN; }
+  finally{ try{ src&&src.destroy(); dst&&dst.destroy(); }catch(_){} }
 }
 // Measures the fastest workgroup size for the spherical fit kernel on this GPU
 // (largest isn't reliably fastest): best of 3 per size on a synthetic batch,
@@ -14032,11 +14065,24 @@ async function gpuPsfPlanesNow(engine, cfg, nx, ny){
 /* ===========================================================================
    MODULE: export — ThunderSTORM-compatible CSV
    =========================================================================== */
-// Save a Blob with a "Save As" dialog where the File System Access API is
-// available (not on file://, where it falls back to a download; enable the
-// browser's "ask where to save" to get a prompt). Returns the saved name or
-// null if cancelled.
 let _dlHintShown=false;
+function logNoPickerHint(what){
+  if(_dlHintShown) return;
+  _dlHintShown=true;
+  log(`(This browser has no Save-As dialog (File System Access API), so ${what} download directly.`);
+  log('Enable “Ask where to save each file” in the browser settings to be prompted for a location.)');
+}
+// Resolves 300 ms after the click: WebKit drops a download started in the same tick as another, so callers
+// that save several files in a row (await each) keep all of them.
+async function downloadBlob(blob,name){
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  await new Promise(r=>setTimeout(r,300));
+}
+// Save a Blob with a "Save As" dialog where the File System Access API is
+// available (not in Firefox/Safari or some page contexts: they download
+// directly). Returns the saved name or null if cancelled.
 async function saveBlob(blob,name,desc,mime,ext){
   if(window.showSaveFilePicker){
     try{
@@ -14045,19 +14091,14 @@ async function saveBlob(blob,name,desc,mime,ext){
       const ws=await h.createWritable(); await ws.write(blob); await ws.close();
       return h.name;
     }catch(err){ if(err&&err.name==='AbortError') return null;   // cancelled
-      log(`(save dialog unavailable: ${err&&err.message||err})`); }
-  } else if(!_dlHintShown){
-    _dlHintShown=true;
-    log('(Save-As dialogs need http(s); on a local file:// page the browser downloads instead.');
-    log('Enable “Ask where to save each file” in your browser to be prompted for a location.)');
-  }
-  const url=URL.createObjectURL(blob), a=document.createElement('a');
-  a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+      log(`(save dialog unavailable: ${err&&err.message||err}; downloading instead)`); }
+  } else logNoPickerHint('files');
+  await downloadBlob(blob,name);
   return name;
 }
 // Plot save offering PNG and SVG as file types in one native dialog; the
-// chosen type is read from the handle's extension. Without a picker: PNG.
+// chosen type is read from the handle's extension. Without a picker the PNG
+// and the SVG both download (no way to ask which one).
 async function savePlotEither(pngBlob, svgText, pngName){
   if(window.showSaveFilePicker){
     try{
@@ -14069,15 +14110,10 @@ async function savePlotEither(pngBlob, svgText, pngName){
       const ws=await h.createWritable(); await ws.write(blob); await ws.close();
       return h.name;
     }catch(err){ if(err&&err.name==='AbortError') return null;   // cancelled
-      log(`(save dialog unavailable: ${err&&err.message||err})`); }
-  } else if(!_dlHintShown){
-    _dlHintShown=true;
-    log('(Save-As dialogs need http(s); on a local file:// page the browser downloads instead.');
-    log('Enable “Ask where to save each file” in your browser to be prompted for a location.)');
-  }
-  const url=URL.createObjectURL(pngBlob), a=document.createElement('a');
-  a.href=url; a.download=pngName; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+      log(`(save dialog unavailable: ${err&&err.message||err}; downloading instead)`); }
+  } else logNoPickerHint('plots (PNG and SVG)');
+  await downloadBlob(pngBlob,pngName);
+  await downloadBlob(new Blob([svgText],{type:'image/svg+xml'}),pngName.replace(/\.png$/i,'.svg'));
   return pngName;
 }
 
@@ -14311,11 +14347,7 @@ async function pickLocSaveTarget(format, base){
       return {format:format||typeOf(h.name), name:h.name, handle:h};
     }catch(err){ if(err&&err.name==='AbortError') return null;   // cancelled
       log(`(save dialog unavailable: ${err&&err.message||err})`); }
-  } else if(!_dlHintShown){
-    _dlHintShown=true;
-    log('(Save-As dialogs need http(s); on a local file:// page the browser downloads instead.');
-    log('Enable “Ask where to save each file” in your browser to be prompted for a location.)');
-  }
+  } else logNoPickerHint('files');
   format=format||'csv';
   return {format, name:base+LOC_SAVE_TYPES[format].ext, handle:null};
 }
@@ -14324,9 +14356,7 @@ async function writeLocSave(target, blob){
     const ws=await target.handle.createWritable(); await ws.write(blob); await ws.close();
     return target.handle.name;
   }
-  const url=URL.createObjectURL(blob), a=document.createElement('a');
-  a.href=url; a.download=target.name; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  await downloadBlob(blob,target.name);
   return target.name;
 }
 
@@ -17018,7 +17048,7 @@ fn main(@builtin(workgroup_id) wid:vec3u,@builtin(local_invocation_id) lid:vec3u
   if(lid.x==0u){out[t]=sums[0];}
 }`;
 // Tile points for a list of frames on the GPU: buffers sized once, tiles in
-// batches small enough for the buffer and dispatch limits; one frame per
+// batches small enough for the buffer and dispatch limits; up to eight frames per
 // submission (upload, fill, rows, transpose, rows, power, readback).
 async function pcfoTilePointsGpu(engine,stack,idx,S,kThresh,onProgress){
   return runGpuExclusive(()=>withGpuErrorScopes(engine.device,'GPU PCFO',async()=>{
@@ -17027,7 +17057,7 @@ async function pcfoTilePointsGpu(engine,stack,idx,S,kThresh,onProgress){
     const lim=engine.limits, maxWG=lim.maxComputeWorkgroupsPerDimension;
     if(N*8>lim.maxComputeWorkgroupStorageSize) throw new Error(`FFT ${N} needs ${fmtBytes(N*8)} workgroup storage, over this adapter's limit`);
     const maxBytes=Math.min(lim.maxStorageBufferBindingSize, lim.maxBufferSize, 128*1048576);
-    const TB=Math.max(1,Math.min(nTiles, Math.floor(maxBytes/(NN*8)), Math.floor(maxWG/N), maxWG));
+    const TB=Math.max(1,Math.min(8*nTiles, Math.floor(maxBytes/(NN*8)), Math.floor(maxWG/N), maxWG));
     if(NN*8>maxBytes) throw new Error(`a ${N}² tile needs ${fmtBytes(NN*8)}, over this adapter's buffer limit`);
     const filfac=1-Math.PI*kThresh*kThresh/4, norm=1/(filfac*NN)/NN;
     const device=engine.device, U=GPUBufferUsage, created=[];
@@ -17035,7 +17065,7 @@ async function pcfoTilePointsGpu(engine,stack,idx,S,kThresh,onProgress){
     try{
       // Several frames per submission: one readback per batch, not per frame (a round trip costs far more than
       // a frame's FFTs in some browsers' WebGPU). Falls back to one frame, tiles in batches, for a frame too big.
-      const FB=Math.max(1,Math.min(8,Math.floor(TB/nTiles)));
+      const FB=Math.max(1,Math.min(8,Math.floor(TB/nTiles),Math.floor(maxBytes/(w*h*4))));   // the frame buffer is one storage binding too
       const imgBuf=mk(FB*w*h*4,U.STORAGE|U.COPY_DST,'pcfo:frame');
       const meansBuf=mk(TB*4,U.STORAGE|U.COPY_DST,'pcfo:means');
       const a0=mk(TB*NN*8,U.STORAGE,'pcfo:ping'), a1=mk(TB*NN*8,U.STORAGE,'pcfo:pong');
@@ -17058,7 +17088,7 @@ async function pcfoTilePointsGpu(engine,stack,idx,S,kThresh,onProgress){
       const tr10=bg(trPipe,[a1,a0,rowsP],'pcfo:transpose');
       const powBg=bg(powPipe,[a1,powP,outBuf],'pcfo:power');
       const wgX=Math.ceil(N/engine.wg2D[0]), wgY=Math.ceil(N/engine.wg2D[1]);
-      const pts=[]; pts.timing={readMs:0,deviceMs:0,prepMs:0,gpuMs:0};   // frame reads, then upload + tile means (CPU), then GPU submit + readback, for the log
+      const pts=[]; pts.timing={readMs:0,deviceMs:0,prepMs:0,gpuMs:0,framesPerBatch:FB,batches:0};   // frame reads, then upload + tile means (CPU), then GPU submit + readback, for the log
       for(let f0=0;f0<idx.length;f0+=FB){
         const nf=Math.min(FB,idx.length-f0);
         let tm=performance.now();
@@ -17074,21 +17104,14 @@ async function pcfoTilePointsGpu(engine,stack,idx,S,kThresh,onProgress){
         }
         pts.timing.prepMs+=performance.now()-tPrep;
         for(let t0=0;t0<nAll;t0+=TB){
+          pts.timing.batches++;
           const nb=Math.min(TB,nAll-t0), tGpu=performance.now();
           engine.write(meansBuf,0,meansAll.subarray(t0,t0+nb));
           engine.write(fillP,0,new Uint32Array([w,S,N,tilesX,t0,nb,nTiles,w*h]));
           engine.write(rowsP,0,new Uint32Array([nb*N,nb,0,0]));
           const plan=[['fill',fillPipe,fillBg,wgX,wgY,nb],['fft rows',fftPipe,fft01,nb*N,1,1],['transpose',trPipe,tr10,wgX,wgY,nb],['fft columns',fftPipe,fft01b,nb*N,1,1],['power',powPipe,powBg,nb,1,1]];
-          if(f0===0&&t0===0){
-            // First batch only: each pass submitted and awaited on its own, so the log can say which kernel is slow.
-            pts.timing.passMs={};
-            for(const [name,pipe,group,x,y,z] of plan){
-              const e=device.createCommandEncoder({label:'pcfo:diag'}), ps=e.beginComputePass(); ps.setPipeline(pipe); ps.setBindGroup(0,group); ps.dispatchWorkgroups(x,y,z); ps.end();
-              const tp=performance.now(); engine.submit([e.finish()]); await device.queue.onSubmittedWorkDone(); pts.timing.passMs[name]=performance.now()-tp;
-            }
-          }
           const enc=device.createCommandEncoder({label:'pcfo:batch'});
-          if(!(f0===0&&t0===0)) for(const [,pipe,group,x,y,z] of plan){ const ps=enc.beginComputePass(); ps.setPipeline(pipe); ps.setBindGroup(0,group); ps.dispatchWorkgroups(x,y,z); ps.end(); }
+          for(const [,pipe,group,x,y,z] of plan){ const ps=enc.beginComputePass(); ps.setPipeline(pipe); ps.setBindGroup(0,group); ps.dispatchWorkgroups(x,y,z); ps.end(); }
           enc.copyBufferToBuffer(outBuf,0,staging,0,nb*4);
           engine.submit([enc.finish()]);
           await staging.mapAsync(GPUMapMode.READ);
@@ -17182,6 +17205,13 @@ function renderPcfoPlotHeadless(pts, fit, r2){
 }
 // DOM-free PCFO on an explicit stack and config (pcfoFrames/pcfoK/pcfoRnstd),
 // so analyze() can run it on the stack it's about to localize.
+// GPU only when its readbacks (one per 8 frames, `engine.readbackMs` each) cost less than the CPU
+// would take (~25 ns per FFT sample, the same in Chrome and Firefox). An unmeasured latency keeps the GPU.
+const PCFO_CPU_MS_PER_SAMPLE=2.5e-5;
+function pcfoGpuEligible(nFrames,nTiles,N,readbackMs){
+  if(!(readbackMs>0)) return true;
+  return Math.ceil(nFrames/8)*readbackMs < nFrames*nTiles*N*N*PCFO_CPU_MS_PER_SAMPLE;
+}
 async function pcfoCore(config, stack, hooks={}){
   const { onLog=()=>{}, onProgress=()=>{}, onRecord=null } = hooks;
   const NFRAMES=config.pcfoFrames, K_THRESH=config.pcfoK, RNSTD=config.pcfoRnstd;
@@ -17199,11 +17229,18 @@ async function pcfoCore(config, stack, hooks={}){
   const pts=await runStage('pcfo', {useGpu:!!config.useGpu, stageTimings:hooks.stageTimings, onLog},
     ()=>pcfoTilePointsCpu(stack,idx,S,K_THRESH,onProgress),
     ()=>pcfoTilePointsGpu(engine,stack,idx,S,K_THRESH,onProgress),
-    async()=>{ engine=await getGpuEngine(); return engine&&engine.available?{eligible:true,reason:'selected'}:{eligible:false,reason:'unavailable'}; });
+    async()=>{
+      engine=await getGpuEngine();
+      if(!(engine&&engine.available)) return {eligible:false,reason:'unavailable'};
+      if(!pcfoGpuEligible(idx.length,TILES_X*TILES_Y,2*S,engine.readbackMs)){
+        onLog(`(PCFO: using the CPU — this browser's GPU readback takes ${engine.readbackMs.toFixed(0)} ms, more than the job saves.)`);
+        return {eligible:false,reason:'readback-latency'};
+      }
+      return {eligible:true,reason:'selected'};
+    });
   if(pts.timing&&pts.timing.readMs+pts.timing.deviceMs>3000)
     onLog(`PCFO time split: frame reads ${(pts.timing.readMs/1000).toFixed(1)} s, tile statistics ${(pts.timing.deviceMs/1000).toFixed(1)} s`+
-      (pts.timing.gpuMs?` (frame upload + tile means ${(pts.timing.prepMs/1000).toFixed(1)} s, GPU submit + readback ${(pts.timing.gpuMs/1000).toFixed(1)} s)`:'')+'.'+
-      (pts.timing.passMs?` First batch by pass (ms): ${Object.entries(pts.timing.passMs).map(([k,v])=>k+' '+Math.round(v)).join(', ')}.`:''));
+      (pts.timing.gpuMs?` (frame upload + tile means ${(pts.timing.prepMs/1000).toFixed(1)} s, GPU submit + readback ${(pts.timing.gpuMs/1000).toFixed(1)} s)`:'')+'.');
   const fit=pcfoRegress(pts,RNSTD);
   if(!fit){ onLog(`too few usable data points (${pts.length}) — is the frame large enough (≥32 px) for tiling?`); return null; }
   // pcfoRegress's "gain" is the noisevar-vs-signal slope, in ADU/photon (classical
@@ -24315,7 +24352,10 @@ async function zipEntryStream(file, e){
   const start=e.local+30+h.getUint16(26,true)+h.getUint16(28,true), blob=file.slice(start, start+e.csize);
   if(e.method===0) return blob.stream();
   if(e.method!==8) throw new Error(`ZIP entry ${e.name} uses compression method ${e.method} (only stored/deflate are supported)`);
-  if(typeof DecompressionStream==='function') return blob.stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  if(typeof DecompressionStream==='function'){
+    try{ return blob.stream().pipeThrough(new DecompressionStream('deflate-raw')); }
+    catch(_){ /* older engines expose the API but do not accept deflate-raw */ }
+  }
   const out=pako.inflateRaw(new Uint8Array(await blob.arrayBuffer()));
   return new Blob([out]).stream();
 }
@@ -25643,8 +25683,9 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.5-dev · build 2026-11-01a — acknowledgement of the people who provided test data.`);
+log(`webSMLM v0.13.5-dev · build 2026-11-10b — cross-browser fallbacks (no save picker: files download; worker notice) and PCFO GPU batching.`);
 
+$('compatNoticeClose').addEventListener('click', dismissCapabilityNotice);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
 $('themeContrastBtn').addEventListener('click', ()=>applyTheme('contrast'));
