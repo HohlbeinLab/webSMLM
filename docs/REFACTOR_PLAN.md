@@ -6,6 +6,18 @@ in [`../CHANGELOG.md`](../CHANGELOG.md); this file doesn't duplicate it.
 
 ## Next
 
+- **WebGPU workgroup headroom above the spec default** (build 2026-11-10a) — `initGpuEngine()`
+  deliberately takes the default device limits (see MODULE: gpu), which caps `wg1D` at 256
+  invocations. On an Intel Xe-LPG adapter the hardware allows 1024, so `tuneGpuWorkgroup()` never
+  gets to try 512 or 1024. Measured on that adapter, requesting the adapter's limits changes nothing
+  else that matters — the fit batch stays bound by `gpuBatchMb`, viewport chunks by the `1<<22` cap
+  and PCFO by its own 128 MiB cap; only the render chunk (8.4M → 67M locs) and the whole-image render
+  cap (33.5M → 537M px) grow, both into allocations the viewport path exists to avoid. So the
+  question is narrow and answerable: request `maxComputeInvocationsPerWorkgroup` and
+  `maxComputeWorkgroupSizeX` **alone**, re-run `bench-*` on more than one vendor, and keep it only if
+  a larger workgroup measurably wins. Until that measurement exists, defaults keep every device and
+  browser on the same numbers.
+
 - **Ground-truth scoring findings** (v0.12.0-dev, build 2026-09-04e) — measured once **Score vs
   truth** (MODULE: validation) made them measurable, and worth acting on:
   - The default **Filaments + ring** test object overstates lateral error by roughly 50%, and not

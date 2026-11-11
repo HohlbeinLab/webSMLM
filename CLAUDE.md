@@ -335,8 +335,14 @@ what makes GUI and command-line use interchangeable.
 - **gpu** — WebGPU engine (experimental; probed once, disabled for the session on failure or device
   loss). `runStage()` picks CPU/GPU per stage and times both for the A/B table (`logStageTable()`).
   Fit batching: `makeGpuFitAccumulator()` (in `runCore()`) and `makeGpuFitSlotPool()` (lazy
-  persistent slots); pipelines are cached as promises with explicit layouts. Kernel sizes come from
-  the adapter's real limits; `tuneGpuWorkgroup()` measures the best workgroup size once per session.
+  persistent slots); pipelines are cached as promises with explicit layouts. `initGpuEngine()` requests the device with
+  **no `requiredLimits`**, so `engine.limits` are WebGPU's spec defaults (128 MiB per storage binding,
+  256 MiB per buffer, 256 invocations/workgroup, 8 storage buffers/stage), not the adapter's maxima:
+  every stage is sized against those and against the app's own smaller caps (`gpuBatchMb`, the `1<<22`
+  viewport chunk, PCFO's 128 MiB), so asking for more would only enlarge the render chunk and the
+  whole-image render cap — allocations the viewport path exists to avoid — while making behaviour and
+  the benchmarks device-dependent. Kernel sizes come from those granted limits;
+  `tuneGpuWorkgroup()` measures the best workgroup size once per session.
   The free-angle rotated kernel needs `maxStorageBuffersPerShaderStage ≥ 7`. `WGSL_FRC_BIN`
   dispatches 2D (loc count can exceed 65,535 workgroups in one dimension). PCFO's tile FFTs
   (`pcfoTilePointsGpu()`, stage `pcfo`: mirror fill with the tile mean removed, batched row FFTs,
