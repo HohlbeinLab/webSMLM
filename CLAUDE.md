@@ -346,8 +346,8 @@ what makes GUI and command-line use interchangeable.
   The free-angle rotated kernel needs `maxStorageBuffersPerShaderStage ≥ 7`. `WGSL_FRC_BIN`
   dispatches 2D (loc count can exceed 65,535 workgroups in one dimension). PCFO's tile FFTs
   (`pcfoTilePointsGpu()`, stage `pcfo`: mirror fill with the tile mean removed, batched row FFTs,
-  per-tile transpose, masked power sum; several frames per submission, twiddles from a CPU table) match the CPU to ~1e-7; its jackknife is the exact
-  O(n log n) `pcfoJackknife()`. Test: `tests/gpu/test-pcfo.mjs`. The simulator's two GPU stages
+  per-tile transpose, masked power sum; up to eight frames per submission (bounded by the frame buffer's storage limit too), twiddles from a CPU table) match the CPU to ~1e-7; its jackknife is the exact
+  O(n log n) `pcfoJackknife()`. `initGpuEngine()` measures the browser's readback round trip once (`engine.readbackMs`: ~5 ms Chrome, ~100 ms Firefox) and `pcfoGpuEligible()` takes the GPU only when its readbacks (one per 8 frames) cost less than the CPU's ~25 ns per FFT sample; unmeasured keeps the GPU. Test: `tests/gpu/test-pcfo.mjs`. The simulator's two GPU stages
   (frames, PSF planes) are described under **Simulation**. WGSL strings can't share
   functions (e.g. `erfApprox()` is duplicated); no backticks or `${` in comments inside them.
 
@@ -362,7 +362,9 @@ what makes GUI and command-line use interchangeable.
   goes in `buildCsvText()` and `smlmTableColumns()` (and `LOC_COLUMNS` to read it back). Test:
   `tests/io/test-save-loc-formats.mjs` (h5py, and Picasso when `PICASSO_PYTHON`/python3 has it).
   ThunderSTORM-compatible CSV (`buildCsvText()` returns ~5000-row `parts`, never one
-  string). Optional columns appear only when a loc carries the field (`sigma_x/y`, `angle`, `x2/y2/
+  string). Every save (`saveBlob()`, `savePlotEither()`, `pickLocSaveTarget()`/`writeLocSave()`) uses the File System Access
+  picker where it exists, else `downloadBlob()` (Firefox/Safari: CSV unless a format button was used; a plot downloads both
+  PNG and SVG); one hint, `logNoPickerHint()`. Test: `tests/io/test-browser-fallbacks.mjs`. Optional columns appear only when a loc carries the field (`sigma_x/y`, `angle`, `x2/y2/
   pairAngle`, `sx0th…`, `sx_AA/sy_AA`, `cell_id/cell_area`, `track_id/D_coeff`, `llr`). `analyze()` returns
   `csvParts` always and `csvText` only below `CSV_TEXT_MAX_CHARS`; `config.exportCsvRows` streams
   chunks via `onRecord('csv', …)` (the CLI always sets it). **The worker message protocol (16
@@ -730,6 +732,17 @@ bead z-stack (`generateCalibrationStack()`, focus on the centre frame by constru
 Simulate movie logs every non-default `simulation_*` field with `runSimulation()` so a recalled
 command reproduces the movie. There is no headless generator (`analyze()` can only `scoreVsTruth`).
 
+## Browser support
+
+Chrome/Edge, Firefox (release and ESR) and Safari are supported; nothing beyond baseline web APIs is required.
+Optional capabilities degrade, never block: no WebGPU → CPU path, no File System Access picker → direct download,
+no usable Web Worker → main thread, a `DecompressionStream` that rejects `deflate-raw` → the bundled pako.
+**Banner vs Log**: a capability that is merely absent on some browsers (picker, WebGPU) goes to the Log only; a
+feature that failed and degraded (workers, GPU device loss) also shows the dismissible `#compatNotice` banner
+(`showCapabilityNotice()`). A newer web API must be feature-detected with a fallback. Cross-browser
+checks: `node tests/run-suite.mjs --browser=firefox|webkit …` (or `WEBSMLM_BROWSER`; dashboard scripts `browsers:test:firefox|webkit`) (Playwright's Firefox/WebKit; neither has WebGPU here, so GPU
+kernels skip) and `tests/harness/test-native-firefox.mjs` (release Firefox/ESR via WebDriver BiDi, Node 22+, see `tests/README.md`).
+
 ## Web Worker gotcha (read before touching detect/fit/workers)
 
 Workers are built from the main thread's own functions (`workerSource()` stringifies them), so the
@@ -838,7 +851,7 @@ settings-JSON code).
 - Numeric additions: validate against synthetic ground truth (extracted functions in JXA are fine
   for small inputs; JXA is ~50–100× slower than V8).
 - Interactive/visual checks: Playwright (Chromium bundled; `npx playwright install webkit` for a
-  Safari-like check). Throwaway scripts go in the scratchpad or `tools/` prefixed `_tmp_`, deleted
+  Safari-like check; `WEBSMLM_BROWSER=firefox|webkit` selects that engine in the test suite). Throwaway scripts go in the scratchpad or `tools/` prefixed `_tmp_`, deleted
   afterwards, never committed. For UI timing, measure real paints.
 
 ### `tools/micromanager_plugin/webSMLM_Streaming` (Java) — rebuild locally to test, never commit the jar

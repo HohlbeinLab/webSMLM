@@ -19,6 +19,9 @@ try {
   });
   assert.equal(jk.nFast, jk.n); assert.ok(jk.d < 1e-9, `jackknife max rel. diff ${jk.d}`);
   console.log(`  jackknife: ${jk.n} leave-one-out fits identical (max rel. diff ${jk.d.toExponential(1)})`);
+  // GPU only when its readbacks (one per 8 frames) cost less than the CPU would take: slow readback (120 ms) sends small jobs to the CPU, fast (5 ms) keeps the GPU, unmeasured keeps the GPU
+  const crossover = await page.evaluate(() => [[20, 9, 128, 120], [200, 9, 128, 120], [100, 4, 512, 120], [20, 9, 128, 5], [200, 9, 128, 5], [20, 9, 128, NaN]].map(a => pcfoGpuEligible(...a)));
+  assert.deepEqual(crossover, [false, false, true, true, true, true], 'PCFO GPU/CPU choice follows the readback latency');
   const gpu = await checkGpu(page);
   if (!gpu.available) { console.log('PCFO: PASS (GPU part skipped: WebGPU unavailable)'); process.exit(0); }
   const r = await page.evaluate(async () => {
@@ -30,11 +33,15 @@ try {
     let d = 0; for (let i = 0; i < cpu.length; i++) d = Math.max(d, Math.abs(cpu[i].noisevar - gpuPts[i].noisevar) / cpu[i].noisevar, Math.abs(cpu[i].imsig - gpuPts[i].imsig) / cpu[i].imsig);
     const fc = pcfoRegress(cpu, 2.89), fg = pcfoRegress(gpuPts, 2.89);
     const run = async useGpu => { const t = newStageTimings(); const o = await pcfoCore({ pcfoFrames: 30, pcfoK: k, pcfoRnstd: 2.89, useGpu }, st, { stageTimings: t }); return { gain: o.gain, offset: o.offset, path: t.pcfo.path }; };
-    return { nPts: cpu.length, d, gainCpu: 1 / fc.gain, gainGpu: 1 / fg.gain, offCpu: fc.offset, offGpu: fg.offset, coreCpu: await run(false), coreGpu: await run(true) };
+    const expectGpu = pcfoGpuEligible(30, Math.max(1, Math.floor(st.w / S)) * Math.max(1, Math.floor(st.h / S)), 2 * S, engine.readbackMs);
+    return { nPts: cpu.length, d, expectGpu, readbackMs: engine.readbackMs, framesPerBatch: gpuPts.timing.framesPerBatch, batches: gpuPts.timing.batches,
+      gainCpu: 1 / fc.gain, gainGpu: 1 / fg.gain, offCpu: fc.offset, offGpu: fg.offset, coreCpu: await run(false), coreGpu: await run(true) };
   });
   assert.ok(r.d < 1e-4, `tile stats max rel. diff ${r.d}`);
+  assert.ok(r.framesPerBatch > 1 && r.batches < 30, `PCFO should batch frames into fewer readbacks: ${JSON.stringify(r)}`);
   assert.ok(Math.abs(r.gainGpu - r.gainCpu) / r.gainCpu < 1e-4 && Math.abs(r.offGpu - r.offCpu) < 0.05, JSON.stringify(r));
-  assert.equal(r.coreGpu.path, 'gpu'); assert.equal(r.coreCpu.path, 'cpu');
+  assert.equal(r.coreGpu.path, r.expectGpu ? 'gpu' : 'cpu', JSON.stringify(r)); assert.equal(r.coreCpu.path, 'cpu');
+  assert.ok(r.readbackMs > 0 || Number.isNaN(r.readbackMs), `readback latency measured: ${r.readbackMs}`);
   console.log(`  GPU tiles: ${r.nPts} tiles, max rel. diff ${r.d.toExponential(1)}; gain ${r.gainCpu.toFixed(4)} (CPU) vs ${r.gainGpu.toFixed(4)} (GPU), offset ${r.offCpu.toFixed(2)} vs ${r.offGpu.toFixed(2)}`);
   console.log('PCFO: PASS');
 } finally { await browser.close(); }

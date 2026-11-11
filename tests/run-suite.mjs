@@ -14,12 +14,16 @@ const full = args.has('--full');
 const everything = args.has('--everything');
 const benchesOnly = args.has('--benches-only');
 const testsOnly = args.has('--tests-only');
-const KNOWN_FLAGS = ['--full', '--everything', '--benches-only', '--tests-only', '--live-hardware', '--gpu', '--cpu', '--io', '--livestream', '--harness', '--validation', '--only=<a,b>'];
-const unknown = argv.filter(a => a.startsWith('--') && !a.startsWith('--only=') && !KNOWN_FLAGS.includes(a));
+const KNOWN_FLAGS = ['--full', '--everything', '--benches-only', '--tests-only', '--live-hardware', '--gpu', '--cpu', '--io', '--livestream', '--harness', '--validation', '--only=<a,b>', '--browser=<chrome|firefox|webkit>'];
+const unknown = argv.filter(a => a.startsWith('--') && !a.startsWith('--only=') && !a.startsWith('--browser=') && !KNOWN_FLAGS.includes(a));
 if (unknown.length) { console.error(`Unknown flag(s): ${unknown.join(' ')}
 Accepted: ${KNOWN_FLAGS.join(' ')}`); process.exit(1); }
 if (testsOnly && benchesOnly) { console.error('--tests-only and --benches-only are mutually exclusive.'); process.exit(1); }
 const liveHardware = args.has('--live-hardware');
+// --browser=firefox|webkit runs every browser test in Playwright's Firefox/WebKit (default: installed Chrome); the
+// launcher reads WEBSMLM_BROWSER, which the dashboard cannot set, so this flag is how it selects an engine.
+const browserArg = argv.find(a => a.startsWith('--browser='));
+if (browserArg) process.env.WEBSMLM_BROWSER = browserArg.slice('--browser='.length);
 // --only=name1,name2 — script basenames (no .mjs), e.g. --only=bench-fit,bench-render.
 // Filters the roster below to just those; omitted = every command, unchanged.
 const onlyArg = argv.find(a => a.startsWith('--only='));
@@ -58,11 +62,13 @@ const ROSTER = [
   T('io', 'picasso', 'test-picasso-hdf5.mjs'),
   T('io', 'save-loc-formats', 'test-save-loc-formats.mjs'),
   T('io', 'resident-bytes', 'test-resident-bytes.mjs'),
+  T('io', 'browser-fallbacks', 'test-browser-fallbacks.mjs'),
   T('cpu', 'pixel-convention', 'test-pixel-convention.mjs'),
   T('harness', 'report', 'test-report-generation.mjs'),
   T('harness', 'datasets', 'datasets.test.mjs'),
   T('harness', 'cross-report', 'test-cross-report.mjs'),
   T('harness', 'dashboard', 'test-dashboard.mjs'),
+  T('harness', 'browser-launch', 'test-browser-launch.mjs'),
     T('validation', 'self-consistency', 'test-score-self-consistency.mjs'),
   B('gpu', 'detect', 'bench-detect.mjs'),
   B('gpu', 'fit', 'bench-fit.mjs'),

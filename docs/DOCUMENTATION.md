@@ -72,7 +72,7 @@ below for what it does.
 | **Localize** | `runBtn` | Runs detection + fitting over the Localisation frame range (**First/Last frame**, the whole stack by default) of the loaded/simulated movie, then renders the reconstruction — the main action. Disabled until a stack is loaded. |
 | **Stop** | `stopBtn` | Requests an early stop of a running **Localize**, **Correct drift** or **3D calibration**, or ends a live-streaming session. Localize keeps whatever localizations were gathered so far (a partial result is still valid). Drift correction previews the partial curve but doesn't apply it. Calibration discards everything instead — a calibration fit needs the WHOLE configured z-range, so a partial one would be silently biased, not just smaller; press **Calibrate** again to restart with a narrower/correct frame range. |
 | **Save localisations** | `saveBtn` | Exports the current (filtered) localizations. The save dialog offers three file types and the one you choose decides: a ThunderSTORM-compatible CSV, a `.smlm` (ShareLoc) or a Picasso `.hdf5` — see [§6](#6-csv-export-format). Disabled until there are localizations. |
-| **Save plot/image** | `saveImgBtn` | Opens a chooser (if both panels have content) to export the raw/reconstruction/plot window shown. The raw frame or reconstruction always saves as a supersampled PNG. A plot (calibration/drift/NeNA/FRC/PCFO/line-profile/histogram) instead opens a save dialog offering **both** PNG and SVG as file types — pick the format in the dialog's own "Save as type" dropdown. (Browsers without a native save-file dialog, e.g. Safari/Firefox, fall back to a PNG download — SVG needs the native dialog to choose.) |
+| **Save plot/image** | `saveImgBtn` | Opens a chooser (if both panels have content) to export the raw/reconstruction/plot window shown. The raw frame or reconstruction always saves as a supersampled PNG. A plot (calibration/drift/NeNA/FRC/PCFO/line-profile/histogram) opens a save dialog offering **both** PNG and SVG where the browser provides the File System Access save picker. Browsers without that picker (Firefox, Safari) download both the PNG and the SVG instead; enable the browser's “Ask where to save each file” setting to choose the download location. |
 | **View data/filtering** | `tableBtn` | Opens the sortable, filterable localizations table — see [§5](#5-table--filter-grammar). Disabled until there are localizations; during **Live streaming** this enables as soon as any localization has arrived, same as **Correct drift**/NeNA/FRC — see [§2](#table)'s "Available during Live streaming" note for what's restricted (committing a new filter) vs. not (browsing/sorting/histograms). Loading a CSV back in (via **Load data** above) works exactly as after a Run — table, reconstruction, NeNA/FRC/drift/re-export all function on it, using only what's in the CSV plus the *current* Pixel size / Magnification controls; there's no raw frame data, so `stack` is left untouched and re-detection/live preview stay unavailable for CSV-loaded data — see [§6](#6-csv-export-format). |
 | **Quick guide** | `helpBtn` | Opens the in-app quick-reference modal (guided workflow, acknowledgements, licence). Shares its row with **View data/filtering**. |
 
@@ -3137,11 +3137,12 @@ underneath those two fields, to fill them in (running Estimate first if it hasn'
 <p>Tile size isn't a setting — it's chosen automatically from the field of view (aiming for a ~4×4 grid,
 rounded to a power of two since the noise-variance estimate needs an FFT, floored at 64px, and never below
 2×2) so there's nothing to re-tune per stack.</p>
-<p>With <b>Use GPU acceleration</b> (Memory, rotation, GPU &amp; streaming) the tile FFTs run on the GPU —
-the same numbers to f32 precision (e.g. 200 frames of a 846×1950 movie: ~37 s on the CPU, ~3 s on the
-GPU); the Log reports which path ran and how long it took. Firefox (157 on macOS) runs the GPU path
-no faster than the CPU (see the roadmap note on browser WebGPU performance): use Chrome or Safari for
-time-critical work, or sample fewer frames (50 give the same gain on clean data).</p>
+<p>With <b>Use GPU acceleration</b> (Memory, rotation, GPU &amp; streaming) the tile FFTs run on the GPU,
+up to eight frames per readback. webSMLM measures how long a GPU readback takes in your browser and
+uses the CPU instead when the readbacks would cost more than the job takes on the CPU (small jobs in
+Firefox, whose readbacks are slow). Results match to f32 precision; the Log reports which path ran and
+how long it took. If a job is slower with GPU enabled on your device, turn off <b>Use GPU
+acceleration</b> or sample fewer frames (50 can give the same gain on clean data).</p>
 <!-- /HINT:pcfo -->
 
 Implementation detail beyond the popup above: tiles are pooled and robustly

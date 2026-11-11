@@ -21,15 +21,23 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = join(__dirname, '..', '..');
 export const htmlUrl = pathToFileURL(join(repoRoot, 'webSMLM.html')).href;
 const requireFromTools = createRequire(pathToFileURL(join(repoRoot, 'tools', 'package.json')));
-const { chromium } = requireFromTools('playwright');
+const { chromium, firefox, webkit } = requireFromTools('playwright');
 
 export async function launchPage({ headless = false } = {}) {
+  const selected = process.env.WEBSMLM_BROWSER || 'chrome';
+  if (!['chrome', 'firefox', 'webkit'].includes(selected)) {
+    throw new Error(`WEBSMLM_BROWSER must be chrome, firefox or webkit (got ${selected})`);
+  }
   let browser;
-  try {
-    browser = await chromium.launch({ headless, channel: 'chrome' });
-  } catch (err) {
-    console.error(`(couldn't launch system Chrome (${err.message}) — trying Playwright's own Chromium. If that also fails: cd tools && npm install)`);
-    browser = await chromium.launch({ headless });
+  if (selected === 'firefox' || selected === 'webkit') {
+    browser = await (selected === 'firefox' ? firefox : webkit).launch({ headless });
+  } else {
+    try {
+      browser = await chromium.launch({ headless, channel: 'chrome' });
+    } catch (err) {
+      console.error(`(couldn't launch system Chrome (${err.message}) — trying Playwright's own Chromium. If that also fails: cd tools && npm install)`);
+      browser = await chromium.launch({ headless });
+    }
   }
   // Explicit desktop-sized viewport: Playwright's own default (1280x720) has
   // a height of 720px, at or under isMemoryConstrainedDevice()'s own

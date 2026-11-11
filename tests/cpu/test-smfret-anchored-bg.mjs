@@ -97,7 +97,7 @@ try {
       return { n, disc, maxRel, maxW }; }
     function acc(r) { const m = v => { const q = v.filter(x => isFinite(x) && x > 0); return { mean: q.reduce((s, x) => s + x, 0) / Math.max(1, q.length), n: q.length }; };
       const all = k => r.tr.flatMap(t => t[k]); return { DAwidth: m(all('sDA')), DDwidth: m(all('sDD')), DAN: m(all('DA')), DDN: m(all('DD')) }; }
-    return { gpu: !!navigator.gpu, gpuUsed: { sph: R.sphGPU.gpuUsed, ell: R.ellGPU.gpuUsed, pin: R.pinGPU.gpuUsed }, parSph: parity(R.sphCPU, R.sphGPU), parEll: parity(R.ellCPU, R.ellGPU), parPin: parity(R.pinCPU, R.pinGPU), accPin: acc(R.pinCPU),
+    return { gpu: (await getGpuEngine()).available, gpuUsed: { sph: R.sphGPU.gpuUsed, ell: R.ellGPU.gpuUsed, pin: R.pinGPU.gpuUsed }, parSph: parity(R.sphCPU, R.sphGPU), parEll: parity(R.ellCPU, R.ellGPU), parPin: parity(R.pinCPU, R.pinGPU), accPin: acc(R.pinCPU),
       accEll: acc(R.ellCPU), accEllFree: acc(R.ellCPUfree), accSph: acc(R.sphCPU), truth: { DAmajor: T.DA.major, DD: T.DD.sx, N: T.DD.N } };
   });
   const f = (x, d = 3) => x.toFixed(d);
