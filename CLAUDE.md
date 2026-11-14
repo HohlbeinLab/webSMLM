@@ -399,17 +399,23 @@ what makes GUI and command-line use interchangeable.
     (`aimDrift2D()` on the localizations; the higher score wins), kernel 4→2→1×, `cometLbfgs()` per level. `'learned'` (default):
     `dmeSegmentMeasurements()` (Newton step + 2×2 curvature per segment, trust region 1.5 kernel widths, non-negative-definite
     curvature = no measurement) → `dmeSmootherForwardGpu2()`/`dmeSmootherForwardCpu()` (Conv1d network, weights in the generated
-    `DME smoother weights` block: regenerate with `tools/dme/export_smoother_weights.py`, never edit) in 5 passes; segment length
-    and start chosen by `dmeLearned()`'s spatial cross-fit on `dmeCheckerboard()` halves (balanced: a split aligned with an outer
-    split of the same grid would empty a half). Score kernels `WGSL_DME_PASS1/PASS2/FRAMES` (static grid, cell 4σ, rebuilt when a
+    `DME smoother weights` block: regenerate with `tools/dme/export_smoother_weights.py`, never edit) in 5 passes. `dmeLearned()`
+    mirrors the release's `dme_prior_estimate()` (github.com/jcnossen/dme, `dme/dme_prior.py`; 2D only, no RCC start): a spatial
+    cross-fit on `dmeCheckerboard()` halves (balanced: a split aligned with an outer split of the same grid would empty a half)
+    picks among a drift value per frame without prior (`dmeBins()` at fpb 1, only with ≥ `DME_MIN_LOCS_PER_SEG` locs/frame), bins
+    at the rule fpb and a tenth of it, and the learned prior from those bins on each `DME_LEARNED_LFRAMES` length (1–192 frames)
+    with ≥ 30 locs/segment and ≥ 24 segments. The AIM + zero multi-start runs once per half (its first fit); each later fit on a
+    half starts from the previous one (`dmeBins()`'s `d0`), and the all-data fit from the mean of the halves' fits at the chosen
+    fpb. Score kernels `WGSL_DME_PASS1/PASS2/FRAMES` (static grid, cell 4σ, rebuilt when a
     frame moved > σ/2, so exact; 16 B/loc per buffer). GPU grid build `WGSL_DME_GRID_COUNT/SCATTER/SORT` + `WGSL_DME_SCAN(_ADD)`
     (atomic count, multi-level exclusive scan, scatter, per-cell insertion sort by frame-order position = deterministic), bounds
     from per-frame min/max in O(F); localization sets live on the GPU once per run (`dmeGpuData()`, `ctx.gpuData` keyed by
     the X array, destroyed at the end of `dmeDrift()`); `dmeBuildGrid()` is only the CPU path; `dmeEvaluator()` falls back to its CPU loop on any GPU error. CPU-only runs
     keep at most `DME_CPU_MAX_LOCS` localizations (deterministic `mix32` share). Stop → `DmeStopped`, `d.dmeStopped`, nothing applied.
-    Test: `tests/gpu/test-dme-drift.mjs` (GPU half skipped without an adapter). Bench: `tests/gpu/bench-dme-drift.mjs` (1 M locs:
-    ~6 s bins, ~21 s learned; one score evaluation 16 ms on an RTX 4060; the CPU AIM start is ~half the run — see
-    docs/DOCUMENTATION.md, DME).
+    Learned mode returns its cross-fit table as `d.dmeChoice` ({best, candidates}).
+    Test: `tests/gpu/test-dme-drift.mjs` (GPU half skipped without an adapter; ~9 min on a laptop CPU). Bench:
+    `tests/gpu/bench-dme-drift.mjs` (1 M locs: ~6 s bins, ~21–23 s learned; one score evaluation 16 ms on an RTX 4060; the CPU
+    AIM start is ~half of a bins run — see docs/DOCUMENTATION.md, DME).
   - `drawDriftCurve()`'s green/magenta/blue palette is the app's reference pairing for two-curve plots.
 
 - **locprecision** — NeNA (Endesfelder fit, `nenaPrecision()`) and FRC (`prepareFrc()`,

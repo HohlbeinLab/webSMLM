@@ -97,14 +97,14 @@
     export          14041  ThunderSTORM-compatible CSV, plot/image export
     3D calibration  14661  astigmatic width-vs-z bead calibration
     drift           15073  AIM, COMET, DME and cross-correlation drift correction
-    locprecision    16955  NeNA and FRC
-    sSMLM           18122  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          18728  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             20836  single-particle tracking and diffusion coefficients
-    pipeline        22334  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   23418  Micro-Manager/pycromanager bridge (experimental)
-    table           26598  localizations table, filters, histograms, clustering
-    headless API    27289  window.webSMLM.analyze()/analyzeBatch()
+    locprecision    16969  NeNA and FRC
+    sSMLM           18136  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          18742  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             20850  single-particle tracking and diffusion coefficients
+    pipeline        22348  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   23432  Micro-Manager/pycromanager bridge (experimental)
+    table           26612  localizations table, filters, histograms, clustering
+    headless API    27303  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1761,7 +1761,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.5-dev · build 2026-11-08b</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.5-dev · build 2026-11-14a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1974,7 +1974,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="number" id="driftCometSigma" value="" placeholder="auto" min="0" max="50" step="0.5" class="num"></label>
         <label class="row" id="driftCometPairsRow" style="display:none;padding-left:40px" title="COMET: cap on the localization pairs evaluated (8 bytes each on the CPU; twice as many on the GPU); above it a random share of the localizations is used. Each cost evaluation scales with it">Max pairs (millions)
           <input type="number" id="driftCometMaxPairs" value="20" min="1" max="400" step="1" class="num"></label>
-        <label class="row" id="driftDmeModeRow" style="display:none;padding-left:40px" title="DME: Learned temporal prior = per-segment drift measurements smoothed by a small trained network; the segment length (6–192 frames), or plain bins when they fit better, is chosen from the data by a spatial cross-fit (fit on half the field, score on the other half). Fixed bins = classic DME with one spline knot per Frames per bin">Temporal model
+        <label class="row" id="driftDmeModeRow" style="display:none;padding-left:40px" title="DME: Learned temporal prior = per-segment drift measurements smoothed by a small trained network; the segment length (1–192 frames), or plain bins, or (with at least 30 localizations per frame) a drift value per frame without prior, whichever fits best, is chosen from the data by a spatial cross-fit (fit on half the field, score on the other half). Fixed bins = classic DME with one spline knot per Frames per bin">Temporal model
           <select id="driftDmeMode" class="sel"><option value="learned">Learned temporal prior</option><option value="bins">Fixed bins</option></select></label>
         <label class="row" id="driftDmeFpbRow" style="display:none;padding-left:40px" title="DME: frames per spline knot for Fixed bins, and the coarser of the two starts tried by the learned prior. Empty (auto) = about 20 000 localizations per bin">Frames per bin
           <input type="number" id="driftDmeFpb" value="" placeholder="auto" min="0" max="20000" step="1" class="num"></label>
@@ -2001,7 +2001,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only).</li>
           <li><b>Cross correlation</b> has no additional settings of its own — no search radius (the whole frame is searched via FFT) and no z (a raw camera frame has no separate z channel to correlate against).</li>
           <li><b>COMET</b> (experimental; Reinkensmeier et al., bioRxiv 2026) maximises the overlap of all localizations over time windows of <b>Frames per window</b>, in x, y and z at once, and stays stable with only a few tens of localizations per window, where AIM does not. <b>Max drift (nm)</b> must exceed the total drift of the whole acquisition, peak to peak (not AIM's per-segment search radius — too small a value gives a poor, noisy result and the log warns); <b>Min localizations per window</b> merges short windows until each holds that many (about 250 or more keeps the curve smooth); <b>Smoothing (windows)</b> averages the drift over that many neighbouring windows (1 = off; smooth drift gains a lot, fast drift is blurred); <b>Final length scale (nm)</b> should match the localization precision (empty, "auto", = estimated from it); <b>Max pairs (millions)</b> caps the work and memory (a random share of the localizations is used above it). Slower than AIM on the CPU (seconds rather than a fraction of a second); the GPU brings it close.</li>
-          <li><b>DME</b> (experimental; Cnossen et al., <i>Opt. Express</i> 2021) maximises a bound on the entropy of all drift-corrected localizations (2D). <b>Temporal model</b>: <b>Learned temporal prior</b> (default) measures the drift of short segments and smooths them with a small trained network; the segment length (6–192 frames), or plain bins when they fit better, is chosen from the data by fitting one half of the field and scoring the other half, so it adapts to fast drift (vibration, steps) when the data support it and falls back to bins when they do not. <b>Fixed bins</b> is the classic DME (one spline knot per <b>Frames per bin</b>; empty = about 20 000 localizations per bin). Uses the localization precision as kernel width; much faster with <b>Use GPU acceleration</b> (without it, at most 300 000 localizations are used).</li>
+          <li><b>DME</b> (experimental; Cnossen et al., <i>Opt. Express</i> 2021) maximises a bound on the entropy of all drift-corrected localizations (2D). <b>Temporal model</b>: <b>Learned temporal prior</b> (default) measures the drift of short segments and smooths them with a small trained network; the segment length (1–192 frames), plain bins, or (with at least 30 localizations per frame) a drift value per frame without prior, whichever fits best, is chosen from the data by fitting one half of the field and scoring the other half, so it adapts to fast drift (vibration, steps) when the data support it and falls back to bins when they do not. <b>Fixed bins</b> is the classic DME (one spline knot per <b>Frames per bin</b>; empty = about 20 000 localizations per bin). Uses the localization precision as kernel width; much faster with <b>Use GPU acceleration</b> (without it, at most 300 000 localizations are used).</li>
           <li>Each run re-estimates from scratch, so settings can be swept and compared, and any method can be tried on the same result.</li>
           <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
           </ul>
@@ -15736,9 +15736,10 @@ async function cometDrift(locs, nFrames, px, cfg, frame0, onProgress, shouldStop
      4/2/1 x coarser knots, L-BFGS at each level.
    - 'learned' (default): per-segment Newton measurements of the drift (gradient and 2x2 curvature of the score for
      shifting one segment) smoothed by a small 1D convolutional network (dmeSmoother*, weights in the generated block
-     below), 5 passes at kernel 4, 2, 1, 1, 1 x precision. The segment length (6..192 frames) and the start (bins at the
-     rule fpb or a tenth of it, or the bins result itself) are chosen without ground truth by a spatial cross-fit: drift
-     from one half of an 8x8-tile checkerboard is scored on the other half's localizations, and vice versa.
+     below), 5 passes at kernel 4, 2, 1, 1, 1 x precision. The candidate (see dmeLearned(): a drift value per frame, bins
+     at the rule fpb or a tenth of it, or the learned prior from those bins with 1..192-frame segments) is chosen without
+     ground truth by a spatial cross-fit: drift from one half of an 8x8-tile checkerboard is scored on the other half's
+     localizations, and vice versa. As dme_prior_estimate() of the Python release (dme/dme_prior.py), 2D, without RCC.
    Score/gradient/curvature: dmeEvaluator() (CPU) or the WGSL_DME_* kernels (GPU, same pair set, ~1e-5 relative).
    Neighbours: a static cell grid (cell = 3 + 1 sigma) built at the drift of the last rebuild (on the GPU: count, prefix
    scan, scatter and a per-cell sort, from localizations uploaded once per run); the kernels shift every
@@ -15746,7 +15747,7 @@ async function cometDrift(locs, nFrames, px, cfg, frame0, onProgress, shouldStop
    so the pair set is exact at every evaluation (no pair list, no atomics). 2D only.
    =========================================================================== */
 const DME_CUTOFF=3, DME_SKIN=1;                    // pair cutoff and grid margin, in kernel sigma
-const DME_BIN_SCALES=[4,2,1], DME_LEARNED_SCALES=[4,2,1,1,1], DME_LEARNED_LFRAMES=[6,12,24,48,96,192];
+const DME_BIN_SCALES=[4,2,1], DME_LEARNED_SCALES=[4,2,1,1,1], DME_LEARNED_LFRAMES=[1,2,3,6,12,24,48,96,192];
 const DME_TRUST=1.5;                               // largest Newton step of one segment measurement, in kernel sigma
 const DME_MIN_LOCS_PER_SEG=30, DME_LEVEL_MAX_ITER=200;
 const DME_CPU_MAX_LOCS=300000;                     // CPU path: above, a deterministic share of the localizations is used
@@ -16129,17 +16130,21 @@ async function dmeLevel(X,Y,frame,F,sigmaS,fpb,d0,ctx){
 }
 class DmeStopped extends Error { constructor(){ super('stopped'); } }
 
-// Fixed-bin DME: multi-start (AIM and zero drift through the coarsest level, the higher score is continued), then the
-// finer levels.
-async function dmeBins(X,Y,frame,F,sigma,fpb,ctx){
+// Fixed-bin DME (dme_grid_estimate): from per-frame drift d0 (px) through every level, or, without d0, a multi-start
+// (AIM and zero drift through the coarsest level, the higher score is continued) and then the finer levels. fpb 1 = a
+// drift value per frame at every level (no coarser knots at the coarse kernels).
+async function dmeBins(X,Y,frame,F,sigma,fpb,ctx,d0=null){
   const levels=DME_BIN_SCALES.map(s=>({s,fpb:fpb>1?fpb*s:1}));
-  const starts=[['zero',new Float64Array(2*F)]];
-  if(ctx.aimInit){ try{ const a=await ctx.aimInit(X,Y,frame,F,fpb,sigma); if(a) starts.unshift(['AIM',a]); }catch(_){} }
-  let best=null;
-  for(const [name,d0] of starts){ const r=await dmeLevel(X,Y,frame,F,sigma*levels[0].s,levels[0].fpb,d0,ctx); if(!best||r.score>best.score) best={...r,name}; }
-  let d=best.d;
-  for(const L of levels.slice(1)) d=(await dmeLevel(X,Y,frame,F,sigma*L.s,L.fpb,d,ctx)).d;
-  return {d:dmeZeroMean(d),start:best.name};
+  let d=d0, start='previous fit';
+  if(!d){
+    const starts=[['zero',new Float64Array(2*F)]];
+    if(ctx.aimInit){ try{ const a=await ctx.aimInit(X,Y,frame,F,fpb,sigma); if(a) starts.unshift(['AIM',a]); }catch(_){} }
+    let best=null;
+    for(const [name,s0] of starts){ const r=await dmeLevel(X,Y,frame,F,sigma*levels[0].s,levels[0].fpb,s0,ctx); if(!best||r.score>best.score) best={...r,name}; }
+    d=best.d; start=best.name; levels.shift();
+  }
+  for(const L of levels) d=(await dmeLevel(X,Y,frame,F,sigma*L.s,L.fpb,d,ctx)).d;
+  return {d:dmeZeroMean(d),start};
 }
 
 // Per-segment (L frames) Newton measurements of the drift at kernel sigmaS around per-frame drift d: z [2T] (px) and
@@ -16225,30 +16230,38 @@ function dmeSubset(X,Y,frame,mask,want){
 async function dmeScoreOf(X,Y,frame,F,sigma,d,ctx){ const ev=await dmeEvaluator(X,Y,frame,F,sigma,ctx.eng,ctx.gpuData);
   try{ ctx.evals++; return (await ev.evaluate(d,false)).score; }finally{ ev.destroy(); } }
 
-// Learned mode: candidates (bins at fpb {rule, rule/10}; learned prior at DME_LEARNED_LFRAMES from those starts), each
-// estimated on one checkerboard half and scored on the other (and vice versa); the best is rerun on all localizations.
+// Learned mode (dme_prior_estimate, 2D): candidates, each estimated on one checkerboard half and scored on the other (and
+// vice versa), in this order: with >= DME_MIN_LOCS_PER_SEG localizations per frame a drift value per frame without prior
+// (bins at fpb 1); for fpb = rule, rule/10: bins, then the learned prior from them at each eligible DME_LEARNED_LFRAMES.
+// The multi-start runs only for the first bins fit on each half; every later one starts from that half's previous fit.
+// The best (first on ties) is refit on all localizations from the mean of the halves' fits at its fpb, smoothed if learned.
 async function dmeLearned(X,Y,frame,F,sigma,fpbRule,ctx){
   const N=X.length, fpbs=[...new Set([fpbRule,Math.max(10,Math.floor(fpbRule/10))])].sort((a,b)=>b-a);
+  if(N/F>=DME_MIN_LOCS_PER_SEG && !fpbs.includes(1)) fpbs.unshift(1);
   const Ls=DME_LEARNED_LFRAMES.filter(L=>L*N/F>=DME_MIN_LOCS_PER_SEG && Math.ceil(F/L)>=24);
   const A=dmeCheckerboard(X,Y), H=[dmeSubset(X,Y,frame,A,1),dmeSubset(X,Y,frame,A,0)];
   const cross=async(dA,dB)=>(await dmeScoreOf(...H[1],F,sigma,dA,ctx))+(await dmeScoreOf(...H[0],F,sigma,dB,ctx));
-  const cv=[], nCand=fpbs.length*(1+Ls.length); let done=0;
+  const cv=[], fits=new Map(), nCand=fpbs.length+fpbs.filter(f=>f!==1).length*Ls.length; let done=0, prev=[null,null];
   for(const fpb of fpbs){
-    const d0=[(await dmeBins(...H[0],F,sigma,fpb,ctx)).d,(await dmeBins(...H[1],F,sigma,fpb,ctx)).d];
+    const d0=[(await dmeBins(...H[0],F,sigma,fpb,ctx,prev[0])).d,(await dmeBins(...H[1],F,sigma,fpb,ctx,prev[1])).d];
+    fits.set(fpb,d0); prev=d0;
     cv.push({kind:'bins',fpb,L:0,score:await cross(d0[0],d0[1])}); ctx.onProgress(0.8*(++done)/nCand);
+    if(fpb===1) continue;                  // the per-frame candidate has no learned-prior variants
     for(const L of Ls){
       const dh=[await dmeRefine(...H[0],F,sigma,d0[0],L,ctx),await dmeRefine(...H[1],F,sigma,d0[1],L,ctx)];
       cv.push({kind:'learned',fpb,L,score:await cross(dh[0],dh[1])}); ctx.onProgress(0.8*(++done)/nCand);
     }
   }
-  const best=cv.reduce((a,b)=>b.score>a.score?b:a);
-  let d=(await dmeBins(X,Y,frame,F,sigma,best.fpb,ctx)).d; ctx.onProgress(0.9);
+  const best=cv.reduce((a,b)=>b.score>a.score?b:a), [h0,h1]=fits.get(best.fpb), dm=new Float64Array(2*F);
+  for(let k=0;k<2*F;k++) dm[k]=0.5*(h0[k]+h1[k]);
+  let d=(await dmeBins(X,Y,frame,F,sigma,best.fpb,ctx,dm)).d; ctx.onProgress(0.9);
   if(best.kind==='learned') d=await dmeRefine(X,Y,frame,F,sigma,d,best.L,ctx);
   return {d,best,cv};
 }
 
 // cfg: {mode:'learned'|'bins', fpb (0 = ~20 000 localizations per bin), sigmaNm, useGpu}. Returns driftCore()'s per-frame
-// correction to ADD (fdx/fdy, camera px) with segment/knot values for the plot; dmeStopped = discarded run.
+// correction to ADD (fdx/fdy, camera px) with segment/knot values for the plot; dmeStopped = discarded run; dmeChoice =
+// learned mode's {best, candidates: [{kind:'bins'|'learned', fpb, L, score}]} (fpb 1 = a drift value per frame).
 async function dmeDrift(locs,nFrames,px,cfg,frame0,onProgress,shouldStop=()=>false,onLog=()=>{}){
   const t0=performance.now(), F=nFrames;
   let eng=null;
@@ -16268,11 +16281,12 @@ async function dmeDrift(locs,nFrames,px,cfg,frame0,onProgress,shouldStop=()=>fal
       const seg=Math.min(Math.max(fpb,Math.floor(Fh/8)),Math.max(fpb,Math.round(5000*Fh/Xh.length)));
       const a=await aimDrift2D(sub,Fh,px,seg,2*sig*px,PARAMS.driftRoi.default,100,0,()=>{},shouldStop,()=>{});
       if(a.stopped) return null; const d=new Float64Array(2*Fh); for(let f=0;f<Fh;f++){ d[2*f]=-a.fdx[f]; d[2*f+1]=-a.fdy[f]; } return d; }};
-  let d=null, info='', stopped=false;
+  let d=null, info='', stopped=false, choice=null;
   try{
     if(cfg.mode==='bins'){ const r=await dmeBins(X,Y,fr,F,sigma,fpbRule,ctx); d=r.d; info=`${fpbRule} frames per bin, ${r.start} start`; }
-    else { const r=await dmeLearned(X,Y,fr,F,sigma,fpbRule,ctx); d=r.d;
-      info=r.best.kind==='learned'?`learned temporal prior, ${r.best.L}-frame segments (start: ${r.best.fpb} frames per bin)`:`cross-fit chose plain bins, ${r.best.fpb} frames per bin`; }
+    else { const r=await dmeLearned(X,Y,fr,F,sigma,fpbRule,ctx); d=r.d; choice={best:r.best,candidates:r.cv};
+      info=r.best.kind==='learned'?`learned temporal prior, ${r.best.L}-frame segments (start: ${r.best.fpb} frames per bin)`:
+        r.best.fpb===1?'cross-fit chose a drift value per frame, no temporal prior (enough localizations per frame)':`cross-fit chose plain bins, ${r.best.fpb} frames per bin`; }
   }catch(err){ if(!(err instanceof DmeStopped)) throw err; stopped=true; }
   finally{ if(ctx.gpuData){ await runGpuExclusive(()=>{}); for(const D of ctx.gpuData.values()) D.destroy(); } }
   if(!d) d=new Float64Array(2*F);
@@ -16283,7 +16297,7 @@ async function dmeDrift(locs,nFrames,px,cfg,frame0,onProgress,shouldStop=()=>fal
   onLog(`DME: ${stopped?'stopped':info} · ${ctx.evals} score evaluations on the ${ctx.onGpu?'GPU':'CPU'}, kernel sigma ${cfg.sigmaNm.toFixed(1)} nm, ${((performance.now()-t0)/1000).toFixed(1)} s.`);
   onProgress(1);
   return {fdx,fdy,fdz:null,segCenters:centers,segdx:Float64Array.from(sdx),segdy:Float64Array.from(sdy),nSeg:centers.length,nSegRequested:centers.length,
-    stopped,dmeStopped:stopped,stoppedAtFrame:null,evals:ctx.evals};
+    stopped,dmeStopped:stopped,stoppedAtFrame:null,evals:ctx.evals,dmeChoice:choice};
 }
 
 // ---- learned temporal smoother (network inference; CPU and WebGPU) ----
@@ -26502,7 +26516,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.5-dev · build 2026-11-08b — DME drift: the neighbour grid is built on the GPU.`);
+log(`webSMLM v0.13.5-dev · build 2026-11-14a — DME drift: cross-fit candidates as in the released DME v2 (per-frame candidate, 1–3-frame segments, one multi-start per half).`);
 
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
 $('themeDarkBtn').addEventListener('click', ()=>applyTheme('dark'));
