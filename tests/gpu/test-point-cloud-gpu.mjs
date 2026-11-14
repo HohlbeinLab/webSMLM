@@ -6,10 +6,16 @@
 //      without depth colour, zoomed out, at one px per render px and zoomed in, across the image edges;
 //  (d) with Max points drawn below the visible count both draw the same number of the same candidates;
 //  - an index spread over several resident chunks gives the frame of a single chunk;
-//  - the interactive panel draws its point cloud from the GPU and keeps up with a zoom.
+//  (f) locs added in batches (pcGpuExtend(): tail written after the grid, several folds on the GPU, chunked)
+//      give exactly the density, candidates and capped subset of a single GPU index, and the folded index has
+//      the CPU index's cell starts;
+//  - the interactive panel draws its point cloud from the GPU and keeps up with a zoom;
+//  (g) a GPU Run in point-cloud mode draws point-cloud frames while it runs, renders no bitmap preview and
+//      ends on the image a fresh point cloud gives (tests/lib/point-cloud-run.mjs).
 // Skips when WebGPU is unavailable.
 import { launchPage } from '../lib/launch.mjs';
 import assert from 'node:assert/strict';
+import { pointCloudRunCheck, assertPointCloudRun } from '../lib/point-cloud-run.mjs';
 
 const { browser, page } = await launchPage({ headless: true });
 try {
@@ -70,6 +76,45 @@ try {
   assert.equal(chunked.chunks1, 1); assert.ok(chunked.chunks2 >= 7, `chunks ${chunked.chunks2}`); assert.ok(chunked.rel < 1e-5, `chunked vs single ${chunked.rel}`);
   console.log(`  ${chunked.chunks2} resident chunks give the frame of one (density within ${chunked.rel.toExponential(1)})`);
 
+  const grown = await page.evaluate(async () => {
+    const eng = await getGpuEngine(), rnd = mulberry32(21), W0 = 120, H0 = 90, n = 40000, locs = [];
+    for (let i = 0; i < n; i++) { const cl = i % 50;
+      locs.push({ x: (cl * 7.3) % W0 + rnd() * 3 - 1.4, y: (cl * 3.1) % H0 + rnd() * 3 - 1.4, z: rnd() * 500 - 250, frame: i >> 4,
+        lpx: i > 35000 ? 0.3 : 0.02 + rnd() * 0.1, lpy: 0.02 + rnd() * 0.1 }); }
+    const one = await pcGpuBuild(eng, pcPackLocs(locs, W0, H0, 'z')), saved = eng.limits.maxStorageBufferBindingSize;
+    let g, folds = 0, appends = 0, at = 1500;
+    eng.limits.maxStorageBufferBindingSize = 16 * 9000;   // 9000 locs per chunk: the grid spans several
+    try {
+      g = await pcGpuBuild(eng, pcPackLocs(locs, W0, H0, 'z', 0, at));
+      for (const b of [700, 2300, 5000, 900, 12000, 3100, 8000, 1, 3999]) {
+        const pk = pcPackLocs(locs, W0, H0, 'z', at, Math.min(n, at + b)); at = Math.min(n, at + b);
+        const fold = (g.tail ? g.tail.n : 0) + pk.n > 4000;
+        await pcGpuExtend(g, pk, fold, 4000); if (fold) folds++; else appends++;
+      }
+      await pcGpuExtend(g, pcPackLocs(locs, W0, H0, 'z', at, n), false, Infinity);
+    } finally { eng.limits.maxStorageBufferBindingSize = saved; }
+    const rows = [], tailAtEnd = g.tail ? g.tail.n : 0, chunks = g.chunks.length;
+    for (const mode of ['fixed', 'precision']) for (const zc of [false, true]) for (const [x0, y0, s, ow, oh, cp] of [
+      [0, 0, 2, 480, 360, Infinity], [-30, -20, 0.7, 300, 200, Infinity], [300.3, 200.6, 0.15, 256, 192, Infinity], [0, 0, 2, 480, 360, 9000], [100, 80, 0.5, 400, 300, 3000]]) {
+      const p = { W: W0 * 8, H: H0 * 8, mag: 8, blurPx: 0.3, zColor: zc, zlo: -200, zhi: 200, renderMode: mode, lutName: 'viridis' };
+      const a = await pcGpuFrame(one, p, x0, y0, s, ow, oh, cp, 1, { density: true }), b = await pcGpuFrame(g, p, x0, y0, s, ow, oh, cp, 1, { density: true });
+      let diff = 0; for (let k = 0; k < a.density.length; k++) if (a.density[k] !== b.density[k]) diff++;
+      rows.push({ label: `${mode} z=${zc} s=${s} cap=${cp}`, V: a.V, Vb: b.V, drawn: a.drawn, drawnB: b.drawn, diff, capped: cp < a.V });
+    }
+    await pcGpuExtend(g, pcPackLocs(locs, W0, H0, 'z', n, n), true, Infinity);   // a final render's fold
+    const G = pcBuildGridCpu(locs, W0, H0, 'z');
+    let starts = !g.tail && g.n === G.n; for (let k = 0; starts && k < G.cellStart.length; k++) if (g.cellStart[k] !== G.cellStart[k]) starts = false;
+    pcGpuFree(one); pcGpuFree(g);
+    return { rows, folds, appends, tailAtEnd, chunks, starts, n: G.n };
+  });
+  assert.ok(grown.folds >= 2 && grown.appends >= 2 && grown.tailAtEnd > 0 && grown.chunks >= 3, `(f) batches: ${JSON.stringify({ ...grown, rows: undefined })}`);
+  for (const x of grown.rows) {
+    assert.ok(x.V === x.Vb && x.drawn === x.drawnB, `(f) ${x.label}: candidates/drawn ${x.V}/${x.drawn} single vs ${x.Vb}/${x.drawnB} grown`);
+    assert.equal(x.diff, 0, `(f) ${x.label}: ${x.diff} px of the grown index's density differ from the single index's`);
+  }
+  assert.ok(grown.starts, '(f) the folded GPU index has other cell starts than the CPU index');
+  console.log(`  (f) ${grown.n.toLocaleString()} locs added in 11 batches on the GPU (${grown.folds} folds, ${grown.chunks} chunks, ${grown.tailAtEnd.toLocaleString()} left in the tail): ${grown.rows.length} frames with exactly the single index's density, candidates and capped subset (${grown.rows.filter(x => x.capped).map(x => x.drawn + '/' + x.V).join(', ')}); folded = the CPU index's cell starts`);
+
   const ui = await page.evaluate(async () => {
     const locs = [], rnd = mulberry32(9);
     for (let i = 0; i < 50000; i++) locs.push({ x: rnd() * 200, y: rnd() * 150, frame: i, lpx: 0.05, lpy: 0.05, photons: 500 });
@@ -88,5 +133,6 @@ try {
   assert.ok(ui.gpu && ui.frame && ui.frame.w === ui.panel.w, `GPU panel frame: ${JSON.stringify(ui)}`);
   assert.ok(ui.zoomed.matches, `zoomed GPU frame: ${JSON.stringify(ui.zoomed)}`);
   console.log(`  panel: ${ui.frame.w}×${ui.frame.h} px point-cloud frame from the GPU index, redrawn on zoom (s = ${ui.zoomed.s.toFixed(3)})`);
+  console.log(assertPointCloudRun(assert, await pointCloudRunCheck(page, { useGpu: true, method: 'gaussls', frames: 3000 }), 'GPU'));
   console.log('Point cloud GPU: PASS');
 } finally { await browser.close(); }

@@ -8,10 +8,16 @@
 //  (d) with Max points drawn below the visible count the subset is the same in two draws, the drawn
 //      fraction is cap/V and the total brightness equals the uncapped frame's within sampling noise;
 //  (e) the cells a frame reads hold every loc whose splat reaches it (pcVisibleLocs() vs brute force);
+//  (f) locs added in batches (sorted grid + unsorted tail, several folds) give the frames, candidates and
+//      capped subset of a single index over all of them, and folding the tail gives that index exactly;
+//  (g) a Run in point-cloud mode on a small simulated movie (tests/lib/point-cloud-run.mjs) draws point-cloud
+//      frames while it runs, renders no bitmap preview, and ends on the image a fresh point cloud gives;
+//      Bitmap mode still previews the bitmap;
 // and the interactive panel: a reconstruction gets a point-cloud frame at the panel's resolution, a new
 // one after zooming, none with Render as = Bitmap. (c), GPU = CPU, is tests/gpu/test-point-cloud-gpu.mjs.
 import { launchPage } from '../lib/launch.mjs';
 import assert from 'node:assert/strict';
+import { pointCloudRunCheck, assertPointCloudRun } from '../lib/point-cloud-run.mjs';
 
 const { browser, page } = await launchPage({ headless: true });
 try {
@@ -115,6 +121,44 @@ try {
   assert.equal(e.bad.length, 0, `(e) grid query != brute force: ${JSON.stringify(e.bad)}`);
   console.log(`  (e) grid query = brute force in ${e.checked} frames (${e.n.toLocaleString()} locs, ${e.cells} cells)`);
 
+  const f = await page.evaluate(() => {
+    // locs arriving in batches (a Run's previews): grid + tail, folded whenever the tail would pass cap
+    const rnd = mulberry32(21), W0 = 120, H0 = 90, n = 40000, locs = [];
+    for (let i = 0; i < n; i++) { const cl = i % 50;
+      locs.push({ x: (cl * 7.3) % W0 + rnd() * 3 - 1.4, y: (cl * 3.1) % H0 + rnd() * 3 - 1.4, z: rnd() * 500 - 250, frame: i >> 4,
+        lpx: i > 35000 ? 0.3 : 0.02 + rnd() * 0.1, lpy: 0.02 + rnd() * 0.1 }); }   // the last batches widen lpMax
+    const one = pcBuildGridCpu(locs, W0, H0, 'z');
+    let G = pcBuildGridCpu(locs, W0, H0, 'z', 1500), at = 1500, folds = 0, appends = 0;
+    const cap = 4000;
+    for (const b of [700, 2300, 5000, 900, 12000, 3100, 8000, 1, 3999]) {
+      const pk = pcPackLocs(locs, W0, H0, 'z', at, Math.min(n, at + b)); at = Math.min(n, at + b);
+      const fold = (G.tail ? G.tail.n : 0) + pk.n > cap;
+      G = pcExtendCpu(G, pk, fold, cap); if (fold) folds++; else appends++;
+    }
+    G = pcExtendCpu(G, pcPackLocs(locs, W0, H0, 'z', at, n), false, Infinity);
+    const out = [], tailAtEnd = G.tail.n;
+    for (const mode of ['fixed', 'precision']) for (const zc of [false, true]) for (const [x0, y0, s, ow, oh, cp] of [
+      [0, 0, 2, 480, 360, Infinity], [-30, -20, 0.7, 300, 200, Infinity], [300.3, 200.6, 0.15, 256, 192, Infinity], [0, 0, 2, 480, 360, 9000], [100, 80, 0.5, 400, 300, 3000]]) {
+      const p = { W: W0 * 8, H: H0 * 8, mag: 8, blurPx: 0.3, zColor: zc, zlo: -200, zhi: 200, renderMode: mode };
+      const a = pcRenderRegion(one, p, x0, y0, s, ow, oh, cp), b = pcRenderRegion(G, p, x0, y0, s, ow, oh, cp);
+      let mx = 0, worst = 0; for (let k = 0; k < a.dv.length; k++) { mx = Math.max(mx, a.dv[k]); worst = Math.max(worst, Math.abs(a.dv[k] - b.dv[k])); }
+      out.push({ label: `${mode} z=${zc} s=${s} cap=${cp}`, V: a.V, Vb: b.V, drawn: a.drawn, drawnB: b.drawn, rel: worst / Math.max(mx, 1e-30), capped: cp < a.V });
+    }
+    // folding the tail gives exactly the single index (the same sorted order)
+    const F = pcFoldCpu(G, []); let same = F.n === one.n && !F.tail;
+    for (const key of ['cellStart', 'x', 'y', 'c', 'lpx', 'lpy', 'rank']) for (let k = 0; same && k < one[key].length; k++) if (F[key][k] !== one[key][k]) same = false;
+    return { out, folds, appends, tailAtEnd, same, lpMax: [G.lpMax, one.lpMax], n: one.n };
+  });
+  assert.ok(f.folds >= 2 && f.appends >= 2 && f.tailAtEnd > 0, `(f) batches: ${JSON.stringify({ folds: f.folds, appends: f.appends, tail: f.tailAtEnd })}`);
+  assert.equal(f.lpMax[0], f.lpMax[1], '(f) lpMax of the grown index');
+  for (const r of f.out) {
+    assert.ok(r.V === r.Vb && r.drawn === r.drawnB, `(f) ${r.label}: candidates/drawn ${r.V}/${r.drawn} single vs ${r.Vb}/${r.drawnB} grown`);
+    assert.ok(r.rel < 1e-5, `(f) ${r.label}: grown index frame vs single index rel. error ${r.rel}`);
+  }
+  assert.ok(f.same, '(f) folding the tail does not give the single index');
+  const fc = f.out.filter(r => r.capped);
+  console.log(`  (f) ${f.n.toLocaleString()} locs added in 11 batches (${f.folds} folds, ${f.tailAtEnd.toLocaleString()} left in the tail): ${f.out.length} frames = the single index's (max rel. error ${Math.max(...f.out.map(r => r.rel)).toExponential(1)}), same candidates and the same capped subset (${fc.map(r => r.drawn + '/' + r.V).join(', ')}); folding the tail = the single index exactly`);
+
   const ui = await page.evaluate(async () => {
     const locs = [], rnd = mulberry32(9);
     for (let i = 0; i < 30000; i++) locs.push({ x: rnd() * 120, y: rnd() * 90, frame: i, lpx: 0.05, lpy: 0.05, photons: 500 });
@@ -156,5 +200,6 @@ try {
   assert.ok(!ui.bitmap.pc && !ui.bitmap.index, `Render as = Bitmap: ${JSON.stringify(ui.bitmap)}`);
   assert.ok(ui.viewport.viewport && ui.viewport.frame && ui.viewport.norm === ui.viewport.vpNorm && ui.viewport.norm > 0 && !ui.viewport.patch, `viewport bitmap: ${JSON.stringify(ui.viewport)}`);
   console.log(`  panel: ${ui.frame.w}×${ui.frame.h} px point-cloud frame (${ui.where}), redrawn after zooming (s = ${ui.zoomed.s.toFixed(3)} render px per device px); at 1 px/render px its colours = the bitmap canvas (${(ui.same.badFrac * 100).toFixed(3)} % of px differ by > 2 levels); Bitmap mode drops it; a viewport bitmap gets one with the overview's display max`);
+  console.log(assertPointCloudRun(assert, await pointCloudRunCheck(page, { useGpu: false }), 'CPU'));
   console.log('Point cloud (CPU): PASS');
 } finally { await browser.close(); }
