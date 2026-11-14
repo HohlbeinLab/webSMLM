@@ -1764,7 +1764,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.6-dev · build 2026-11-14b</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.6-dev · build 2026-11-14c</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1964,7 +1964,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <option value="aim">AIM</option>
             <option value="correlation">Cross correlation</option>
             <option value="comet">COMET (experimental)</option>
-            <option value="dme">DME (experimental)</option>
+            <option value="dme">DME</option>
           </select></label>
         <label class="row" id="driftCometSegRow" style="display:none;padding-left:40px" title="COMET: frames per time window; it stays stable down to a few tens of localizations per window, so windows can be much shorter than AIM's">Frames per window
           <input type="number" id="driftCometSeg" value="5" min="1" max="2000" step="1" class="num"></label>
@@ -2005,7 +2005,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only).</li>
           <li><b>Cross correlation</b> has no additional settings of its own — no search radius (the whole frame is searched via FFT) and no z (a raw camera frame has no separate z channel to correlate against).</li>
           <li><b>COMET</b> (experimental; Reinkensmeier et al., bioRxiv 2026) maximises the overlap of all localizations over time windows of <b>Frames per window</b>, in x, y and z at once, and stays stable with only a few tens of localizations per window, where AIM does not. <b>Max drift (nm)</b> must exceed the total drift of the whole acquisition, peak to peak (not AIM's per-segment search radius — too small a value gives a poor, noisy result and the log warns); <b>Min localizations per window</b> merges short windows until each holds that many (about 250 or more keeps the curve smooth); <b>Smoothing (windows)</b> averages the drift over that many neighbouring windows (1 = off; smooth drift gains a lot, fast drift is blurred); <b>Final length scale (nm)</b> should match the localization precision (empty, "auto", = estimated from it); <b>Max pairs (millions)</b> caps the work and memory (a random share of the localizations is used above it). Slower than AIM on the CPU (seconds rather than a fraction of a second); the GPU brings it close.</li>
-          <li><b>DME</b> (experimental; Cnossen et al., <i>Opt. Express</i> 2021) maximises a bound on the entropy of all drift-corrected localizations (2D). <b>Temporal model</b>: <b>Learned temporal prior</b> (default) measures the drift of short segments and smooths them with a small trained network; the segment length (1–192 frames), plain bins, or (with at least 30 localizations per frame) a drift value per frame without prior, whichever fits best, is chosen from the data by fitting one half of the field and scoring the other half, so it adapts to fast drift (vibration, steps) when the data support it and falls back to bins when they do not. <b>Fixed bins</b> is the classic DME (one spline knot per <b>Frames per bin</b>; empty = about 20 000 localizations per bin). Uses the localization precision as kernel width; much faster with <b>Use GPU acceleration</b> (without it, at most 300 000 localizations are used).</li>
+          <li><b>DME</b> (Cnossen et al., <i>Opt. Express</i> 2021) maximises a bound on the entropy of all drift-corrected localizations (2D). <b>Temporal model</b>: <b>Learned temporal prior</b> (default) measures the drift of short segments and smooths them with a small trained network; the segment length (1–192 frames), plain bins, or (with at least 30 localizations per frame) a drift value per frame without prior, whichever fits best, is chosen from the data by fitting one half of the field and scoring the other half, so it adapts to fast drift (vibration, steps) when the data support it and falls back to bins when they do not. <b>Fixed bins</b> is the classic DME (one spline knot per <b>Frames per bin</b>; empty = about 20 000 localizations per bin). Uses the localization precision as kernel width; much faster with <b>Use GPU acceleration</b> (without it, at most 300 000 localizations are used).</li>
           <li>Each run re-estimates from scratch, so settings can be swept and compared, and any method can be tried on the same result.</li>
           <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
           </ul>
@@ -26574,7 +26574,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.6-dev · build 2026-11-14b — DME drift merged onto v0.13.5 (cross-browser fallbacks, PCFO GPU path by readback latency, WebGPU default limits).`);
+log(`webSMLM v0.13.6-dev · build 2026-11-14c — DME is no longer marked experimental in the drift method list.`);
 
 $('compatNoticeClose').addEventListener('click', dismissCapabilityNotice);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
