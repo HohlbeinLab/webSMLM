@@ -461,6 +461,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | Save calibration | `exportCalibration()` | |
 | Save plot/image | `saveImageClicked()` / `exportPanel('sr'\|'raw')` / `saveBothPanels()` | "Both windows" in the picker saves left then right in one call |
 | Redraw the reconstruction | `rerender(true)` | after changing `mag`/`lut`/`renderMode`/etc. by hand |
+| Redraw the point-cloud view | `pcRedraw()` | after changing `pcMaxPoints` by hand; `renderAs` needs `rerender(true)` |
 | Connect (live streaming) | `liveStreamWsConnect()` | |
 | Clear localizations (live streaming) | `clearLiveStreamingLocalizations()` | |
 
@@ -1128,6 +1129,39 @@ info line under the panel shows the full size and "drawn per view".
 `analyze()` still needs one PNG (`reconstruction.png`), so it lowers
 `config.mag` to `floor(16384 / longer frame side)` (logged) and keeps the
 size check's error.
+
+**Point cloud display.** With **Render as** = Point cloud (the default) the
+panel is drawn from the localizations themselves at the panel's own
+resolution (one value per screen pixel) every time the view changes. The
+image rendered at the Magnification (the *bitmap*, whole-image or viewport
+as above) is still made and stays underneath: **Save plot/image**, the line
+profile, the crop tool, the tilt/rotate view and `analyze()`/the CLI use it,
+so their output is the same in both modes. The localizations are indexed
+once per set (after a Run, a filter, a drift correction): a grid of square
+cells over the field of view (1 camera pixel, or the smallest power of two
+that keeps it at about one million cells) with the localizations sorted by
+cell, so a view reads only the cells it overlaps plus a splat's reach. Each
+screen pixel holds the density per reconstruction pixel, so at one screen
+pixel per reconstruction pixel the point cloud equals the bitmap
+(*Localization precision*: the same pixel-integrated Gaussian, its σ capped
+at 6 reconstruction pixels of the current Magnification; *Fixed blur*:
+binned at the screen pixel and blurred with the same σ in nm, without the
+bitmap's mirrored image edges). Zoomed in, a localization stays a smooth
+Gaussian instead of growing blocks; zoomed out, a screen pixel shows the mean
+density under it. *Precision (fast/dithered)* is drawn as *Localization
+precision* (its grain only exists to make the bitmap cheap). Colours use the
+bitmap's display maximum, taken over the whole image, so the brightness does
+not change while you zoom. With **Use GPU acceleration** the index lives on
+the GPU and every pan or zoom step is redrawn there; without it the render
+worker redraws the view about 150 ms after it settles, and the previous
+frame is shown scaled meanwhile. **Max points drawn** (default 2 million)
+bounds the work per frame: with more localizations in view, only a fixed
+random subset of that many is drawn (each localization's rank is a hash of
+its position and frame), each weighted by in-view/drawn so the total
+brightness is unchanged, and the subset does not flicker between frames.
+The index costs about 36 bytes per localization (24 on the GPU), counted in
+the Mem readout. A Run's live previews show the bitmap; the point cloud
+comes with the final render.
 
 The count accumulator (`acc`) is a `Uint16Array`, not `Float32Array` — a
 per-pixel hit count is always a non-negative integer, so this halves
@@ -3171,6 +3205,8 @@ headless equivalent.
 |---|---|---|---|---|---|---|
 | `pxnm` | Pixel size (nm) | number | 1 | 2000 | 1 | 100 |
 | `mag` | Magnification | number (int) | 1 | 25 | 1 | 10 |
+| `renderAs` | Render as | enum | — | — | — | `pointCloud` (options: `pointCloud`, `bitmap`) |
+| `pcMaxPoints` | Max points drawn (millions) | number | 0.01 | 100 | 0.5 | 2 |
 | `renderMode` | Render mode | enum | — | — | — | `fixed` (options: `precision`, `fixed`, `dither`) |
 | `useGpu` | Use GPU acceleration (experimental) | bool | — | — | — | true |
 | `rblur` | Render blur σ_render (px) | number | 0 | 1 | 0.05 | 0.25 |
@@ -3184,6 +3220,8 @@ headless equivalent.
 
 <!-- HINT:render -->
 <ul>
+  <li><b>Render as</b> — <b>Point cloud</b> (default) redraws the localizations in view at screen resolution whenever you pan or zoom, so the image stays sharp at any zoom level; <b>Bitmap</b> renders one image at the <b>Magnification</b> and enlarges it. With <b>Use GPU acceleration</b> the point cloud follows the view live; without it, it is redrawn shortly after the view settles and the previous image is shown scaled until then. At one screen pixel per reconstruction pixel both look the same, and the brightness scale is the bitmap's, taken over the whole image, so it does not change while zooming. <b>Save plot/image</b>, the line profile, the crop tool, the tilt/rotate view and command-line runs always use the bitmap. A point cloud draws <b>Precision (fast/dithered)</b> like <b>Localization precision</b>.</li>
+  <li><b>Max points drawn (millions)</b> (point cloud) — with more localizations in view, a fixed random subset of this many million is drawn, each weighted so the total brightness stays the same; the subset does not change while you pan, and zooming in brings back every localization once fewer are in view.</li>
   <li><b>Render mode</b> — <b>Fixed blur</b> (default) applies one uniform blur over the whole reconstruction, controlled by <b>Render blur σ_render</b> below (which only appears in this mode) — cost scales with the buffer's own area, not the number of localizations. <b>Localization precision</b> instead renders each localization as its own Gaussian, pixel-integrated so its total mass is conserved regardless of how small the fitted precision is (even a sigma well under 1 super-resolution pixel correctly concentrates almost all of its weight into the one pixel containing the true position, rather than being lost) — the more scientifically informative choice, but slower on a very large/dense dataset since cost scales with localization count. An unrealistically tiny fitted precision (most commonly from an uncalibrated Gain/Camera offset, which distorts the photon count the precision estimate is derived from) is still a sign the underlying calibration is off, even though it no longer breaks the render itself. <b>Live streaming</b> switches this to <b>Localization precision</b> automatically when a session starts (still changeable by hand afterward). <b>Precision (fast/dithered)</b> is a much faster stochastic approximation of the same per-localization-Gaussian idea, best suited to very large/dense datasets where the exact per-localization rendering gets slow — it looks grainier on sparse data, so it isn't the default either.</li>
   <li><b>Colour map</b> — Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.</li>
   <li><b>Display max</b> clips the brightest pixels so a single hot spot can't dim the rest.</li>

@@ -285,6 +285,30 @@ what makes GUI and command-line use interchangeable.
     `tests/cpu/test-viewport-render.mjs` (sampler vs dense render in every mode, display max, a
     30000-px-wide panel with its zoomed patch) and `tests/gpu/test-viewport-gpu.mjs` (GPU sampler vs CPU sampler,
     resident chunks, the GPU-served panel).
+  - **Point cloud display** (`renderAs`, default `'pointCloud'`; `'bitmap'` = the bitmap alone): a display
+    layer over the bitmap, which is still rendered and stays `srFull` (Save image, line profile, crop,
+    tilt/rotate view, GT view, `analyze()` use it untouched); `srFull._pc` holds the state, attached by
+    `rerenderNow()` (final renders only, not a Run's previews) via `pcAttach()`. Index (`_pcIndex`, one
+    at a time, `pcBuildIndex()`): `pcPackLocs()` (in-domain locs, edge-frame camera px, rank =
+    `pcRank()` hash of x/y/frame) then a counting sort by cell, cell = `pcCellSize()` (power of two ≥ 1
+    camera px, ≤ `PC_GRID_MAX_CELLS`), on the GPU (`pcGpuBuild()`: `WGSL_PC_GRID_COUNT` → `WGSL_PC_SCAN`/
+    `_ADD` → `WGSL_PC_GRID_SCATTER`, chunks of ≤ `maxStorageBufferBindingSize/16`, cellStart read back) or
+    the CPU (`pcSortCpu()`, transferred to the render worker: `pcInit`/`pcRegion`/`pcFree`, `_rwPc`). It is
+    reused while the locs array, its length, w/h and colour field are the same; anything that moves
+    positions in place calls `pcForgetIndex()` (`driftCore()`, `rescaleLoadedCsv()`, `clearAnalysisOutputs()`).
+    A frame (`pcFramePlan()` → `pcRenderRegion()` CPU / `pcGpuFrame()`: `WGSL_PC_SPLAT` + `WGSL_PC_COMBINE`
+    + the colour-map kernel) is the panel's backing store in device px, origin/pitch in srFull px, values =
+    density per srFull px; at pitch 1 on whole pixels it equals the bitmap ('fixed' without blurInto()'s
+    mirrored edges; 'dither' draws the 'precision' splat). Colours use the bitmap's whole-image norm
+    (`srImageNorm()`: `_srNorm` from every whole-image path, else `vp.norm`). Cap `pcMaxPoints` (millions): rank <
+    cap/V·2³² drawn, weighted V/drawn (the GPU counts drawn in `acc[2N]`). With a GPU index
+    `pcRequestFrame()` draws on every `drawView()` (one frame in flight); a CPU index draws
+    `SR_PATCH_DELAY_MS` after the view settles; `srDrawImage()` shows the last frame scaled meanwhile,
+    and viewport patches are skipped while a point cloud is attached. A failed GPU frame moves the index
+    to the main-thread CPU; a failed CPU frame drops `_pc`. Memory: `estimatePointCloudBytes()` (36 B/loc)
+    inside `estimateReconBytes()`. Tests: `tests/cpu/test-point-cloud.mjs` (= bitmap at pitch 1, zoomed
+    block sums, cap, grid query vs brute force, panel), `tests/gpu/test-point-cloud-gpu.mjs` (GPU = CPU,
+    chunks, GPU panel).
   - Magnification has no size cap in the panel; `analyze()` still lowers `cfg.mag` to
     `maxMagForFrame()` since `reconstruction.png` is one canvas. `mag` min is 1.
   - **Tilt/rotate view** (`view3d`, `enterView3D()`/`setView3D()`/`exitView3D()`; results with z): a

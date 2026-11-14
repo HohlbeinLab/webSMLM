@@ -85,26 +85,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params           2774  PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out           3796  TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation       4024  synthetic stack generator ("Simulate movie")
-    validation       7089  ground-truth scoring for simulated data ("Compare to GT")
-    detect           8072  band-pass (wavelet/DoG/box) + local-maxima detection
-    fit              8328  phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render           8985  super-resolution accumulation, view, colour maps, plots
-    workers         11054  frame-parallel detect/fit worker pool
-    gpu             11702  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          14084  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  14701  astigmatic width-vs-z bead calibration
-    drift           15113  AIM and cross-correlation drift correction
-    locprecision    16144  NeNA and FRC
-    sSMLM           17318  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          17924  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             20032  single-particle tracking and diffusion coefficients
-    pipeline        21530  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   22614  Micro-Manager/pycromanager bridge (experimental)
-    table           25798  localizations table, filters, histograms, clustering
-    headless API    26489  window.webSMLM.analyze()/analyzeBatch()
+    params           2782  PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out           3814  TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation       4042  synthetic stack generator ("Simulate movie")
+    validation       7107  ground-truth scoring for simulated data ("Compare to GT")
+    detect           8090  band-pass (wavelet/DoG/box) + local-maxima detection
+    fit              8346  phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render           9003  super-resolution accumulation, view, colour maps, plots
+    workers         11717  frame-parallel detect/fit worker pool
+    gpu             12380  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          14763  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  15380  astigmatic width-vs-z bead calibration
+    drift           15792  AIM and cross-correlation drift correction
+    locprecision    16825  NeNA and FRC
+    sSMLM           17999  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          18605  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             20713  single-particle tracking and diffusion coefficients
+    pipeline        22211  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   23295  Micro-Manager/pycromanager bridge (experimental)
+    table           26484  localizations table, filters, histograms, clustering
+    headless API    27175  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1764,7 +1764,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.5 · proof-of-concept</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.6-dev · build 2026-11-14a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1913,6 +1913,12 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
       <details class="sim" id="renderBox">
         <summary title="How localizations are drawn into the reconstruction: magnification, render mode, blur, colour map and depth colouring">Rendering of localisations</summary>
         <label class="row" title="Reconstruction pixels per camera pixel (render pixel = Pixel size / Magnification)">Magnification <input type="number" id="mag" min="1" max="25" step="1" value="10" class="num"></label>
+        <label class="row" title="Point cloud: the localizations in view are redrawn at screen resolution whenever you pan or zoom, so the image stays sharp. Bitmap: one image at the Magnification, enlarged when zoomed in">Render as
+          <select id="renderAs" class="sel">
+            <option value="pointCloud" selected>Point cloud</option>
+            <option value="bitmap">Bitmap</option>
+          </select></label>
+        <label class="row" id="pcMaxPointsRow" title="Point cloud: with more localizations in view, a fixed random subset of this many million is drawn, each weighted so the total brightness stays the same">Max points drawn (millions) <input type="number" id="pcMaxPoints" min="0.01" max="100" step="0.5" value="2" class="num"></label>
         <label class="row" title="Localization precision: each loc drawn as its own CRLB-sized Gaussian. Fixed blur: binned, one blur for all. Dithered: fast approximation of precision mode for large data">Render mode
           <select id="renderMode" class="sel">
             <option value="precision" selected>Localization precision</option>
@@ -1944,6 +1950,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-render"><span class="pill">module: render</span>
           <ul>
+          <li><b>Render as</b> — <b>Point cloud</b> (default) redraws the localizations in view at screen resolution whenever you pan or zoom, so the image stays sharp at any zoom level; <b>Bitmap</b> renders one image at the <b>Magnification</b> and enlarges it. With <b>Use GPU acceleration</b> the point cloud follows the view live; without it, it is redrawn shortly after the view settles and the previous image is shown scaled until then. At one screen pixel per reconstruction pixel both look the same, and the brightness scale is the bitmap's, taken over the whole image, so it does not change while zooming. <b>Save plot/image</b>, the line profile, the crop tool, the tilt/rotate view and command-line runs always use the bitmap. A point cloud draws <b>Precision (fast/dithered)</b> like <b>Localization precision</b>.</li>
+          <li><b>Max points drawn (millions)</b> (point cloud) — with more localizations in view, a fixed random subset of this many million is drawn, each weighted so the total brightness stays the same; the subset does not change while you pan, and zooming in brings back every localization once fewer are in view.</li>
           <li><b>Render mode</b> — <b>Fixed blur</b> (default) applies one uniform blur over the whole reconstruction, controlled by <b>Render blur σ_render</b> below (which only appears in this mode) — cost scales with the buffer's own area, not the number of localizations. <b>Localization precision</b> instead renders each localization as its own Gaussian, pixel-integrated so its total mass is conserved regardless of how small the fitted precision is (even a sigma well under 1 super-resolution pixel correctly concentrates almost all of its weight into the one pixel containing the true position, rather than being lost) — the more scientifically informative choice, but slower on a very large/dense dataset since cost scales with localization count. An unrealistically tiny fitted precision (most commonly from an uncalibrated Gain/Camera offset, which distorts the photon count the precision estimate is derived from) is still a sign the underlying calibration is off, even though it no longer breaks the render itself. <b>Live streaming</b> switches this to <b>Localization precision</b> automatically when a session starts (still changeable by hand afterward). <b>Precision (fast/dithered)</b> is a much faster stochastic approximation of the same per-localization-Gaussian idea, best suited to very large/dense datasets where the exact per-localization rendering gets slow — it looks grainier on sparse data, so it isn't the default either.</li>
           <li><b>Colour map</b> — Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.</li>
           <li><b>Display max</b> clips the brightest pixels so a single hot spot can't dim the rest.</li>
@@ -2878,6 +2886,16 @@ const PARAMS = {
   // mode); 'dither' is a faster stochastic 'precision' for large/dense data,
   // grainy on sparse data. See renderSuperResPixels().
   renderMode: { type:'enum', id:'renderMode', label:'Render mode', options:['precision','fixed','dither'], default:'fixed' },
+  // renderAs: how the panel shows the reconstruction. 'pointCloud' redraws the
+  // visible localizations at screen resolution on every view change (from a
+  // spatial index, see pcBuildIndex()); 'bitmap' enlarges the one image
+  // rendered at Magnification. Save image, line profile, crop, the tilt/rotate
+  // view and analyze() always use the bitmap.
+  renderAs: { type:'enum', id:'renderAs', label:'Render as', options:['pointCloud','bitmap'], default:'pointCloud' },
+  // pcMaxPoints: point-cloud cap per drawn view, in millions of localizations;
+  // above it a fixed random subset is drawn, each weighted so the total
+  // brightness is preserved.
+  pcMaxPoints: { type:'number', id:'pcMaxPoints', label:'Max points drawn (millions)', min:0.01, max:100, step:0.5, default:2, int:false },
   // rblur = σ_render — in 'fixed' mode, the uniform blur applied to the whole
   // reconstruction; in 'precision' mode, only the FALLBACK width for a
   // localization with no real lpx/lpy (e.g. phasor, which fits no CRLB).
@@ -9306,9 +9324,9 @@ function renderSuperResPixels(P,W,H,mag,blurPx,zColor,zlo,zhi,PN,lutName,pct,buf
     srAccumulate(PN,W,H,0,0,W,H,mag,blurPx,zColor,zlo,zhi,'fixed',nacc,null);
     normBuf = blurPx>0 ? blur(nacc,W,H,sigma) : nacc;
   }
-  const out=new ImageData(W,H);
-  srColorize(dbuf,zbuf,W*H,displayMax(normBuf,pct),zColor,zlo,zhi,lutName,out.data);
-  return {imageData:out, satCount};
+  const out=new ImageData(W,H), norm=displayMax(normBuf,pct);
+  srColorize(dbuf,zbuf,W*H,norm,zColor,zlo,zhi,lutName,out.data);
+  return {imageData:out, satCount, norm};
 }
 // Viewport rendering, for a reconstruction too large for one canvas or the
 // memory budget: the image is never held whole. srRenderRegion() evaluates the
@@ -9457,12 +9475,13 @@ async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,nor
   if(worker){
     try{
       const [P,PN]=pack();
-      const {imageBitmap,satCount}=await dispatchRenderWorker(worker,{
+      const {imageBitmap,satCount,norm}=await dispatchRenderWorker(worker,{
         P,PN,W,H,mag,blurPx,zColor,zlo,zhi,lutName,pct,renderMode},[...packSrTransfer(P),...packSrTransfer(PN)]);
       satWarn(satCount);
       const cv=getOrMakeSrCanvas(W,H);
       cv.getContext('2d').drawImage(imageBitmap,0,0);
       imageBitmap.close();
+      cv._srNorm=norm;   // display maximum, for the point cloud (srImageNorm())
       return cv;
     }catch(err){
       // One-off worker error: fall back to single-threaded for this render.
@@ -9487,10 +9506,11 @@ async function renderSuperRes(locs,w,h,mag,blurPx,lutName,pct,zColor,zlo,zhi,nor
     _srBlurDst=blurDst; _srZBlurDst=zBlurDst; _srBlurTmp=blurTmp;
   }
   const [P,PN]=pack();
-  const {imageData,satCount}=renderSuperResPixels(P,W,H,mag,blurPx,zColor,zlo,zhi,PN,lutName,pct,{acc,zacc,blurDst,zBlurDst,blurTmp},renderMode);
+  const {imageData,satCount,norm}=renderSuperResPixels(P,W,H,mag,blurPx,zColor,zlo,zhi,PN,lutName,pct,{acc,zacc,blurDst,zBlurDst,blurTmp},renderMode);
   satWarn(satCount);
   const cv=getOrMakeSrCanvas(W,H);
   cv.getContext('2d').putImageData(imageData,0,0);
+  cv._srNorm=norm;
   return cv;
 }
 // A viewport reconstruction stands in for srFull: {width, height} are the full
@@ -9509,9 +9529,11 @@ function estimateViewportBytes(W,H,nLocs){
 }
 // Memory the reconstruction will take at this size: the whole image when it
 // can be one canvas and is the smaller, else the viewport's.
-function estimateReconBytes(W,H,zColor,blurPx,renderMode,nLocs){
+// Render as = Point cloud adds its index (estimatePointCloudBytes()).
+function estimateReconBytes(W,H,zColor,blurPx,renderMode,nLocs,renderAs){
   const v=estimateViewportBytes(W,H,nLocs);
-  return (W>CANVAS_MAX_DIM || H>CANVAS_MAX_DIM) ? v : Math.min(v, estimateRenderBytes(W,H,zColor,blurPx,renderMode));
+  return ((W>CANVAS_MAX_DIM || H>CANVAS_MAX_DIM) ? v : Math.min(v, estimateRenderBytes(W,H,zColor,blurPx,renderMode)))
+    + (renderAs==='pointCloud' ? estimatePointCloudBytes(nLocs) : 0);
 }
 let _srViewportSeq=0;
 async function renderSuperResViewport(locs,W,H,mag,blurPx,lutName,pct,zColor,zlo,zhi,normLocs,colorField,onLog,renderMode,reserveBytes,xf){
@@ -9861,13 +9883,639 @@ async function gpuViewportRegionNow(g,p,rx,ry,rw,rh,k,pct,normGiven){
     return {canvas:cv,norm};
   } finally { for(const b of created){ try{ if(b.mapState==='mapped') b.unmap(); b.destroy(); }catch(_){} } }
 }
-// Frees a replaced viewport reconstruction's bitmaps and GPU locs.
+// Frees a replaced viewport reconstruction's bitmaps and GPU locs (and a
+// point-cloud frame on any reconstruction).
 function srDisposeViewport(vp){
+  if(vp && vp._pc){ const fr=vp._pc.frame; if(fr && fr.img.close) fr.img.close(); vp._pc=null; }
   if(!vp || !vp._viewport) return;
   for(const b of [vp.overview, vp.patch&&vp.patch.img]) if(b && b.close) b.close();
   vp.overview=null; vp.patch=null;
   if(vp.gpu){ gpuViewportFree(vp.gpu); vp.gpu=null; vp.local=null; }
 }
+
+// ---- Point cloud display ------------------------------------------------------------------------
+// Render as = Point cloud: the panel is drawn straight from the localizations at screen resolution every time
+// the view changes, on top of the bitmap. srFull stays the bitmap (Save image, line profile, crop, the
+// tilt/rotate view and analyze() use it unchanged); srFull._pc holds the display state.
+// Index (pcBuildIndex()): a uniform grid of square cells over the field of view, the locs sorted by cell
+// (counting sort: count, prefix scan, scatter), built once per loc set. A view reads the cells it overlaps
+// plus the splat reach: one contiguous index range per cell row (pcQueryRanges()).
+// Frame: an ow×oh grid of device px, origin (x0,y0) and pitch s in srFull px. Values are density per srFull
+// px (mass/s²), so at s = 1 on whole pixels a frame equals the bitmap: 'precision' is the same mleGInt()
+// splat (σ capped at MAX_SPLAT_SIGMA_PX srFull px, i.e. fixed in camera px), 'fixed' bins at the output px
+// and spreads blurInto()'s kernel (σ = 0.3·rblur camera px) without blurInto()'s mirrored image edges.
+// 'dither' draws the 'precision' splat: its grain only buys bitmap speed, and the cap below bounds the cost.
+// Colours use the bitmap's own whole-image display maximum (srImageNorm()), so brightness stays put while
+// zooming. Positions are the pixel-edge frame x + LOC_PX_EDGE (srLocShift()'s 'precision' value); a 'fixed'
+// bin floor(edge·mag) is the bitmap's round() of its own shifted value.
+// Cap: every loc has a fixed random rank (pcRank()); with V candidates in view and V > Max points drawn, only
+// ranks below cap/V·2^32 are drawn, each weighted V/drawn, so the subset is stable and the brightness kept.
+// Drawn on the GPU for every view change when the index is there, else (render worker or main thread)
+// SR_PATCH_DELAY_MS after the view settles, one frame at a time; the previous frame is shown scaled meanwhile.
+// Tests: tests/cpu/test-point-cloud.mjs, tests/gpu/test-point-cloud-gpu.mjs.
+//
+// Cell: the smallest power of two >= 1 camera px giving at most PC_GRID_MAX_CELLS cells. 1 px is about the
+// largest splat reach at the default Magnification (3σ at the cap = 1.8 px at 10×), so a zoomed-in view reads
+// little outside its own cells; a power of two makes x·(1/cell) exact in f32 and f64, so the GPU and the CPU
+// put every loc in the same cell.
+const PC_GRID_MAX_CELLS=1<<20;
+function pcCellSize(w,h){ let c=1; while(Math.ceil(w/c)*Math.ceil(h/c)>PC_GRID_MAX_CELLS) c*=2; return c; }
+// CPU index per loc: Float64 x/y/colour, Float32 lpx/lpy, Uint32 rank (the GPU index keeps 24 B per loc on
+// the device), plus the cell starts.
+const PC_GRID_LOC_BYTES=36;
+function estimatePointCloudBytes(nLocs){ return nLocs>0 ? nLocs*PC_GRID_LOC_BYTES+4*PC_GRID_MAX_CELLS : 0; }
+// A loc's fixed random rank: a hash of its position and frame (not of its index, so a filtered subset keeps
+// its ranks).
+const _pcHashF=new Float64Array(2), _pcHashU=new Uint32Array(_pcHashF.buffer);
+function pcRank(x,y,frame){
+  _pcHashF[0]=x; _pcHashF[1]=y;
+  let h=Math.imul((frame|0)^0x9E3779B9,0x85EBCA6B);
+  for(let k=0;k<4;k++){ h^=_pcHashU[k]; h=Math.imul(h^(h>>>16),0x7FEB352D); h=Math.imul(h^(h>>>15),0x846CA68B); h^=h>>>16; }
+  return h>>>0;
+}
+// The locs the bitmap draws (edge-frame position inside [0,w)×[0,h)), packed in input order with their
+// cell; c only when the result has a colour field.
+function pcPackLocs(locs,w,h,colorField){
+  const cell=pcCellSize(w,h), inv=1/cell, GW=Math.ceil(w/cell), GH=Math.ceil(h/cell), n=locs.length;
+  const x=new Float64Array(n), y=new Float64Array(n), c=colorField?new Float64Array(n):null;
+  const lpx=new Float32Array(n), lpy=new Float32Array(n), rank=new Uint32Array(n), cellOf=new Uint32Array(n);
+  let m=0, lpMax=0;
+  for(let i=0;i<n;i++){
+    const L=locs[i], u=L.x+LOC_PX_EDGE, v=L.y+LOC_PX_EDGE;
+    if(!(u>=0 && u<w && v>=0 && v<h)) continue;
+    x[m]=u; y[m]=v; if(c) c[m]=L[colorField];
+    const a=L.lpx, b=L.lpy; lpx[m]=a; lpy[m]=b;
+    if(a>lpMax && isFinite(a)) lpMax=a;
+    if(b>lpMax && isFinite(b)) lpMax=b;
+    rank[m]=pcRank(L.x,L.y,L.frame);
+    cellOf[m]=Math.min(GH-1,Math.floor(Math.fround(v)*inv))*GW+Math.min(GW-1,Math.floor(Math.fround(u)*inv));   // f32 position, as on the GPU
+    m++;
+  }
+  const t=a=>a&&a.subarray(0,m);
+  return {n:m,w,h,cell,GW,GH,lpMax,x:t(x),y:t(y),c:t(c),lpx:t(lpx),lpy:t(lpy),rank:t(rank),cellOf:t(cellOf)};
+}
+// Counting sort by cell (stable). cellStart[k] = first sorted index of cell k (row-major), cellStart[GW·GH] = n.
+function pcSortCpu(pk){
+  const {n,GW,GH}=pk, nc=GW*GH, start=new Uint32Array(nc+1);
+  for(let i=0;i<n;i++) start[pk.cellOf[i]+1]++;
+  for(let k=0;k<nc;k++) start[k+1]+=start[k];
+  const at=start.slice(0,nc), X=new Float64Array(n), Y=new Float64Array(n), C=pk.c?new Float64Array(n):null;
+  const LX=new Float32Array(n), LY=new Float32Array(n), R=new Uint32Array(n);
+  for(let i=0;i<n;i++){ const q=at[pk.cellOf[i]]++;
+    X[q]=pk.x[i]; Y[q]=pk.y[i]; if(C) C[q]=pk.c[i]; LX[q]=pk.lpx[i]; LY[q]=pk.lpy[i]; R[q]=pk.rank[i]; }
+  return {n,w:pk.w,h:pk.h,cell:pk.cell,GW,GH,lpMax:pk.lpMax,cellStart:start,x:X,y:Y,c:C,lpx:LX,lpy:LY,rank:R};
+}
+function pcBuildGridCpu(locs,w,h,colorField){ return pcSortCpu(pcPackLocs(locs,w,h,colorField)); }
+function pcGridTransfer(G){ return [G.cellStart,G.x,G.y,G.c,G.lpx,G.lpy,G.rank].filter(Boolean).map(a=>a.buffer); }
+// Index ranges [a,b) (flat pairs) of the cells overlapping the camera-px rect [qx0,qx1]×[qy0,qy1], one per
+// cell row, and their total V.
+function pcQueryRanges(G,qx0,qy0,qx1,qy1){
+  const ranges=[]; let V=0;
+  const cx0=Math.max(0,Math.floor(qx0/G.cell)), cx1=Math.min(G.GW-1,Math.floor(qx1/G.cell));
+  const cy0=Math.max(0,Math.floor(qy0/G.cell)), cy1=Math.min(G.GH-1,Math.floor(qy1/G.cell));
+  for(let cy=cy0; cx0<=cx1 && cy<=cy1; cy++){
+    const a=G.cellStart[cy*G.GW+cx0], b=G.cellStart[cy*G.GW+cx1+1];
+    if(b>a){ ranges.push(a,b); V+=b-a; }
+  }
+  return {ranges,V};
+}
+// What every frame renderer shares: the output px whose centre lies inside the image ([jLo,jHi)×[iLo,iHi);
+// the rest stay black, as outside the bitmap), the blur kernel radius, the candidate ranges (the cells within
+// a splat's reach of those px, reach in output px) and the cap threshold. p: {W,H,mag,blurPx,zColor,zlo,zhi,
+// renderMode} with W,H the bitmap's size in srFull px.
+function pcFramePlan(G,p,x0,y0,s,ow,oh,cap){
+  const jLo=Math.max(0,Math.ceil(-x0/s-0.5)), jHi=Math.min(ow,Math.ceil((p.W-x0)/s-0.5));
+  const iLo=Math.max(0,Math.ceil(-y0/s-0.5)), iHi=Math.min(oh,Math.ceil((p.H-y0)/s-0.5));
+  const prec=p.renderMode!=='fixed', sig=p.blurPx*p.mag*0.3/s;
+  const rad=(!prec && p.blurPx>0) ? Math.max(1,Math.ceil(sig*3)) : 0;
+  const sigMax=prec ? Math.min(MAX_SPLAT_SIGMA_PX, Math.max(G.lpMax,p.blurPx)*p.mag)/s : 0;
+  const reach=prec ? 3*sigMax+2 : rad+2;
+  const q=(jLo<jHi && iLo<iHi && G.n>0)
+    ? pcQueryRanges(G,(x0+(jLo-reach)*s)/p.mag,(y0+(iLo-reach)*s)/p.mag,(x0+(jHi+reach)*s)/p.mag,(y0+(iHi+reach)*s)/p.mag)
+    : {ranges:[],V:0};
+  const all=q.V<=cap, thr=all?0:Math.floor(cap/q.V*4294967296);
+  return {jLo,jHi,iLo,iHi,prec,sig,rad,sigMax,ranges:q.ranges,V:q.V,all,thr};
+}
+// CPU frame from the index G: {dv, zv, ow, oh, V, drawn} (density and z-sum per output px, colour with
+// srColorize()). Runs on the main thread or stringified in the render worker.
+function pcRenderRegion(G,p,x0,y0,s,ow,oh,cap){
+  const fp=pcFramePlan(G,p,x0,y0,s,ow,oh,cap), N=ow*oh, zc=!!(p.zColor && G.c);
+  const dv=new Float32Array(N), zv=zc?new Float32Array(N):null;
+  const {jLo,jHi,iLo,iHi,ranges,all,thr}=fp, mag=p.mag, X=G.x, Y=G.y, C=G.c, R=G.rank;
+  let drawn=0;
+  if(fp.prec){
+    let gx=new Float32Array(64), gy=new Float32Array(64);   // Float32 as splatGaussianLoc()'s scratch: same weights
+    for(let r=0;r<ranges.length;r+=2) for(let i=ranges[r];i<ranges[r+1];i++){
+      if(!all && R[i]>=thr) continue;
+      drawn++;
+      const cz=zc?C[i]:0;
+      if(zc && (!isFinite(cz)||cz<p.zlo||cz>p.zhi)) continue;
+      const lx=G.lpx[i], ly=G.lpy[i];
+      const sx=Math.min(MAX_SPLAT_SIGMA_PX,(isFinite(lx)&&lx>0?lx:p.blurPx)*mag)/s;
+      const sy=Math.min(MAX_SPLAT_SIGMA_PX,(isFinite(ly)&&ly>0?ly:p.blurPx)*mag)/s;
+      if(!(sx>0) || !(sy>0)) continue;
+      const px=(X[i]*mag-x0)/s, py=(Y[i]*mag-y0)/s;
+      const j0=Math.max(jLo,Math.floor(px-3*sx)), j1=Math.min(jHi,Math.ceil(px+3*sx)+1);
+      const i0=Math.max(iLo,Math.floor(py-3*sy)), i1=Math.min(iHi,Math.ceil(py+3*sy)+1);
+      if(j0>=j1 || i0>=i1) continue;
+      if(j1-j0>gx.length) gx=new Float32Array(j1-j0);
+      if(i1-i0>gy.length) gy=new Float32Array(i1-i0);
+      for(let a=j0;a<j1;a++) gx[a-j0]=mleGInt(a+0.5,px,sx);
+      for(let b=i0;b<i1;b++) gy[b-i0]=mleGInt(b+0.5,py,sy);
+      for(let b=i0;b<i1;b++){ const row=b*ow, g=gy[b-i0];
+        for(let a=j0;a<j1;a++){ const w=g*gx[a-j0]; dv[row+a]+=w; if(zv) zv[row+a]+=w*cz; } }
+    }
+  } else {
+    const rad=fp.rad, kern=new Float32Array(2*rad+1);   // blurInto()'s kernel at the output pitch
+    if(rad>0){ let t=0; for(let d=-rad;d<=rad;d++){ kern[d+rad]=Math.exp(-d*d/(2*fp.sig*fp.sig)); t+=kern[d+rad]; }
+      for(let k=0;k<kern.length;k++) kern[k]/=t; }
+    else kern[0]=1;
+    for(let r=0;r<ranges.length;r+=2) for(let i=ranges[r];i<ranges[r+1];i++){
+      if(!all && R[i]>=thr) continue;
+      drawn++;
+      const cz=zc?C[i]:0;
+      if(zc && (!isFinite(cz)||cz<p.zlo||cz>p.zhi)) continue;
+      const ix=Math.floor((X[i]*mag-x0)/s), iy=Math.floor((Y[i]*mag-y0)/s);
+      const j0=Math.max(jLo,ix-rad), j1=Math.min(jHi,ix+rad+1), i0=Math.max(iLo,iy-rad), i1=Math.min(iHi,iy+rad+1);
+      for(let b=i0;b<i1;b++){ const row=b*ow, g=kern[b-iy+rad];
+        for(let a=j0;a<j1;a++){ const w=g*kern[a-ix+rad]; dv[row+a]+=w; if(zv) zv[row+a]+=w*cz; } }
+    }
+  }
+  const f=(all?1:fp.V/Math.max(1,drawn))/(s*s);
+  if(f!==1){ for(let k=0;k<N;k++) dv[k]*=f; if(zv) for(let k=0;k<N;k++) zv[k]*=f; }
+  return {dv,zv,ow,oh,V:fp.V,drawn};
+}
+// The candidates whose splat reaches a valid output px of the frame (rank and z range ignored), as sorted
+// indices into G: the set pcRenderRegion() can draw. Diagnostic for the tests.
+function pcVisibleLocs(G,p,x0,y0,s,ow,oh,bruteForce){
+  const fp=pcFramePlan(G,p,x0,y0,s,ow,oh,Infinity), out=[], mag=p.mag;
+  const touches=i=>{
+    const px=(G.x[i]*mag-x0)/s, py=(G.y[i]*mag-y0)/s;
+    if(!fp.prec){ const ix=Math.floor(px), iy=Math.floor(py);
+      return Math.max(fp.jLo,ix-fp.rad)<Math.min(fp.jHi,ix+fp.rad+1) && Math.max(fp.iLo,iy-fp.rad)<Math.min(fp.iHi,iy+fp.rad+1); }
+    const lx=G.lpx[i], ly=G.lpy[i];
+    const sx=Math.min(MAX_SPLAT_SIGMA_PX,(isFinite(lx)&&lx>0?lx:p.blurPx)*mag)/s, sy=Math.min(MAX_SPLAT_SIGMA_PX,(isFinite(ly)&&ly>0?ly:p.blurPx)*mag)/s;
+    if(!(sx>0) || !(sy>0)) return false;
+    return Math.max(fp.jLo,Math.floor(px-3*sx))<Math.min(fp.jHi,Math.ceil(px+3*sx)+1) && Math.max(fp.iLo,Math.floor(py-3*sy))<Math.min(fp.iHi,Math.ceil(py+3*sy)+1);
+  };
+  if(bruteForce){ for(let i=0;i<G.n;i++) if(touches(i)) out.push(i); }
+  else for(let r=0;r<fp.ranges.length;r+=2) for(let i=fp.ranges[r];i<fp.ranges[r+1];i++) if(touches(i)) out.push(i);
+  return out.sort((a,b)=>a-b);
+}
+
+// GPU index: the packed locs go up unsorted; count (each loc's slot in its cell), exclusive scan of the
+// counts (cellStart), scatter to cell order, in chunks of <= maxStorageBufferBindingSize/16 locs (each
+// input chunk is scattered once per output chunk). Within a cell the order is the atomics' (the draw's
+// integer atomics make it irrelevant). cellStart is read back once for the per-frame range query.
+const WGSL_PC_GRID_HEAD=`
+struct GP { n:u32, GW:u32, GH:u32, outBase:u32, outN:u32, invCell:f32, pad0:u32, pad1:u32 };
+@group(0) @binding(0) var<uniform> g: GP;
+@group(0) @binding(1) var<storage, read> raw: array<vec4u>;     // x, y, colour (f32 bits, pixel-edge camera px), rank
+override WG: u32 = 64u;
+fn pcCell(r: vec4u) -> u32 {
+  let cx = min(u32(floor(bitcast<f32>(r.x) * g.invCell)), g.GW - 1u);
+  let cy = min(u32(floor(bitcast<f32>(r.y) * g.invCell)), g.GH - 1u);
+  return cy * g.GW + cx;
+}`;
+const WGSL_PC_GRID_COUNT=WGSL_PC_GRID_HEAD+`
+@group(0) @binding(2) var<storage, read_write> cnt: array<atomic<u32>>;
+@group(0) @binding(3) var<storage, read_write> slot: array<u32>;
+@compute @workgroup_size(WG)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(num_workgroups) nwg: vec3u) {
+  let i = gid.y * (nwg.x * WG) + gid.x;
+  if (i >= g.n) { return; }
+  slot[i] = atomicAdd(&cnt[pcCell(raw[i])], 1u);
+}`;
+const WGSL_PC_GRID_SCATTER=WGSL_PC_GRID_HEAD+`
+@group(0) @binding(2) var<storage, read> slot: array<u32>;
+@group(0) @binding(3) var<storage, read> cellStart: array<u32>;
+@group(0) @binding(4) var<storage, read> prec: array<vec2f>;
+@group(0) @binding(5) var<storage, read_write> outRaw: array<vec4u>;
+@group(0) @binding(6) var<storage, read_write> outPrec: array<vec2f>;
+@compute @workgroup_size(WG)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(num_workgroups) nwg: vec3u) {
+  let i = gid.y * (nwg.x * WG) + gid.x;
+  if (i >= g.n) { return; }
+  let r = raw[i];
+  let q = cellStart[pcCell(r)] + slot[i];
+  if (q < g.outBase || q >= g.outBase + g.outN) { return; }
+  outRaw[q - g.outBase] = r; outPrec[q - g.outBase] = prec[i];
+}`;
+// Exclusive scan of a[0..m) in blocks of 256 (block totals to sums), and the add-back of the scanned totals.
+const WGSL_PC_SCAN_HEAD=`
+struct SP { m:u32, p0:u32, p1:u32, p2:u32 };
+@group(0) @binding(0) var<uniform> s: SP;
+@group(0) @binding(1) var<storage, read_write> a: array<u32>;
+@group(0) @binding(2) var<storage, read_write> sums: array<u32>;`;
+const WGSL_PC_SCAN=WGSL_PC_SCAN_HEAD+`
+var<workgroup> sh: array<u32, 256>;
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) w: vec3u, @builtin(num_workgroups) nwg: vec3u, @builtin(local_invocation_index) t: u32) {
+  let b = w.y * nwg.x + w.x; let i = b * 256u + t;
+  var v = 0u; if (i < s.m) { v = a[i]; }
+  sh[t] = v; workgroupBarrier();
+  for (var o = 1u; o < 256u; o = o * 2u) {
+    var x = 0u; if (t >= o) { x = sh[t - o]; }
+    workgroupBarrier(); sh[t] = sh[t] + x; workgroupBarrier();
+  }
+  if (i < s.m) { a[i] = sh[t] - v; }
+  if (t == 255u && b * 256u < s.m) { sums[b] = sh[255]; }
+}`;
+const WGSL_PC_SCAN_ADD=WGSL_PC_SCAN_HEAD+`
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) w: vec3u, @builtin(num_workgroups) nwg: vec3u, @builtin(local_invocation_index) t: u32) {
+  let b = w.y * nwg.x + w.x; let i = b * 256u + t;
+  if (i < s.m) { a[i] = a[i] + sums[b]; }
+}`;
+// Dispatches nwg workgroups as a 2D grid (x <= the per-dimension limit); kernels index gid.y·nwg.x·WG + gid.x.
+function pcDispatch(enc,pipe,bind,nwg,maxWG){
+  if(nwg<=0) return;
+  const p=enc.beginComputePass(); p.setPipeline(pipe); p.setBindGroup(0,bind);
+  p.dispatchWorkgroups(Math.min(nwg,maxWG),Math.ceil(nwg/maxWG)); p.end();
+}
+function pcBind(device,pipe,list){ return device.createBindGroup({layout:pipe.getBindGroupLayout(0),entries:list.map((buffer,binding)=>({binding,resource:{buffer}}))}); }
+function pcGpuBuild(engine,pk){
+  return runGpuExclusive(()=>withGpuErrorScopes(engine.device,'GPU point-cloud index',()=>pcGpuBuildNow(engine,pk)));
+}
+async function pcGpuBuildNow(engine,pk){
+  const device=engine.device, U=GPUBufferUsage, n=pk.n, nc=pk.GW*pk.GH, WG=64;
+  const maxWG=engine.limits.maxComputeWorkgroupsPerDimension, lim=engine.limits.maxStorageBufferBindingSize;
+  const per=Math.max(1,Math.floor(lim/16));
+  if(4*(nc+1)>lim) throw new Error(`${nc} grid cells need a buffer over this GPU's ${fmtBytes(lim)} per-buffer limit`);
+  const g={engine,n,w:pk.w,h:pk.h,cell:pk.cell,GW:pk.GW,GH:pk.GH,lpMax:pk.lpMax,hasC:!!pk.c,chunks:[],cellStart:null,frame:null};
+  if(!n){ g.cellStart=new Uint32Array(nc+1); return g; }
+  const tmp=[], mk=(size,usage,label)=>{ const b=engine.mkBuf(Math.max(16,size),usage,label); tmp.push(b); return b; };
+  try{
+    const pCount=await engine.compilePipeline('pc-grid-count',WGSL_PC_GRID_COUNT,'main',{WG});
+    const pScat=await engine.compilePipeline('pc-grid-scatter',WGSL_PC_GRID_SCATTER,'main',{WG});
+    const pScan=await engine.compilePipeline('pc-scan',WGSL_PC_SCAN,'main'), pAdd=await engine.compilePipeline('pc-scan-add',WGSL_PC_SCAN_ADD,'main');
+    const gridParams=(cnt,outBase,outN)=>{ const a=new ArrayBuffer(32), u=new Uint32Array(a), f=new Float32Array(a);
+      u[0]=cnt; u[1]=pk.GW; u[2]=pk.GH; u[3]=outBase; u[4]=outN; f[5]=1/pk.cell;
+      const b=mk(32,U.UNIFORM|U.COPY_DST,'pc:gridParams'); device.queue.writeBuffer(b,0,a); return b; };
+    const ins=[];
+    for(let from=0;from<n;from+=per){
+      const cnt=Math.min(per,n-from), raw=new Uint32Array(cnt*4), rf=new Float32Array(raw.buffer), pr=new Float32Array(cnt*2);
+      for(let i=0;i<cnt;i++){ const k=from+i;
+        rf[4*i]=pk.x[k]; rf[4*i+1]=pk.y[k]; rf[4*i+2]=pk.c?pk.c[k]:0; raw[4*i+3]=pk.rank[k];
+        pr[2*i]=pk.lpx[k]; pr[2*i+1]=pk.lpy[k]; }
+      const bRaw=mk(raw.byteLength,U.STORAGE|U.COPY_DST,'pc:raw'), bPr=mk(pr.byteLength,U.STORAGE|U.COPY_DST,'pc:rawPrec');
+      device.queue.writeBuffer(bRaw,0,raw); device.queue.writeBuffer(bPr,0,pr);
+      ins.push({cnt,bRaw,bPr,bSlot:mk(4*cnt,U.STORAGE,'pc:slot'),gp:gridParams(cnt,0,0)});
+    }
+    const bStart=mk(4*(nc+1),U.STORAGE|U.COPY_SRC,'pc:cellStart');   // counts, then (scanned in place) the cell starts
+    const enc=device.createCommandEncoder({label:'pc:index'});
+    for(const I of ins) pcDispatch(enc,pCount,pcBind(device,pCount,[I.gp,I.bRaw,bStart,I.bSlot]),Math.ceil(I.cnt/WG),maxWG);
+    const levels=[];
+    for(let arr=bStart, len=nc+1;;){
+      const nb=Math.ceil(len/256), sums=mk(4*nb,U.STORAGE,'pc:scanSums'), uni=mk(16,U.UNIFORM|U.COPY_DST,'pc:scanParams');
+      device.queue.writeBuffer(uni,0,new Uint32Array([len,0,0,0]));
+      levels.push({nb,scan:pcBind(device,pScan,[uni,arr,sums]),add:pcBind(device,pAdd,[uni,arr,sums])});
+      if(nb<=1) break; arr=sums; len=nb;
+    }
+    for(const L of levels) pcDispatch(enc,pScan,L.scan,L.nb,maxWG);
+    for(let k=levels.length-2;k>=0;k--) pcDispatch(enc,pAdd,levels[k].add,levels[k].nb,maxWG);
+    for(let base=0;base<n;base+=per){ const cnt=Math.min(per,n-base);
+      g.chunks.push({base,n:cnt,locs:engine.mkBuf(16*cnt,U.STORAGE,'pc:locs'),prec:engine.mkBuf(8*cnt,U.STORAGE,'pc:prec')}); }
+    for(const I of ins) for(const O of g.chunks)
+      pcDispatch(enc,pScat,pcBind(device,pScat,[gridParams(I.cnt,O.base,O.n),I.bRaw,I.bSlot,bStart,I.bPr,O.locs,O.prec]),Math.ceil(I.cnt/WG),maxWG);
+    const stage=mk(4*(nc+1),U.MAP_READ|U.COPY_DST,'pc:cellStartRead');
+    enc.copyBufferToBuffer(bStart,0,stage,0,4*(nc+1));
+    device.queue.submit([enc.finish()]);
+    await stage.mapAsync(GPUMapMode.READ);
+    g.cellStart=new Uint32Array(stage.getMappedRange().slice(0)); stage.unmap();
+    if(!engine.available) throw new Error('GPU device lost');
+    if(g.cellStart[nc]!==n) throw new Error(`the GPU index holds ${g.cellStart[nc]} of ${n} localizations`);
+    return g;
+  }catch(err){ pcGpuFree(g); throw err; }
+  finally{ for(const b of tmp){ try{ if(b.mapState==='mapped') b.unmap(); b.destroy(); }catch(_){} } }
+}
+function pcGpuFreeFrame(g){
+  const F=g&&g.frame; if(!F) return;
+  for(const b of [F.acc,F.zacc,F.dens,F.zsum,F.out,F.stage,F.cntStage,F.kern,F.comb,F.cm,F.lut,...F.uni,...F.rows]){ try{ if(b){ if(b.mapState==='mapped') b.unmap(); b.destroy(); } }catch(_){} }
+  g.frame=null;
+}
+function pcGpuFree(g){
+  if(!g) return;
+  pcGpuFreeFrame(g);
+  for(const c of g.chunks){ try{ c.locs.destroy(); c.prec.destroy(); }catch(_){} }
+  g.chunks=[];
+}
+// One thread per (candidate, slot): a candidate's output rows are split over S slots so a large splat
+// (zoomed in) is not one thread's work. rows[r] = (first index in this chunk, first thread) of each cell-row
+// range; a thread finds its range by binary search. Weights accumulate as 64-bit fixed point (lo/hi words
+// interleaved, integer atomics only: atomicCompareExchangeWeak does not compile in Safari 27); acc[cntIdx]
+// counts the drawn candidates for the V/drawn weight, applied in WGSL_PC_COMBINE.
+const WGSL_PC_SPLAT=`
+struct P { x0:f32, y0:f32, invPs:f32, mag:f32,
+           jLo:i32, jHi:i32, iLo:i32, iHi:i32,
+           ow:u32, nT:u32, S:u32, nRows:u32,
+           mode:u32, all:u32, thr:u32, zc:u32,
+           zlo:f32, zhi:f32, blurPx:f32, maxSigma:f32,
+           invS:f32, sc:f32, scz:f32, rad:i32,
+           cntIdx:u32, pad0:u32, pad1:u32, pad2:u32 };
+@group(0) @binding(0) var<uniform> p: P;
+@group(0) @binding(1) var<storage, read> locs: array<vec4u>;
+@group(0) @binding(2) var<storage, read> prec: array<vec2f>;
+@group(0) @binding(3) var<storage, read> rows: array<vec2u>;
+@group(0) @binding(4) var<storage, read> kern: array<f32>;
+@group(0) @binding(5) var<storage, read_write> acc: array<atomic<u32>>;
+@group(0) @binding(6) var<storage, read_write> zacc: array<atomic<u32>>;
+override WG: u32 = 64u;
+fn isFin(v: f32) -> bool { return v == v && abs(v) < 3.4e38; }
+fn erfApprox(xIn: f32) -> f32 {
+  let s = select(1.0, -1.0, xIn < 0.0); let x = abs(xIn);
+  let t = 1.0 / (1.0 + 0.3275911*x);
+  let y = 1.0 - (((((1.061405429*t - 1.453152027)*t) + 1.421413741)*t - 0.284496736)*t + 0.254829592) * t * exp(-x*x);
+  return s*y;
+}
+fn gInt(pix: f32, mu: f32, sig: f32) -> f32 {
+  let sn = 0.7071067811865476 / sig; let d = pix - mu;
+  return 0.5 * (erfApprox((d+0.5)*sn) - erfApprox((d-0.5)*sn));
+}
+fn addAcc(idx: u32, w: f32) {
+  let q = u32(w * p.sc + 0.5);
+  if (q == 0u) { return; }
+  let old = atomicAdd(&acc[2u*idx], q);
+  if (old + q < old) { atomicAdd(&acc[2u*idx + 1u], 1u); }
+}
+fn addZ(idx: u32, v: f32) {
+  let q = u32(v * p.scz + 0.5);
+  if (q == 0u) { return; }
+  let old = atomicAdd(&zacc[2u*idx], q);
+  if (old + q < old) { atomicAdd(&zacc[2u*idx + 1u], 1u); }
+}
+@compute @workgroup_size(WG)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(num_workgroups) nwg: vec3u) {
+  let g = gid.y * (nwg.x * WG) + gid.x;
+  if (g >= p.nT * p.S) { return; }
+  let t = g / p.S; let slot = i32(g % p.S); let S = i32(p.S);
+  var lo = 0u; var hi = p.nRows - 1u;
+  loop {
+    if (lo >= hi) { break; }
+    let mid = (lo + hi + 1u) / 2u;
+    if (rows[mid].y <= t) { lo = mid; } else { hi = mid - 1u; }
+  }
+  let i = rows[lo].x + (t - rows[lo].y);
+  let L = locs[i];
+  if (p.all == 0u && L.w >= p.thr) { return; }
+  if (slot == 0) { atomicAdd(&acc[p.cntIdx], 1u); }
+  let zc = p.zc == 1u; let cz = bitcast<f32>(L.z);
+  if (zc && !(isFin(cz) && cz >= p.zlo && cz <= p.zhi)) { return; }
+  let zval = select(0.0, cz - p.zlo, zc);
+  let px = (bitcast<f32>(L.x) - p.x0) * p.invPs; let py = (bitcast<f32>(L.y) - p.y0) * p.invPs;
+  if (p.mode == 2u) {
+    let lp = prec[i];
+    let sx = min(p.maxSigma, select(p.blurPx, lp.x, isFin(lp.x) && lp.x > 0.0) * p.mag) * p.invS;
+    let sy = min(p.maxSigma, select(p.blurPx, lp.y, isFin(lp.y) && lp.y > 0.0) * p.mag) * p.invS;
+    if (!(sx > 0.0) || !(sy > 0.0)) { return; }
+    let j0 = max(p.jLo, i32(floor(px - 3.0 * sx))); let j1 = min(p.jHi, i32(ceil(px + 3.0 * sx)) + 1);
+    let i0 = max(p.iLo, i32(floor(py - 3.0 * sy))); let i1 = min(p.iHi, i32(ceil(py + 3.0 * sy)) + 1);
+    if (j0 >= j1 || i0 >= i1) { return; }
+    let na = j1 - j0; let cached = na <= 32;
+    var gx: array<f32, 32>;
+    if (cached) { for (var a = 0; a < na; a = a + 1) { gx[a] = gInt(f32(j0 + a) + 0.5, px, sx); } }
+    for (var b = i0 + slot; b < i1; b = b + S) {
+      let gyv = gInt(f32(b) + 0.5, py, sy);
+      let row = u32(b) * p.ow;
+      for (var a = 0; a < na; a = a + 1) {
+        var gxa = 0.0;
+        if (cached) { gxa = gx[a]; } else { gxa = gInt(f32(j0 + a) + 0.5, px, sx); }
+        let w = gyv * gxa; let idx = row + u32(j0 + a);
+        addAcc(idx, w);
+        if (zc) { addZ(idx, w * zval); }
+      }
+    }
+    return;
+  }
+  let ix = i32(floor(px)); let iy = i32(floor(py)); let rad = p.rad;
+  let j0 = max(p.jLo, ix - rad); let j1 = min(p.jHi, ix + rad + 1);
+  let i0 = max(p.iLo, iy - rad); let i1 = min(p.iHi, iy + rad + 1);
+  for (var b = i0 + slot; b < i1; b = b + S) {
+    let wy = kern[u32(b - iy + rad)]; let row = u32(b) * p.ow;
+    for (var a = j0; a < j1; a = a + 1) {
+      let w = wy * kern[u32(a - ix + rad)]; let idx = row + u32(a);
+      addAcc(idx, w);
+      if (zc) { addZ(idx, w * zval); }
+    }
+  }
+}`;
+// Fixed point -> f32 density and z-sum, times V/drawn (the cap's weight) and 1/(s²·scale).
+const WGSL_PC_COMBINE=`
+struct P { ow:u32, oh:u32, zc:u32, all:u32, V:f32, f:f32, fz:f32, zlo:f32, cntIdx:u32, pad0:u32, pad1:u32, pad2:u32 };
+@group(0) @binding(0) var<uniform> p: P;
+@group(0) @binding(1) var<storage, read> acc: array<u32>;
+@group(0) @binding(2) var<storage, read> zacc: array<u32>;
+@group(0) @binding(3) var<storage, read_write> dens: array<f32>;
+@group(0) @binding(4) var<storage, read_write> zsum: array<f32>;
+override WGX: u32 = 8u;
+override WGY: u32 = 8u;
+@compute @workgroup_size(WGX,WGY)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  if (gid.x >= p.ow || gid.y >= p.oh) { return; }
+  let i = gid.y * p.ow + gid.x;
+  let wt = select(p.V / max(1.0, f32(acc[p.cntIdx])), 1.0, p.all == 1u);
+  let d = (f32(acc[2u*i + 1u]) * 4294967296.0 + f32(acc[2u*i])) * p.f * wt;
+  dens[i] = d;
+  if (p.zc == 1u) { zsum[i] = (f32(zacc[2u*i + 1u]) * 4294967296.0 + f32(zacc[2u*i])) * p.fz * wt + p.zlo * d; }
+}`;
+function pcGpuFrame(g,p,x0,y0,s,ow,oh,cap,norm,opts){
+  return runGpuExclusive(()=>withGpuErrorScopes(g.engine.device,'GPU point-cloud frame',()=>pcGpuFrameNow(g,p,x0,y0,s,ow,oh,cap,norm,opts||{})));
+}
+// GPU frame from the index g, coloured with display maximum norm: {canvas, V, drawn} (+ density with
+// opts.density). The output-sized buffers persist on g.frame between frames.
+async function pcGpuFrameNow(g,p,x0,y0,s,ow,oh,cap,norm,opts){
+  const eng=g.engine, device=eng.device, U=GPUBufferUsage, N=ow*oh, maxWG=eng.limits.maxComputeWorkgroupsPerDimension;
+  if(!eng.available) throw new Error('GPU device lost');
+  if(!g.cellStart) throw new Error('the GPU index was released');
+  if((2*N+1)*4>eng.limits.maxStorageBufferBindingSize) throw new Error(`a ${ow}×${oh} px frame needs a buffer over this GPU's ${fmtBytes(eng.limits.maxStorageBufferBindingSize)} per-buffer limit`);
+  const fp=pcFramePlan(g,p,x0,y0,s,ow,oh,cap), zc=!!(p.zColor && g.hasC);
+  let F=g.frame;
+  if(!F || F.N!==N || F.zc!==zc){
+    pcGpuFreeFrame(g);
+    const mk=(size,usage,label)=>eng.mkBuf(Math.max(16,size),usage,label);
+    F=g.frame={N,zc,acc:mk((2*N+1)*4,U.STORAGE|U.COPY_DST|U.COPY_SRC,'pc:acc'),zacc:mk(zc?8*N:16,U.STORAGE|U.COPY_DST,'pc:zacc'),
+      dens:mk(4*N,U.STORAGE|U.COPY_SRC,'pc:dens'),zsum:mk(zc?4*N:16,U.STORAGE,'pc:zsum'),out:mk(4*N,U.STORAGE|U.COPY_SRC,'pc:out'),
+      stage:mk(4*N,U.MAP_READ|U.COPY_DST,'pc:stage'),cntStage:mk(16,U.MAP_READ|U.COPY_DST,'pc:cntStage'),
+      comb:mk(48,U.UNIFORM|U.COPY_DST,'pc:combine'),cm:mk(48,U.UNIFORM|U.COPY_DST,'pc:colormap'),lut:mk(768*4,U.STORAGE|U.COPY_DST,'pc:lut'),
+      kern:null,kernCap:0,uni:[],rows:[],rowsCap:[]};
+  }
+  const wg2D={WGX:eng.wg2D[0],WGY:eng.wg2D[1]}, wgX=Math.ceil(ow/wg2D.WGX), wgY=Math.ceil(oh/wg2D.WGY), WG=eng.wg1D;
+  const pSplat=await eng.compilePipeline('pc-splat',WGSL_PC_SPLAT,'main',{WG});
+  const pComb=await eng.compilePipeline('pc-combine',WGSL_PC_COMBINE,'main',wg2D);
+  const pCmap=await eng.compilePipeline('render-colormap',WGSL_RENDER_COLORMAP,'main',wg2D);
+  // blur kernel ('fixed'), as pcRenderRegion()
+  const rad=fp.rad, kern=new Float32Array(2*rad+1);
+  if(rad>0){ let t=0; for(let d=-rad;d<=rad;d++){ kern[d+rad]=Math.exp(-d*d/(2*fp.sig*fp.sig)); t+=kern[d+rad]; } for(let k=0;k<kern.length;k++) kern[k]/=t; }
+  else kern[0]=1;
+  if(F.kernCap<kern.byteLength){ if(F.kern) F.kern.destroy(); F.kernCap=Math.max(64,kern.byteLength*2); F.kern=eng.mkBuf(F.kernCap,U.STORAGE|U.COPY_DST,'pc:kern'); }
+  device.queue.writeBuffer(F.kern,0,kern);
+  // fixed point: 2^18 per unit weight, more when zoomed in (small per-px weights), z-sums kept below 2^31
+  const sc=262144*Math.min(4096,Math.max(1,1/(s*s))), scz=Math.min(sc,2147483648/Math.max(1,(p.zhi-p.zlo)));
+  const maxRows=fp.prec ? Math.ceil(6*fp.sigMax)+2 : 2*rad+1, S=Math.max(1,Math.min(64,Math.ceil(maxRows/4)));
+  const enc=device.createCommandEncoder({label:'pc:frame'});
+  enc.clearBuffer(F.acc); if(zc) enc.clearBuffer(F.zacc);
+  let chunkIdx=0;
+  for(const C of g.chunks){
+    const rows=[]; let T=0;
+    for(let r=0;r<fp.ranges.length;r+=2){
+      const a=Math.max(fp.ranges[r],C.base), b=Math.min(fp.ranges[r+1],C.base+C.n);
+      if(b>a){ rows.push(a-C.base,T); T+=b-a; }
+    }
+    if(!T) continue;
+    const ci=chunkIdx++, rowsU=new Uint32Array(rows);
+    if(!F.uni[ci]) F.uni[ci]=eng.mkBuf(112,U.UNIFORM|U.COPY_DST,'pc:splatParams');
+    if(!(F.rowsCap[ci]>=rowsU.byteLength)){ if(F.rows[ci]) F.rows[ci].destroy(); F.rowsCap[ci]=Math.max(256,rowsU.byteLength*2); F.rows[ci]=eng.mkBuf(F.rowsCap[ci],U.STORAGE|U.COPY_DST,'pc:rows'); }
+    device.queue.writeBuffer(F.rows[ci],0,rowsU);
+    const pa=new ArrayBuffer(112), f=new Float32Array(pa), i=new Int32Array(pa), u=new Uint32Array(pa);
+    f[0]=x0/p.mag; f[1]=y0/p.mag; f[2]=p.mag/s; f[3]=p.mag;
+    i[4]=fp.jLo; i[5]=fp.jHi; i[6]=fp.iLo; i[7]=fp.iHi;
+    u[8]=ow; u[9]=T; u[10]=S; u[11]=rows.length/2;
+    u[12]=fp.prec?2:(rad>0?1:0); u[13]=fp.all?1:0; u[14]=fp.thr; u[15]=zc?1:0;
+    f[16]=p.zlo; f[17]=p.zhi; f[18]=p.blurPx; f[19]=MAX_SPLAT_SIGMA_PX;
+    f[20]=1/s; f[21]=sc; f[22]=scz; i[23]=rad; u[24]=2*N;
+    device.queue.writeBuffer(F.uni[ci],0,pa);
+    pcDispatch(enc,pSplat,pcBind(device,pSplat,[F.uni[ci],C.locs,C.prec,F.rows[ci],F.kern,F.acc,F.zacc]),Math.ceil(T*S/WG),maxWG);
+  }
+  { const pa=new ArrayBuffer(48), f=new Float32Array(pa), u=new Uint32Array(pa);
+    u[0]=ow; u[1]=oh; u[2]=zc?1:0; u[3]=fp.all?1:0; f[4]=fp.V; f[5]=1/(s*s*sc); f[6]=1/(s*s*scz); f[7]=p.zlo; u[8]=2*N;
+    device.queue.writeBuffer(F.comb,0,pa); }
+  const ps=enc.beginComputePass(); ps.setPipeline(pComb);
+  ps.setBindGroup(0,pcBind(device,pComb,[F.comb,F.acc,F.zacc,F.dens,F.zsum])); ps.dispatchWorkgroups(wgX,wgY); ps.end();
+  const lut=getLUT(p.lutName), lutF=new Float32Array(768); for(let k=0;k<768;k++) lutF[k]=lut[k];
+  device.queue.writeBuffer(F.lut,0,lutF);
+  device.queue.writeBuffer(F.cm,0,new Float32Array([ow,oh,norm,zc?1:0,p.zlo,p.zhi,Math.max(1e-9,p.zhi-p.zlo),1,0,0,0,0]));
+  const pc2=enc.beginComputePass(); pc2.setPipeline(pCmap);
+  pc2.setBindGroup(0,pcBind(device,pCmap,[F.cm,F.dens,F.zsum,F.lut,F.out])); pc2.dispatchWorkgroups(wgX,wgY); pc2.end();
+  enc.copyBufferToBuffer(F.out,0,F.stage,0,4*N);
+  enc.copyBufferToBuffer(F.acc,8*N,F.cntStage,0,4);
+  let dStage=null;
+  if(opts.density){ dStage=eng.mkBuf(4*N,U.MAP_READ|U.COPY_DST,'pc:densRead'); enc.copyBufferToBuffer(F.dens,0,dStage,0,4*N); }
+  device.queue.submit([enc.finish()]);
+  try{
+    await Promise.all([F.stage.mapAsync(GPUMapMode.READ),F.cntStage.mapAsync(GPUMapMode.READ),dStage&&dStage.mapAsync(GPUMapMode.READ)]);
+    const drawn=new Uint32Array(F.cntStage.getMappedRange(0,4).slice(0))[0];
+    const cv=getOrMakeSrCanvas(ow,oh), ctx=cv.getContext('2d'), img=ctx.createImageData(ow,oh);
+    img.data.set(new Uint8ClampedArray(F.stage.getMappedRange(0,4*N))); ctx.putImageData(img,0,0);
+    const density=dStage ? new Float32Array(dStage.getMappedRange().slice(0)) : null;
+    return {canvas:cv,V:fp.V,drawn,density};
+  } finally {
+    for(const b of [F.stage,F.cntStage,dStage]) if(b && b.mapState==='mapped') b.unmap();
+    if(dStage) dStage.destroy();
+  }
+}
+
+// The point-cloud index of the current locs (one at a time): {key, n, cell, GW, GH, lpMax, hasC, gpu | worker | local}.
+let _pcIndex=null, _pcIndexSeq=0, _pcTimer=0;
+function pcForgetIndex(){
+  const X=_pcIndex; _pcIndex=null; if(!X) return;
+  X.freed=true;
+  if(X.gpu){ const g=X.gpu; X.gpu=null; runGpuExclusive(()=>pcGpuFree(g)); }
+  if(X.worker){ dispatchRenderWorker(X.worker,{pcFree:1,id:X.id}).catch(()=>{}); X.worker=null; }
+  X.local=null;
+}
+// The bitmap's whole-image display maximum (renderSuperRes() and the GPU render set _srNorm; a viewport
+// reconstruction keeps its overview's).
+function srImageNorm(f){ return f ? (f._viewport ? f.norm : (f._srNorm||0)) : 0; }
+// Builds the index for locs (null, with a log line, when it would not fit the memory ceiling). GPU when Use
+// GPU acceleration is on and works, else the CPU (handed to the render worker when there is one).
+async function pcBuildIndex(locs,w,h,colorField,reserveBytes,onLog){
+  const t0=performance.now(), bytes=estimatePointCloudBytes(locs.length), ceiling=effectiveMemBudgetBytes(paramValue('memBudgetGB'));
+  if(bytes+reserveBytes>ceiling.bytes){
+    onLog(`!!! Point cloud off for this result: its index would need ~${fmtBytes(bytes)} on top of ~${fmtBytes(reserveBytes)} already in use, over ${memCeilingSuffix(ceiling)} — showing the bitmap (Render as).`);
+    return null;
+  }
+  const pk=pcPackLocs(locs,w,h,colorField);
+  const X={key:{locs,n:locs.length,w,h,colorField},n:pk.n,cell:pk.cell,GW:pk.GW,GH:pk.GH,lpMax:pk.lpMax,hasC:!!pk.c,gpu:null,worker:null,local:null,id:++_pcIndexSeq,where:''};
+  if(paramValue('useGpu')){
+    try{
+      const eng=await getGpuEngine();
+      if(eng && eng.available){ X.gpu=await pcGpuBuild(eng,pk); X.where='GPU'; }
+    }catch(err){ onLog(`!!! Point-cloud index on the GPU failed, using the CPU: ${err.message}`); X.gpu=null; }
+  }
+  if(!X.gpu) await pcPlaceCpu(X,pcSortCpu(pk));
+  onLog(`Point cloud: ${X.n.toLocaleString()} localizations indexed in ${X.GW}×${X.GH} cells of ${X.cell} camera px (${X.where}, ${Math.round(performance.now()-t0)} ms).`);
+  return X;
+}
+// Hands a CPU index to the render worker (transferred, so only the worker holds it), else keeps it here.
+async function pcPlaceCpu(X,G){
+  const worker=await getRenderWorker();
+  if(worker){
+    try{ await dispatchRenderWorker(worker,{pcInit:1,id:X.id,G},pcGridTransfer(G)); X.worker=worker; X.where='CPU, render worker'; return; }
+    catch(err){ log(`!!! Render worker refused the point-cloud index, drawing on the main thread: ${err.message}`); G=pcBuildGridCpu(X.key.locs,X.key.w,X.key.h,X.key.colorField); }
+  }
+  X.local=G; X.where='CPU';
+}
+// Gives the reconstruction f (just rendered by rerenderNow()) its point-cloud display, reusing the index
+// while the locs are the same array with the same length and nothing moved them (pcForgetIndex()).
+async function pcAttach(f,locs,w,h,mag,blurPx,lutName,zColor,zlo,zhi,colorField,renderMode,reserveBytes,onLog){
+  let X=_pcIndex;
+  const k=X&&X.key;
+  if(!X || k.locs!==locs || k.n!==locs.length || k.w!==w || k.h!==h || k.colorField!==(colorField||null)){
+    pcForgetIndex();
+    X=await pcBuildIndex(locs,w,h,colorField||null,reserveBytes,onLog);
+    if(!X) return false;
+    _pcIndex=X;
+  }
+  f._pc={index:X,params:{W:w*mag,H:h*mag,mag,blurPx,zColor,zlo,zhi,renderMode:renderMode==='fixed'?'fixed':'precision',lutName},
+         norm:srImageNorm(f),frame:null,busy:false,version:0,fails:0};
+  return true;
+}
+// The frame the panel needs now (its backing store's device px over the visible srFull rect), or null when
+// the current frame already is that one.
+function pcFrameWanted(f){
+  const d=$('sr'), ow=d.width, oh=d.height, DW=d.clientWidth||ow, DH=d.clientHeight||oh, pc=f._pc;
+  if(!(ow>0 && oh>0)) return null;
+  const sw=DW/view.zoom, sh=DH/view.zoom, s=sw/ow, x0=view.cx-sw/2, y0=view.cy-sh/2, fr=pc.frame;
+  if(fr && fr.x0===x0 && fr.y0===y0 && fr.s===s && fr.ow===ow && fr.oh===oh && fr.version===pc.version) return null;
+  return {x0,y0,s,ow,oh,version:pc.version};
+}
+// Called by drawView(): a GPU index draws the new view now (one frame in flight, the next one follows the
+// view when it lands); a CPU one after the view settles.
+function pcRequestFrame(){
+  const f=srFull, pc=f&&f._pc;
+  if(!pc || !srIsRecon || srIsPlot || view3d.on) return;
+  clearTimeout(_pcTimer);
+  if(pc.index.gpu) pcDrawFrame(f);
+  else _pcTimer=setTimeout(()=>pcDrawFrame(f), SR_PATCH_DELAY_MS);
+}
+async function pcRenderFrame(X,pc,want,cap){
+  const p=pc.params;
+  if(X.gpu) return (await pcGpuFrame(X.gpu,p,want.x0,want.y0,want.s,want.ow,want.oh,cap,pc.norm)).canvas;
+  if(X.worker) return (await dispatchRenderWorker(X.worker,{pcRegion:1,id:X.id,p,x0:want.x0,y0:want.y0,s:want.s,ow:want.ow,oh:want.oh,cap,norm:pc.norm})).imageBitmap;
+  if(!X.local) throw new Error('the point-cloud index was released');
+  return srRegionCanvas(pcRenderRegion(X.local,p,want.x0,want.y0,want.s,want.ow,want.oh,cap),pc.norm,p);
+}
+async function pcDrawFrame(f){
+  const pc=f._pc; if(!pc || srFull!==f || pc.busy) return;
+  const want=pcFrameWanted(f); if(!want) return;
+  pc.busy=true; let img=null;
+  try{ img=await pcRenderFrame(pc.index,pc,want,Math.max(1,Math.round(paramValue('pcMaxPoints')*1e6))); }
+  catch(err){ if(!pc.index.freed && f._pc===pc) pcFrameFailed(f,err); }
+  finally{ pc.busy=false; }
+  if(img){
+    if(srFull!==f || f._pc!==pc){ if(img.close) img.close(); return; }
+    if(pc.frame && pc.frame.img.close) pc.frame.img.close();
+    pc.frame={...want,img,rx:want.x0,ry:want.y0,k:want.s};
+  }
+  if(srFull===f && !srIsPlot) drawView();   // shows the frame; asks for the next one if the view moved meanwhile
+}
+// A failed GPU frame moves the index to the CPU (main thread) for the rest of this result; a failed CPU
+// frame turns the point cloud off for it (the bitmap stays).
+function pcFrameFailed(f,err){
+  const pc=f._pc, X=pc.index;
+  if(X.gpu){
+    log(`!!! GPU point-cloud draw failed, drawing on the CPU: ${err.message}`);
+    const g=X.gpu; X.gpu=null; runGpuExclusive(()=>pcGpuFree(g));
+    X.local=pcBuildGridCpu(X.key.locs,X.key.w,X.key.h,X.key.colorField); X.where='CPU';
+    return;
+  }
+  log(`!!! Point-cloud draw failed, showing the bitmap: ${err.message}`);
+  f._pc=null;
+}
+// Max points drawn changed: redraw the current view with the new cap.
+function pcRedraw(){ if(srFull && srFull._pc){ srFull._pc.version++; drawView(); } }
+// Shows Max points drawn only with Render as = Point cloud.
+function syncRenderAsRows(){ $('pcMaxPointsRow').style.display = $('renderAs').value==='pointCloud' ? 'flex' : 'none'; }
 // Patch for the current view: the visible rect plus a quarter of it on each
 // side (so small pans need none), at the stride that gives at least one
 // sample per device px. Requested 150 ms after the last drawView() (never
@@ -9890,7 +10538,7 @@ function srPatchWanted(){
 }
 function scheduleSrPatch(){
   clearTimeout(_srPatchTimer);
-  if(srFull && srFull._viewport) _srPatchTimer=setTimeout(requestSrPatch, SR_PATCH_DELAY_MS);
+  if(srFull && srFull._viewport && !srFull._pc) _srPatchTimer=setTimeout(requestSrPatch, SR_PATCH_DELAY_MS);   // a point cloud draws the view itself
 }
 async function requestSrPatch(){
   if(_srPatchBusy){ _srPatchAgain=true; return; }
@@ -9914,11 +10562,16 @@ async function requestSrPatch(){
 // transparent: black made transparent (segmentation or source overlay).
 function srDrawImage(ctx,sx,sy,sw,sh,DW,DH,transparent){
   const f=srFull, t=transparent?buildTransparentReconCanvas:(c=>c);
-  if(!f._viewport){ ctx.drawImage(t(f), sx,sy,sw,sh, 0,0,DW,DH); return; }
-  const k=f.ovK;
-  ctx.drawImage(t(f.overview), sx/k,sy/k,sw/k,sh/k, 0,0,DW,DH);
-  const p=f.patch;
-  if(p) ctx.drawImage(t(p.img), (sx-p.rx)/p.k,(sy-p.ry)/p.k,sw/p.k,sh/p.k, 0,0,DW,DH);
+  if(!f._viewport) ctx.drawImage(t(f), sx,sy,sw,sh, 0,0,DW,DH);
+  else {
+    const k=f.ovK;
+    ctx.drawImage(t(f.overview), sx/k,sy/k,sw/k,sh/k, 0,0,DW,DH);
+    const p=f.patch;
+    if(p) ctx.drawImage(t(p.img), (sx-p.rx)/p.k,(sy-p.ry)/p.k,sw/p.k,sh/p.k, 0,0,DW,DH);
+  }
+  // The point-cloud frame on top (rx,ry,k as a patch's, k fractional), scaled until the next one lands.
+  const q=f._pc && f._pc.frame;
+  if(q && !view3d.on) ctx.drawImage(t(q.img), (sx-q.rx)/q.k,(sy-q.ry)/q.k,sw/q.k,sh/q.k, 0,0,DW,DH);
 }
 // View math is in CSS pixels (the canvas backing is CSS×dpr for crisp overlays,
 // so use clientWidth/Height — NOT the backing width/height — as the logical size).
@@ -10168,6 +10821,7 @@ function drawView(){
     }
   } else srDrawImage(ctx, sx,sy,sw,sh, DW,DH, false);
   scheduleSrPatch();
+  pcRequestFrame();
   if(srSpots||srLocs) drawSpotOverlays(ctx,view,srSpots,srLocs,DW,DH, srLocs===smfretSOI, srLocs===smfretSOI?smfretPairedSoiKeys:null);   // numbering and paired colours only for the smFRET SOI composite
   if(srLocs===smfretSOI) drawSmfretTraceSelectionOverlay(ctx,view,DW,DH);
   drawScaleBar(ctx,DW,DH, srFull ? srNmPerPx()/view.zoom : 0);
@@ -10698,11 +11352,20 @@ async function rerenderNow(keepView,isPreview,mySeq){
   setSrRecon(true);   // real per-localization reconstruction — crop is meaningful here
   srFull._zColor=zColor; srFull._zlo=zlo; srFull._zhi=zhi; srIsPlot=false; srSpots=null; srLocs=null;
   if(srFull.width!==pw || srFull.height!==ph){ measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; }  // srFull coords changed
+  // Render as = Point cloud: the display layer over this bitmap (final renders only; a Run's previews show
+  // the bitmap). Attached before the first draw, so a settings change doesn't flash the enlarged bitmap.
+  if(paramValue('renderAs')!=='pointCloud' || (isPreview && _pcIndex && _pcIndex.key.locs!==rlocs)) pcForgetIndex();
+  else if(!isPreview){
+    await pcAttach(srFull, rlocs, lastResult.w, lastResult.h, mag, rblur, paramValue('lut'), zColor, zlo, zhi, colorField, paramValue('renderMode'),
+      rlocs.length*LOC_ROW_BYTES+(stack?(stack.residentBytes||0):0), log);
+    if(mySeq!==_srRenderSeq || !lastResult || srFull!==newSrFull) return;
+  }
   if(!keepView || srFull.width!==pw || srFull.height!==ph) fitView();
   clampView(); drawView();
   // reconstruction pixel = camera pixel / magnification (e.g. 160 nm / 10× = 16 nm)
   $('srInfo').textContent=`${rlocs.length.toLocaleString()}${renderLocs?' / '+lastResult.locs.length.toLocaleString()+' (filtered)':''} locs · ${(lastResult.px/mag).toFixed(1)} nm/px`+
-    (zColor?` · z ${zlo.toFixed(0)}…${zhi.toFixed(0)} nm`:'')+(srFull._viewport?` · ${srFull.width}×${srFull.height} px, drawn per view`:'')+` · scroll to zoom, drag to pan`;
+    (zColor?` · z ${zlo.toFixed(0)}…${zhi.toFixed(0)} nm`:'')+(srFull._viewport?` · ${srFull.width}×${srFull.height} px, drawn per view`:'')+
+    (srFull._pc?' · point cloud':'')+` · scroll to zoom, drag to pan`;
   { const fn=$('srFilterNote'); if(fn){ if(renderLocs){ fn.style.display='block';
       fn.textContent=`▸ Table filter active — showing ${rlocs.length.toLocaleString()} of ${lastResult.locs.length.toLocaleString()} localizations (Reset filter in View data/filtering to clear).`; }
     else fn.style.display='none'; } }
@@ -11280,6 +11943,7 @@ const RENDER_WORKER_PRELUDE=[
   "let _mapKey='',_mapX=null,_mapY=null;",   // blurInto()'s own mirror-index cache, same as WORKER_PRELUDE above
   "let _rwW=0,_rwH=0,_rwZColor=false,_rwMode='',_rwAcc=null,_rwZacc=null,_rwBlurDst=null,_rwZBlurDst=null,_rwBlurTmp=null;",
   "let _rwVp=null;",   // the viewport reconstruction's packed locs + params, for region requests
+  "let _rwPc=null;",   // the point-cloud index (pcInit), for pcRegion frames
   "const LUT_CPS="+JSON.stringify(LUT_CPS)+";",
   "let _lutCache={};",
   "const _SQRT_LUT_N=65536, _sqrtLut=new Float32Array(_SQRT_LUT_N+1); for(let i=0;i<=_SQRT_LUT_N;i++) _sqrtLut[i]=Math.sqrt(i/_SQRT_LUT_N);",
@@ -11296,6 +11960,7 @@ function renderWorkerSource(){
     blurInto.toString(), blur.toString(), getLUT.toString(), percentileFromHistogram.toString(), displayMax.toString(), splatGaussianLoc.toString(), mulberry32.toString(),
     srAccumulate.toString(), srColorize.toString(), renderSuperResPixels.toString(),
     srRenderRegion.toString(), srMirrorWeight.toString(), srSampleAccumulate.toString(),
+    pcQueryRanges.toString(), pcFramePlan.toString(), pcRenderRegion.toString(),
     // Colours a srRenderRegion() result into a transferable ImageBitmap.
     `function srRegionBitmap(r,norm,p){
       const cv=new OffscreenCanvas(r.ow,r.oh), ctx=cv.getContext('2d'), img=new ImageData(r.ow,r.oh);
@@ -11319,12 +11984,25 @@ function renderWorkerSource(){
           const bufP={acc:new Float32Array(w*h),zacc:null,blurDst:null,zBlurDst:null,blurTmp:null};
           renderSuperResPixels(P,w,h,1,0.5,false,0,0,null,'fire',99.5,bufP,'precision');
           srRegionBitmap(srRenderRegion(P,null,w,h,0,0,w,h,2,1,0.5,false,0,0,'fixed',99.5),1,{zColor:false,lutName:'fire'}).close();
+          // one loc in cell (4,4) of an 8×8 point-cloud index
+          const cs=new Uint32Array(65); for(let k=37;k<65;k++) cs[k]=1;
+          const G={n:1,cell:1,GW:8,GH:8,lpMax:0.5,cellStart:cs,x:new Float64Array([4.5]),y:new Float64Array([4.5]),c:null,lpx:new Float32Array([0.5]),lpy:new Float32Array([0.5]),rank:new Uint32Array([0])};
+          srRegionBitmap(pcRenderRegion(G,{W:8,H:8,mag:1,blurPx:0.5,zColor:false,zlo:0,zhi:1,renderMode:'precision'},0,0,1,8,8,10),1,{zColor:false,lutName:'fire'}).close();
           postMessage({pong:1});
         }catch(err){ postMessage({pong:0,err:String(err&&err.message||err)}); }
         return;
       }
       const {seq,P,PN,W,H,mag,blurPx,zColor,zlo,zhi,lutName,pct,renderMode}=d;
       try{
+        if(d.pcInit){ _rwPc={id:d.id,G:d.G}; postMessage({seq}); return; }
+        if(d.pcFree){ if(_rwPc && _rwPc.id===d.id) _rwPc=null; postMessage({seq}); return; }
+        if(d.pcRegion){
+          // A point-cloud frame from the index set up by the last pcInit.
+          if(!_rwPc || _rwPc.id!==d.id) throw new Error('stale point cloud');
+          const r=pcRenderRegion(_rwPc.G,d.p,d.x0,d.y0,d.s,d.ow,d.oh,d.cap);
+          const imageBitmap=srRegionBitmap(r,d.norm,d.p);
+          postMessage({seq,imageBitmap,V:r.V,drawn:r.drawn},[imageBitmap]); return;
+        }
         if(d.vpRegion){
           // A rect of the viewport reconstruction set up by the last vpInit.
           if(!_rwVp || _rwVp.id!==d.id) throw new Error('stale view');
@@ -11358,11 +12036,11 @@ function renderWorkerSource(){
           _rwW=W; _rwH=H; _rwZColor=zColor; _rwMode=renderMode; _rwAcc=acc; _rwZacc=zacc;
           _rwBlurDst=blurDst; _rwZBlurDst=zBlurDst; _rwBlurTmp=blurTmp;
         }
-        const {imageData,satCount}=renderSuperResPixels(P,W,H,mag,blurPx,zColor,zlo,zhi,PN,lutName,pct,buf,renderMode);
+        const {imageData,satCount,norm}=renderSuperResPixels(P,W,H,mag,blurPx,zColor,zlo,zhi,PN,lutName,pct,buf,renderMode);
         const cv=new OffscreenCanvas(W,H), ctx=cv.getContext('2d');
         ctx.putImageData(imageData,0,0);
         const imageBitmap=cv.transferToImageBitmap();
-        postMessage({seq,imageBitmap,satCount},[imageBitmap]);
+        postMessage({seq,imageBitmap,satCount,norm},[imageBitmap]);
       }catch(err){ postMessage({seq,err:String(err&&err.message||err)}); }
     };`
   ].join('\n');
@@ -12819,6 +13497,7 @@ async function renderSuperResGpuNow(engine, locs, w, h, mag, blurPx, lutName, pc
   const ctx=cv.getContext('2d'), out=ctx.createImageData(W,H);
   out.data.set(new Uint8ClampedArray(pixU32.buffer));
   ctx.putImageData(out,0,0);
+  cv._srNorm=norm;   // display maximum, for the point cloud (srImageNorm())
   renderComplete=true;
   return cv;
   }finally{
@@ -15948,8 +16627,10 @@ async function driftCore(locs, px, config, hooks={}){
       L.z=L.z0+dz.fdz[Math.min(nFrames-1,Math.max(0,(L.frame-frame0)|0))]; }
   }
   // Positions changed in place (same array, same length), which the GPU
-  // accumulate cache can't detect: drop it so the next render rebuilds.
+  // accumulate cache and the point-cloud index can't detect: drop both so the
+  // next render rebuilds them.
   if(_gpuAccumCache) destroyGpuAccumCache();
+  pcForgetIndex();
   let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
   for(let f=0;f<nFrames;f++){ if(d.fdx[f]<mnx)mnx=d.fdx[f]; if(d.fdx[f]>mxx)mxx=d.fdx[f];
     if(d.fdy[f]<mny)mny=d.fdy[f]; if(d.fdy[f]>mxy)mxy=d.fdy[f]; }
@@ -21606,7 +22287,7 @@ async function runCore(config, stack, {zcal=null, wcal=null}={}, hooks={}){
   // the parameter, correct headlessly). Warning at 80% of that. Locs cost
   // LOC_ROW_BYTES each (likely an underestimate). Checked at the three
   // onProgress sites; the next shouldStop() turns it into a stop.
-  const renderBytesEstimate = estimateReconBytes(w*config.mag, h*config.mag, config.zcolor, config.rblur, config.renderMode, 0);
+  const renderBytesEstimate = estimateReconBytes(w*config.mag, h*config.mag, config.zcolor, config.rblur, config.renderMode, 0, config.renderAs);
   const stackResidentBytes = stack.residentBytes||0;
   let frameBatchReserve=0;   // set below, once pool/BATCH are known (worker paths only)
   let locsMemWarned=false, locsMemStopLogged=false;
@@ -23464,6 +24145,7 @@ function maybeShowMemWarning(){
 // that need one (a new movie, or a rotation of the current one).
 function clearAnalysisOutputs(){
   clearSegmentationForNewData();
+  pcForgetIndex();
   view3dForget();
   clearTableState();
   $('runBtn').disabled=true; $('pcfoBtn').disabled=true; $('gainOffsetFromPcfoBtn').disabled=true; $('rawCropBtn').disabled=true; $('calBtn').disabled=true; $('smfretLocateBtn').disabled=true; $('smfretTimeTracesBtn').disabled=true; $('smfretPairingBtn').disabled=true; $('smfretExportTracesBtn').disabled=$('smfretPlotTracesBtn').disabled=true; $('smfretEHistDexRow').style.display='none'; $('smfretEHistAARow').style.display='none'; pcfoLastGain=null; pcfoLastOffset=null; lastNena=null; lastResult=null; srFull=null; srIsPlot=false; srSpots=null; srLocs=null; setSrRecon(false); rawFull=null; rawIsPlot=false; measureLine=null; measurePt0=null; cropPt0=null; cropRect=null; calib=null; groundTruth=null; simTrueDrift=null; lastDrift=null; $('saveBtn').disabled=true; $('driftBtn').disabled=true; $('driftShowBtn').disabled=true; $('nenaBtn').disabled=true; $('sptLocErrorFromNenaBtn').disabled=true; $('frcBtn').disabled=true; $('tableBtn').disabled = true; groundTruthLocs=null; gtShowing=false; srFullBeforeGT=null;
@@ -24673,6 +25355,7 @@ function rescaleLoadedCsv(newPx){
     if(values) for(let i=0;i<values.length;i++) values[i]*=factor;
   }
   lastResult.csvCoordinatePx=newPx; lastResult.px=newPx; lastResult.byFrame=null;
+  pcForgetIndex();   // positions moved in place
   let maxX=0,maxY=0;
   for(const L of sSmlmOriginalLocs||lastResult.locs){
     if(Number.isFinite(L.x)) maxX=Math.max(maxX,L.x);
@@ -24947,14 +25630,14 @@ function updateMemReadout(){
   const locsN = (lastResult && lastResult.locs) ? lastResult.locs.length : 0;
   const locsBytes = locsN*LOC_ROW_BYTES;
   // Prospective cost of the next render with the current settings.
-  const renderBytes = lastResult ? estimateReconBytes(lastResult.w*paramValue('mag'), lastResult.h*paramValue('mag'), paramValue('zcolor'), paramValue('rblur'), paramValue('renderMode'), locsN) : 0;
+  const renderBytes = lastResult ? estimateReconBytes(lastResult.w*paramValue('mag'), lastResult.h*paramValue('mag'), paramValue('zcolor'), paramValue('rblur'), paramValue('renderMode'), locsN, paramValue('renderAs')) : 0;
   const kernelBytes = psfKernelBytes();
   const estBytes = stackBytes+locsBytes+renderBytes+kernelBytes;
   const pct = budgetSet ? Math.round(100*estBytes/budget) : null;
   let text, title =
     `Estimated memory in use: ~${fmtBytes(stackBytes)} (the loaded or simulated movie, if cached) + `+
     `~${fmtBytes(locsBytes)} (${locsN.toLocaleString()} localizations) + `+
-    `~${fmtBytes(renderBytes)} (reconstruction at the current Magnification)`+(kernelBytes?` + ~${fmtBytes(kernelBytes)} (cached simulation PSF kernel)`:'')+` ≈ ${fmtBytes(estBytes)}`+
+    `~${fmtBytes(renderBytes)} (reconstruction at the current Magnification`+(paramValue('renderAs')==='pointCloud'?', with the point-cloud index':'')+`)`+(kernelBytes?` + ~${fmtBytes(kernelBytes)} (cached simulation PSF kernel)`:'')+` ≈ ${fmtBytes(estBytes)}`+
     (budgetSet ? `, ${pct}% of the ${fmtBytes(budget)} Total memory budget (Memory, rotation, GPU & streaming).\n`
                 : ` (no Total memory budget set — see Memory, rotation, GPU & streaming to set one).\n`)+
     `This is webSMLM's own ESTIMATE, not a real measurement`;
@@ -25059,6 +25742,9 @@ $('renderMode').addEventListener('change',()=>{
 // Sync once at load too (the markup hides the row, 'fixed' is the default).
 $('rblurRow').style.display = $('renderMode').value==='fixed' ? 'flex' : 'none';
 $('rblur').addEventListener('change',()=>{ if(lastResult) requestRerender(true); });
+$('renderAs').addEventListener('change',()=>{ syncRenderAsRows(); if(lastResult) requestRerender(true); });
+syncRenderAsRows();
+$('pcMaxPoints').addEventListener('change',()=>pcRedraw());
 $('lut').addEventListener('change',()=>{ if(lastResult) requestRerender(true); });
 $('lutpct').addEventListener('change',()=>{ if(lastResult) requestRerender(true); });
 $('zcolor').addEventListener('change',()=>{ if(lastResult) requestRerender(true); });
@@ -25701,7 +26387,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.5 · proof-of-concept — cross-browser fallbacks (Firefox/Safari saves, worker notice), PCFO GPU path chosen by measured readback latency, WebGPU limits documented.`);
+log(`webSMLM v0.13.6-dev · build 2026-11-14a — point-cloud reconstruction display (Render as): sharp at any zoom, live pan/zoom on the GPU.`);
 
 $('compatNoticeClose').addEventListener('click', dismissCapabilityNotice);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));

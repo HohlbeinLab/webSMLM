@@ -62,7 +62,8 @@ coverage with larger inputs and can consume much more time and memory.
 
 - Correctness: foundation behavior, GPU fit parity, GPU FRC, candidate auditing,
   PCFO, simulator output, simulated-movie memory accounting, shape testing,
-  frame-cache integrity, 3D view transforms, GPU viewport sampling, and FRC
+  frame-cache integrity, 3D view transforms, GPU viewport sampling, the GPU
+  point-cloud display, and FRC
   pixel-size recomputation (`gpu:test:*`).
 - Core performance: fitting, rendering, FRC, detection, and live rendering.
 - Simulation performance: bounded and `--full` simulator workloads through
@@ -84,6 +85,7 @@ npm --prefix tools run gpu:test:simulation
 npm --prefix tools run gpu:test:sim-memory
 npm --prefix tools run gpu:test:view3d
 npm --prefix tools run gpu:test:viewport-gpu
+npm --prefix tools run gpu:test:point-cloud
 npm --prefix tools run gpu:test:frc-pixelsize
 npm --prefix tools run gpu:bench:simulation
 npm --prefix tools test               # fast gate, every group's tests
