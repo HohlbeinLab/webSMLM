@@ -3,10 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { commandReason, commandStatus, snapshotMutableArtifacts, startDashboardServer } from '../dashboard-server.mjs';
+import { commandReason, commandStatus, snapshotMutableArtifacts, startDashboardServer, suiteSkipNote } from '../dashboard-server.mjs';
 
 assert.equal(commandStatus(0, 'Skipping real-data benchmark.'), 'skip');
 assert.equal(commandStatus(0, 'Benchmark complete.'), 'pass');
+assert.equal(commandStatus(0, 'ok\nSkipping — optional dataset missing', false, true), 'pass', 'a suite with optional skips still passes');
+assert.equal(commandStatus(1, 'Skipping x', false, true), 'fail');
+assert.match(suiteSkipNote(['a', 'Skipping — x', '  Skipping — y']), /^2 optional checks were skipped/);
+assert.equal(suiteSkipNote(['a', 'b']), '');
 assert.equal(commandStatus(1, 'Dataset missing.'), 'fail');
 assert.match(commandReason('skip', ['Skipping.'], [{ label: 'Example data', present: false, downloadable: true }]), /Please download Example data/);
 
@@ -52,6 +56,7 @@ try {
   assert.ok(!state.results.some(result => result.name === 'dashboard-runs.json'), 'run history is not a test artifact');
   assert.ok(state.scripts.some(script => script.name === 'data:list'));
   assert.equal(state.scripts.find(script => script.name === 'everything')?.kind, 'suite');
+  for (const name of ['browsers:test:firefox', 'browsers:test:webkit']) assert.equal(state.scripts.find(script => script.name === name)?.kind, 'suite', `${name} runs many tests, so optional skips must not mark it skipped`);
   assert.match(state.scripts.find(script => script.name === 'everything')?.description || '', /physical simulation regime matrix/i);
   assert.equal(state.scripts.find(script => script.name === 'validation:bench:regimes')?.label, 'Physical simulation accuracy matrix');
   assert.deepEqual(state.scripts.find(script => script.name === 'everything')?.datasets, []);

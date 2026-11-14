@@ -490,7 +490,7 @@ try {
     await page.evaluate(() => {
       window.__csvRefs={result:lastResult,mask:segmentedImageLabels,source:segSourceImage};
       window.__csvNm=Object.fromEntries(['x','y','sigma','lpx','lpy'].filter(k=>Number.isFinite(lastResult.locs[0][k]))
-        .map(k=>[k,lastResult.locs[0][k]*lastResult.px]));
+        .map(k=>[k,(lastResult.locs[0][k]+(['x','y'].includes(k)?LOC_PX_EDGE:0))*lastResult.px]));
       $('segOpacity').value='37'; $('segOpacity').dispatchEvent(new Event('input'));
       $('pxnm').value='119'; $('pxnm').dispatchEvent(new Event('change'));
     });
@@ -498,13 +498,13 @@ try {
     const calibrated=await page.evaluate(() => {
       const mask=segmentedImageLabels;
       const refsPreserved=lastResult===window.__csvRefs.result && mask===window.__csvRefs.mask && segSourceImage===window.__csvRefs.source;
-      const nmPreserved=Object.entries(window.__csvNm).every(([k,nm])=>Math.abs(lastResult.locs[0][k]*lastResult.px-nm)<1e-6);
+      const nmPreserved=Object.entries(window.__csvNm).every(([k,nm])=>Math.abs((lastResult.locs[0][k]+(['x','y'].includes(k)?LOC_PX_EDGE:0))*lastResult.px-nm)<1e-6);
       const opacity=+$('segOpacity').value;
        segShowMode='hist'; drawSegShow(); const histogramCells=histData?.n;
        segShowMode='image'; drawSegShow();
       let same=0;
       for(const L of lastResult.locs){
-        const px=Math.floor(L.x),py=Math.floor(L.y);
+        const px=Math.floor(L.x+LOC_PX_EDGE),py=Math.floor(L.y+LOC_PX_EDGE);
         const reference=mask.arr[py*mask.w+px]||-1;
         if(cellIdForLoc(L,mask)===reference) same++;
       }
@@ -558,7 +558,7 @@ try {
       while(lastResult.csvCoordinatePx!==119 || srFull.width!==lastResult.w*lastResult.mag) await new Promise(requestAnimationFrame);
         return {outsideAt100,fieldAt100,fieldAt119:lastResult.w,borderAt100,fullAt100,cellsAt100,
         maskSame:segmentedImageLabels===mask,sourceSame:segSourceImage===source,
-        nmPreserved:Object.entries(window.__csvNm).every(([k,nm])=>Math.abs(lastResult.locs[0][k]*lastResult.px-nm)<1e-6),
+        nmPreserved:Object.entries(window.__csvNm).every(([k,nm])=>Math.abs((lastResult.locs[0][k]+(['x','y'].includes(k)?LOC_PX_EDGE:0))*lastResult.px-nm)<1e-6),
         opacity:+$('segOpacity').value};
     });
     assert.ok(roundTrip.outsideAt100>0 && roundTrip.fieldAt100>roundTrip.fieldAt119 && roundTrip.cellsAt100===fullCells,JSON.stringify(roundTrip));

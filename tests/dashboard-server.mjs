@@ -82,10 +82,19 @@ function commandDatasetDependencies(command) {
   }));
 }
 
-export function commandStatus(exitCode, output, cancelled = false) {
+const SKIP_LINE = /^\s*(?:SKIP(?:PED)?|Skipping)\b/i;
+
+// A single test that skips itself is 'skip'; a suite that exits 0 is 'pass' even though some of its optional
+// checks (private datasets, Python/h5py) skipped, which suiteSkipNote() reports instead.
+export function commandStatus(exitCode, output, cancelled = false, suite = false) {
   if (cancelled) return 'cancelled';
   if (exitCode !== 0) return 'fail';
-  return /^\s*(?:SKIP(?:PED)?|Skipping)\b/im.test(output) ? 'skip' : 'pass';
+  return !suite && /^\s*(?:SKIP(?:PED)?|Skipping)\b/im.test(output) ? 'skip' : 'pass';
+}
+
+export function suiteSkipNote(log) {
+  const n = log.filter(line => SKIP_LINE.test(line)).length;
+  return n ? `${n} optional check${n > 1 ? 's were' : ' was'} skipped (missing data or tools); see the log.` : '';
 }
 
 function scriptGroup(name) {
@@ -95,7 +104,7 @@ function scriptGroup(name) {
 }
 
 function scriptKind(name) {
-  if (['test', 'all', 'all:full', 'everything', 'everything:full', 'bench:all', 'live-hardware', 'gpu:test'].includes(name) || name.endsWith(':all')) return 'suite';
+  if (['test', 'all', 'all:full', 'everything', 'everything:full', 'bench:all', 'live-hardware', 'gpu:test'].includes(name) || name.endsWith(':all') || name.startsWith('browsers:')) return 'suite';
   if (name.includes(':bench:') || name.startsWith('bench:')) return 'benchmark';
   return 'test';
 }
@@ -515,8 +524,8 @@ export async function startDashboardServer({ host = '127.0.0.1', port = 0, open 
       activeChild = null;
       record.durationMs = Date.now() - started;
       record.exitCode = exitCode;
-      record.status = commandStatus(exitCode, record.log.join('\n'), cancelled);
-      record.reason = commandReason(record.status, record.log, record.datasets);
+      record.status = commandStatus(exitCode, record.log.join('\n'), cancelled, Boolean(entry.suite));
+      record.reason = entry.suite && record.status === 'pass' ? suiteSkipNote(record.log) : commandReason(record.status, record.log, record.datasets);
       const changedResults = changedResultFiles(beforeResults);
       record.children = entry.suite ? suiteChildren(changedResults) : [];
       record.results = snapshotMutableArtifacts(changedResults, run.id, entry.name);
