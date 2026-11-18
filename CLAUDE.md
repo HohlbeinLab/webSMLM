@@ -442,9 +442,9 @@ what makes GUI and command-line use interchangeable.
     threads), 6–17× the CPU at 3–290 M pairs and equal to it to the sub-nm; the pair cap is ×2 there (default `driftCometMaxPairs` 20 M); the pair count is estimated from a budget of candidate checks (`cometEstimatePairs()`, `COMET_ESTIMATE_BUDGET`; a full count of millions of dense locs took minutes) and counted exactly only for the CPU's pair list; any GPU error continues
     on the CPU. Progress: grid/pair search 0–12 %, then per length scale. Test: `tests/gpu/test-comet-drift.mjs`.
   - **DME** (`driftMethod 'dme'`, `dmeDrift()`; Cnossen et al. 2021 plus a learned temporal prior, ported from
-    github.com/qnano/drift-estimation, `dme/dme_prior.py`): 2D, kernel width = `modeUncertaintyNm()`. `driftDmeMode 'bins'`:
+    github.com/qnano/drift-estimation, `dme/dme_prior.py`): 2D, kernel width = `modeUncertaintyNm()`. `driftDmeMode 'bins'` (default):
     spline knots every `driftDmeFpb` frames (0 = `dmeRuleFpb()`, ~20 k locs/bin), AIM and zero starts through the coarsest kernel
-    (`aimDrift2D()` on the localizations; the higher score wins), kernel 4→2→1×, `cometLbfgs()` per level. `'learned'` (default):
+    (`aimDrift2D()` on the localizations; the higher score wins), kernel 4→2→1×, `cometLbfgs()` per level. `'learned'`:
     `dmeSegmentMeasurements()` (Newton step + 2×2 curvature per segment, trust region 1.5 kernel widths, non-negative-definite
     curvature = no measurement) → `dmeSmootherForwardGpu2()`/`dmeSmootherForwardCpu()` (Conv1d network, 32 channels, 20 blocks in
     two dilation cycles sharing weights (`manifest.blockMap`), int8 weights in the generated `DME smoother weights` block:
