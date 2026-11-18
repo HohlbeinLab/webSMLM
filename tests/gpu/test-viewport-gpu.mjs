@@ -65,6 +65,7 @@ try {
   const vp = await page.evaluate(async () => {
     const locs = [], rnd = mulberry32(3);
     for (let i = 0; i < 20000; i++) locs.push({ x: rnd() * 3000, y: rnd() * 40, frame: 0, lpx: 0.05, lpy: 0.05, photons: 500 });
+    $('renderAs').value = 'bitmap'; $('renderAs').dispatchEvent(new Event('change'));   // patches are the bitmap's (a point cloud draws the view itself)
     applyHeadlessResultToSession({ locs, w: 3000, h: 40, px: 100, mag: 10 });
     $('mag').value = 10; await rerender(false);
     await new Promise(r => setTimeout(r, 400));

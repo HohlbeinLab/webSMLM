@@ -81,7 +81,7 @@ command queue runs at a time.
 - `tests/gpu/` holds the tests and benchmarks that need (or A/B) WebGPU; see
   [GPU testing](gpu/README.md).
 - `tests/cpu/` holds CPU-only correctness and science tests and benchmarks
-  (smFRET, MLE variance, viewport render, CellField worker, drift, calibration,
+  (smFRET, MLE variance, viewport render, point-cloud display, CellField worker, drift, calibration,
   sSMLM, SPT, segmentation).
 - `tests/io/` holds file-format and loading tests (BigTIFF, rotate, save
   simulated movie, state clearing, multi-file load).
