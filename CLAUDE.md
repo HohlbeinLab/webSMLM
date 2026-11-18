@@ -285,6 +285,46 @@ what makes GUI and command-line use interchangeable.
     `tests/cpu/test-viewport-render.mjs` (sampler vs dense render in every mode, display max, a
     30000-px-wide panel with its zoomed patch) and `tests/gpu/test-viewport-gpu.mjs` (GPU sampler vs CPU sampler,
     resident chunks, the GPU-served panel).
+  - **Point cloud display** (`renderAs`, default `'pointCloud'`; `'bitmap'` = the bitmap alone): a display
+    layer over the bitmap, which is still rendered and stays `srFull` (Save image, line profile, crop,
+    tilt/rotate view, GT view, `analyze()` use it untouched); `srFull._pc` holds the state, attached by
+    `rerenderNow()` via `pcAttach()`. Index (`_pcIndex`, one
+    at a time, `pcBuildIndex()`): `pcPackLocs()` (in-domain locs, edge-frame camera px, rank =
+    `pcRank()` hash of x/y/frame) then a counting sort by cell, cell = `pcCellSize()` (power of two ≥ 1
+    camera px, ≤ `PC_GRID_MAX_CELLS`), on the GPU (`pcGpuBuild()`: `WGSL_PC_GRID_COUNT` → `WGSL_PC_SCAN`/
+    `_ADD` → `WGSL_PC_GRID_SCATTER`, chunks of ≤ `maxStorageBufferBindingSize/16`, cellStart read back) or
+    the CPU (`pcSortCpu()`, transferred to the render worker: `pcInit`/`pcRegion`/`pcFree`, `_rwPc`). It is
+    reused while the locs array, w/h and colour field are the same and extended when the array grew
+    (`pcExtendIndex()`: only the new locs are packed and sent; see the live paragraph below); anything that moves
+    or reorders positions in place calls `pcForgetIndex()` (`driftCore()`, `rescaleLoadedCsv()`,
+    `clearAnalysisOutputs()`, `run()` after `runCore()`'s in-place sort by frame).
+    A frame (`pcFramePlan()` → `pcRenderRegion()` CPU / `pcGpuFrame()`: `WGSL_PC_SPLAT` + `WGSL_PC_COMBINE`
+    + the colour-map kernel) is the panel's backing store in device px, origin/pitch in srFull px, values =
+    density per srFull px; at pitch 1 on whole pixels it equals the bitmap ('fixed' without blurInto()'s
+    mirrored edges; 'dither' draws the 'precision' splat). Colours use the bitmap's whole-image norm
+    (`srImageNorm()`: `_srNorm` from every whole-image path, else `vp.norm`). Cap `pcMaxPoints` (millions): rank <
+    cap/V·2³² drawn, weighted V/drawn (the GPU counts drawn in `acc[2N]`). With a GPU index
+    `pcRequestFrame()` draws on every `drawView()` (one frame in flight); a CPU index draws
+    `SR_PATCH_DELAY_MS` after the view settles; `srDrawImage()` shows the last frame scaled meanwhile,
+    and viewport patches are skipped while a point cloud is attached. A failed GPU frame moves the index
+    to the main-thread CPU; a failed CPU frame drops `_pc`. Memory: `estimatePointCloudBytes()` (36 B/loc)
+    inside `estimateReconBytes()`.
+  - **Live point cloud** (a Run's previews and live streaming's cadence, `rerender(…, pcLive)`, with Render as =
+    Point cloud): `rerenderPcLive()` renders **no bitmap**; `srFull` is a placeholder `{width, height,
+    _viewport, _pcOnly, norm}` (`srDrawImage()` draws only the frame; `srViewportRegion()` serves Save image and
+    the line profile from the point cloud), so pan/zoom work as after the Run. The index grows: new locs go to
+    an unsorted tail (`G.tail`/`g.tail` with each loc's cell; the GPU writes only the new locs after the tail,
+    `pcGpuExtend()`; the render worker gets `pcAppend`), drawn by brute force with a cell-rect test
+    (`pcTailCount()`, the splat kernel's `rect`), so V, the cap subset and the frame equal a single index's;
+    folded (`pcFoldCpu()`: grid run, then tail, per cell = `pcSortCpu()` order; GPU: `pcGpuSort()` over the
+    chunks + tail + new) when the tail would pass `pcTailCap()` (max(65536, ½ grid)), and by every non-live
+    render. Display max: `pcLiveNorm()`, the bitmap's percentile over every k-th px (≤ `PC_NORM_SAMPLES`,
+    exact up to ~1 Mpx) accumulated from the new locs only (`srSampleAccumulate()`); the final render
+    replaces it with the bitmap's. Refused (memory) or a failed live CPU frame → `_pcLiveOff`, bitmap previews
+    for that loc set. Bitmap mode is unchanged. Tests: `tests/cpu/test-point-cloud.mjs` (= bitmap at pitch 1,
+    zoomed block sums, cap, grid query vs brute force, grown index = single index, panel, a live Run),
+    `tests/gpu/test-point-cloud-gpu.mjs` (GPU = CPU, chunks, grown GPU index, GPU panel, a live Run); both use
+    `tests/lib/point-cloud-run.mjs`.
   - Magnification has no size cap in the panel; `analyze()` still lowers `cfg.mag` to
     `maxMagForFrame()` since `reconstruction.png` is one canvas. `mag` min is 1.
   - **Tilt/rotate view** (`view3d`, `enterView3D()`/`setView3D()`/`exitView3D()`; results with z): a
@@ -563,7 +603,9 @@ what makes GUI and command-line use interchangeable.
 - **liveStreaming** (`window.webSMLM.liveStream`, experimental) — chunks from a Micro-Manager bridge
   (`tools/webSMLM-livestream-bridge.mjs` via `#liveStreamChunkInput`, or an opt-in outbound
   WebSocket) are each localized by `runCore()` and appended; the first chunk arms a session, the
-  top-level Stop ends it. No FTM. New table filters and crops are refused while streaming.
+  top-level Stop ends it. No FTM. New table filters and crops are refused while streaming. With Render as =
+  Point cloud the render cadence updates only the point cloud (`rerender(true,false,true)`, see render); the
+  idle and the final render make the bitmap.
 
 - **table** — "View data/filtering": column-oriented (`tableColumnInfo()`, `tableColumnValue()`,
   `tableRowFromLoc()` only for the ≤ `TABLE_CAP` shown rows; `topKSorted()` instead of full sorts), so
