@@ -285,7 +285,7 @@ what makes GUI and command-line use interchangeable.
     `tests/cpu/test-viewport-render.mjs` (sampler vs dense render in every mode, display max, a
     30000-px-wide panel with its zoomed patch) and `tests/gpu/test-viewport-gpu.mjs` (GPU sampler vs CPU sampler,
     resident chunks, the GPU-served panel).
-  - **Point cloud display** (`renderAs`, default `'pointCloud'`; `'bitmap'` = the bitmap alone): a display
+  - **Point cloud display** (`renderAs` `'pointCloud'`; default `'bitmap'` = the bitmap alone): a display
     layer over the bitmap, which is still rendered and stays `srFull` (Save image, line profile, crop,
     tilt/rotate view, GT view, `analyze()` use it untouched); `srFull._pc` holds the state, attached by
     `rerenderNow()` via `pcAttach()`. Index (`_pcIndex`, one

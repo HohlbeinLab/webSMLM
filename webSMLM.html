@@ -1764,7 +1764,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.6-dev · build 2026-11-14b</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.6-dev · build 2026-11-18a</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1915,8 +1915,8 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <label class="row" title="Reconstruction pixels per camera pixel (render pixel = Pixel size / Magnification)">Magnification <input type="number" id="mag" min="1" max="25" step="1" value="10" class="num"></label>
         <label class="row" title="Point cloud: the localizations in view are redrawn at screen resolution whenever you pan or zoom, so the image stays sharp. Bitmap: one image at the Magnification, enlarged when zoomed in">Render as
           <select id="renderAs" class="sel">
-            <option value="pointCloud" selected>Point cloud</option>
-            <option value="bitmap">Bitmap</option>
+            <option value="bitmap" selected>Bitmap</option>
+            <option value="pointCloud">Point cloud</option>
           </select></label>
         <label class="row" id="pcMaxPointsRow" title="Point cloud: with more localizations in view, a fixed random subset of this many million is drawn, each weighted so the total brightness stays the same">Max points drawn (millions) <input type="number" id="pcMaxPoints" min="0.01" max="100" step="0.5" value="2" class="num"></label>
         <label class="row" title="Localization precision: each loc drawn as its own CRLB-sized Gaussian. Fixed blur: binned, one blur for all. Dithered: fast approximation of precision mode for large data">Render mode
@@ -1950,7 +1950,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-render"><span class="pill">module: render</span>
           <ul>
-          <li><b>Render as</b> — <b>Point cloud</b> (default) redraws the localizations in view at screen resolution whenever you pan or zoom, so the image stays sharp at any zoom level; <b>Bitmap</b> renders one image at the <b>Magnification</b> and enlarges it. With <b>Use GPU acceleration</b> the point cloud follows the view live; without it, it is redrawn shortly after the view settles and the previous image is shown scaled until then. At one screen pixel per reconstruction pixel both look the same, and the brightness scale is the bitmap's, taken over the whole image, so it does not change while zooming. <b>Save plot/image</b>, the line profile, the crop tool, the tilt/rotate view and command-line runs always use the bitmap. During <b>Localize</b> the reconstruction updates as a point cloud of the localizations found so far (pan and zoom work as after the Run) and no bitmap is made until the Run ends, so the Run is not slowed down; meanwhile its brightness scale is estimated from a sample of the image's pixels, and Save plot/image and the line profile use the point cloud. A point cloud draws <b>Precision (fast/dithered)</b> like <b>Localization precision</b>.</li>
+          <li><b>Render as</b> — <b>Bitmap</b> (default) renders one image at the <b>Magnification</b> and enlarges it when you zoom in; <b>Point cloud</b> redraws the localizations in view at screen resolution whenever you pan or zoom, so the image stays sharp at any zoom level, at some cost per view and about 36 bytes per localization (24 on the GPU). With <b>Use GPU acceleration</b> the point cloud follows the view live; without it, it is redrawn shortly after the view settles and the previous image is shown scaled until then. At one screen pixel per reconstruction pixel both look the same, and the brightness scale is the bitmap's, taken over the whole image, so it does not change while zooming. <b>Save plot/image</b>, the line profile, the crop tool, the tilt/rotate view and command-line runs always use the bitmap. During <b>Localize</b> the reconstruction updates as a point cloud of the localizations found so far (pan and zoom work as after the Run) and no bitmap is made until the Run ends, so the Run is not slowed down; meanwhile its brightness scale is estimated from a sample of the image's pixels, and Save plot/image and the line profile use the point cloud. A point cloud draws <b>Precision (fast/dithered)</b> like <b>Localization precision</b>.</li>
           <li><b>Max points drawn (millions)</b> (point cloud) — with more localizations in view, a fixed random subset of this many million is drawn, each weighted so the total brightness stays the same; the subset does not change while you pan, and zooming in brings back every localization once fewer are in view.</li>
           <li><b>Render mode</b> — <b>Fixed blur</b> (default) applies one uniform blur over the whole reconstruction, controlled by <b>Render blur σ_render</b> below (which only appears in this mode) — cost scales with the buffer's own area, not the number of localizations. <b>Localization precision</b> instead renders each localization as its own Gaussian, pixel-integrated so its total mass is conserved regardless of how small the fitted precision is (even a sigma well under 1 super-resolution pixel correctly concentrates almost all of its weight into the one pixel containing the true position, rather than being lost) — the more scientifically informative choice, but slower on a very large/dense dataset since cost scales with localization count. An unrealistically tiny fitted precision (most commonly from an uncalibrated Gain/Camera offset, which distorts the photon count the precision estimate is derived from) is still a sign the underlying calibration is off, even though it no longer breaks the render itself. <b>Live streaming</b> switches this to <b>Localization precision</b> automatically when a session starts (still changeable by hand afterward). <b>Precision (fast/dithered)</b> is a much faster stochastic approximation of the same per-localization-Gaussian idea, best suited to very large/dense datasets where the exact per-localization rendering gets slow — it looks grainier on sparse data, so it isn't the default either.</li>
           <li><b>Colour map</b> — Inferno/Viridis are perceptually uniform; Fire is the classic SMLM look.</li>
@@ -2891,7 +2891,7 @@ const PARAMS = {
   // spatial index, see pcBuildIndex()); 'bitmap' enlarges the one image
   // rendered at Magnification. Save image, line profile, crop, the tilt/rotate
   // view and analyze() always use the bitmap.
-  renderAs: { type:'enum', id:'renderAs', label:'Render as', options:['pointCloud','bitmap'], default:'pointCloud' },
+  renderAs: { type:'enum', id:'renderAs', label:'Render as', options:['pointCloud','bitmap'], default:'bitmap' },
   // pcMaxPoints: point-cloud cap per drawn view, in millions of localizations;
   // above it a fixed random subset is drawn, each weighted so the total
   // brightness is preserved.
@@ -26658,7 +26658,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.6-dev · build 2026-11-14b — point-cloud reconstruction display (Render as): sharp at any zoom, live pan/zoom on the GPU; a Run now updates the point cloud live (no bitmap previews).`);
+log(`webSMLM v0.13.6-dev · build 2026-11-18a — point-cloud reconstruction display (Render as; Bitmap stays the default), live during a Run.`);
 
 $('compatNoticeClose').addEventListener('click', dismissCapabilityNotice);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));
