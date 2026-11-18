@@ -1,30 +1,29 @@
-"""Regenerate the "DME smoother weights" block in webSMLM.html from the trained learned-temporal-prior network.
+"""Regenerate the "DME smoother weights" block in webSMLM.html from a trained learned-temporal-prior network.
 
     python3 tools/dme/export_smoother_weights.py WEIGHTS [--check]
 
-WEIGHTS: the PyTorch state_dict (smoother_v3.pt; needs torch) or an .npz of its tensors (numpy only), from
-github.com/jcnossen/dme branch gpu-dme (gpu/loop/train/train_smoother3.py, gpu/loop/weights/smoother_v3.pt).
-Rewrites the block between "// ==== BEGIN DME smoother weights block ====" and its END marker; --check only verifies
-that the block matches WEIGHTS. Format (read by dmeSmootherDecode()): tensors concatenated in ORDER below, little-endian;
-the residual-block conv weights (blocks.*.c1.weight, blocks.*.c2.weight; 327680 params) float16, all other tensors
-(input conv, GroupNorm affine, biases, output conv; 5697 params) float32 — all-float16 costs up to 0.07 sigma output
-error, mostly via inp.weight. ORDER (PyTorch state_dict names): inp.weight [64,7,1], inp.bias [64], then for block
-i = 0..19: blocks.i.n.weight, blocks.i.n.bias, blocks.i.c1.weight [64,64,3], blocks.i.c1.bias, blocks.i.c2.weight
-[64,64,1], blocks.i.c2.bias; then out.weight [1,64,1], out.bias [1]. Conv weights keep the [Cout, Cin, K] layout.
+WEIGHTS: the PyTorch state_dict (.pt; needs torch) or an .npz of its tensors (numpy only) of a Smoother3 network
+(github.com/qnano/drift-estimation, experiments/loop/train/train_smoother3.py). The shipped one is smoother_s32x20_sh
+(train_smoother_small.py --C 32 --cycles 2 --share): 32 channels, 20 residual blocks in two dilation cycles of 10 that
+share their weights. Rewrites the block between "// ==== BEGIN DME smoother weights block ====" and its END marker;
+--check only verifies that the block matches WEIGHTS.
+
+Format (read by dmeSmootherDecode()), little-endian, base64: the tensors in ORDER below. Tensors with 2+ dimensions
+(conv weights, layout [Cout, Cin, K]) are int8 followed by one float32 scale per output channel (value = int8 * scale,
+scale = max|w| / 127 over that channel); 1-D tensors (biases, GroupNorm affine) are float32. int8 changes the
+network's error on the test sequences by less than 0.003 sigma. ORDER (PyTorch state_dict names): inp.weight [C,7,1],
+inp.bias [C], then for each stored block k: blocks.k.n.weight, blocks.k.n.bias, blocks.k.c1.weight [C,C,3],
+blocks.k.c1.bias, blocks.k.c2.weight [C,C,1], blocks.k.c2.bias; then out.weight [1,C,1], out.bias [1]. A block whose
+tensors equal an earlier block's (weight sharing) is stored once: position j of the network runs stored block
+manifest.blockMap[j] with dilation manifest.dils[j].
 """
-import os, sys, json, base64
+import os, sys, re, json, base64
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DILS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512] * 2
+CYCLE = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
 LAGS = [1, 2, 4, 8]
-
-
-def order(n_blocks):
-    names = ['inp.weight', 'inp.bias']
-    for i in range(n_blocks):
-        names += [f'blocks.{i}.{p}' for p in ('n.weight', 'n.bias', 'c1.weight', 'c1.bias', 'c2.weight', 'c2.bias')]
-    return names + ['out.weight', 'out.bias']
+PARTS = ('n.weight', 'n.bias', 'c1.weight', 'c1.bias', 'c2.weight', 'c2.bias')
 
 
 def load(path):
@@ -34,19 +33,40 @@ def load(path):
     return {k: v.detach().cpu().numpy() for k, v in torch.load(path, map_location='cpu').items()}
 
 
-def block(w):
-    names = order(len(DILS))
-    assert set(names) == set(w.keys()), set(w.keys()) ^ set(names)
+def block(w, model):
+    nb = 1 + max(int(re.match(r'blocks\.(\d+)\.', k).group(1)) for k in w if k.startswith('blocks.'))
+    expect = {'inp.weight', 'inp.bias', 'out.weight', 'out.bias'} | {f'blocks.{j}.{p}' for j in range(nb) for p in PARTS}
+    assert set(w) == expect and nb % len(CYCLE) == 0, set(w) ^ expect
+    stored, block_map = [], []          # stored: source block index of each stored block; block_map: position -> stored
+    for j in range(nb):
+        k = next((k for k, i in enumerate(stored)
+                  if all(np.array_equal(w[f'blocks.{i}.{p}'], w[f'blocks.{j}.{p}']) for p in PARTS)), None)
+        if k is None:
+            k = len(stored); stored.append(j)
+        block_map.append(k)
+    names = [('inp.weight', 'inp.weight'), ('inp.bias', 'inp.bias')]
+    names += [(f'blocks.{k}.{p}', f'blocks.{i}.{p}') for k, i in enumerate(stored) for p in PARTS]
+    names += [('out.weight', 'out.weight'), ('out.bias', 'out.bias')]
     tensors, parts, off, boff = [], [], 0, 0
-    for n in names:
-        dt = 'float16' if n.endswith(('c1.weight', 'c2.weight')) else 'float32'
-        a = np.ascontiguousarray(w[n]).astype('<f2' if dt == 'float16' else '<f4')
-        tensors.append({'name': n, 'shape': list(a.shape), 'dtype': dt, 'offset': off, 'byteOffset': boff})
-        parts.append(a.tobytes()); off += a.size; boff += a.nbytes
-    man = {'model': 'smoother_v3', 'dtype': 'mixed', 'count': int(off), 'C': 64, 'lags': LAGS, 'dils': DILS, 'tensors': tensors}
+    for name, src in names:
+        a = np.asarray(w[src], np.float32)
+        t = {'name': name, 'shape': list(a.shape), 'offset': off, 'byteOffset': boff}
+        if a.ndim >= 2:
+            m = a.reshape(a.shape[0], -1)
+            sc = (np.abs(m).max(1) / 127).astype('<f4'); sc[sc == 0] = 1
+            q = np.clip(np.round(m / sc[:, None]), -127, 127).astype('i1')
+            t.update(dtype='int8', scaleByteOffset=boff + q.nbytes)
+            parts += [q.tobytes(), sc.tobytes()]; boff += q.nbytes + sc.nbytes
+        else:
+            t['dtype'] = 'float32'
+            parts.append(a.astype('<f4').tobytes()); boff += 4 * a.size
+        tensors.append(t); off += a.size
+    man = {'model': model, 'count': int(off), 'C': int(w['inp.weight'].shape[0]), 'lags': LAGS,
+           'dils': CYCLE * (nb // len(CYCLE)), 'blockMap': block_map, 'tensors': tensors}
     b64 = base64.b64encode(b''.join(parts)).decode('ascii')
-    return (BEGIN + "\n// Generated by tools/dme/export_smoother_weights.py from the trained network (github.com/jcnossen/dme, branch gpu-dme,\n"
-            "// gpu/loop/weights/smoother_v3.pt): residual conv weights float16, the rest float32, little-endian, base64. Do not edit.\n"
+    return (BEGIN + f"\n// Generated by tools/dme/export_smoother_weights.py from {model}.pt (github.com/qnano/drift-estimation,\n"
+            "// experiments/loop): conv weights int8 with a float32 scale per output channel, the rest float32, little-endian,\n"
+            "// base64. Do not edit.\n"
             f"const DME_SMOOTHER_MANIFEST={json.dumps(man, separators=(',', ':'))};\n"
             f'const DME_SMOOTHER_B64="{b64}";\n' + END)
 
@@ -57,10 +77,10 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     html = os.path.join(HERE, '..', '..', 'webSMLM.html')
-    src = open(html, encoding='utf-8').read()
+    src = open(html, encoding='utf-8', newline='').read()
     i, j = src.index(BEGIN), src.index(END) + len(END)
-    new = block(load(sys.argv[1]))
+    new = block(load(sys.argv[1]), os.path.splitext(os.path.basename(sys.argv[1]))[0])
     if '--check' in sys.argv:
         sys.exit(0 if src[i:j] == new else 'the DME smoother weights block differs from ' + sys.argv[1])
-    open(html, 'w', encoding='utf-8').write(src[:i] + new + src[j:])
+    open(html, 'w', encoding='utf-8', newline='').write(src[:i] + new + src[j:])
     print(f'rewrote the DME smoother weights block ({len(new)} chars)')
