@@ -85,26 +85,26 @@
   MODULE INDEX — line numbers of each "MODULE:" banner; re-grep 'MODULE:' if
   stale. Details: CLAUDE.md, docs/DOCUMENTATION.md, CHANGELOG.md.
   ============================================================================
-    params           2782  PARAMS registry, param controls, log/terminal helpers, memory defaults
-    in/out           3814  TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
-    simulation       4042  synthetic stack generator ("Simulate movie")
-    validation       7107  ground-truth scoring for simulated data ("Compare to GT")
-    detect           8090  band-pass (wavelet/DoG/box) + local-maxima detection
-    fit              8346  phasor, LSQ and Poisson-MLE fitters; aperture photometry
-    render           9003  super-resolution accumulation, view, colour maps, plots
-    workers         11973  frame-parallel detect/fit worker pool
-    gpu             12647  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
-    export          15030  ThunderSTORM-compatible CSV, plot/image export
-    3D calibration  15647  astigmatic width-vs-z bead calibration
-    drift           16059  AIM and cross-correlation drift correction
-    locprecision    17092  NeNA and FRC
-    sSMLM           18266  spectral SMLM pairing (distance/angle fit, pairCore())
-    smFRET          18872  sites of interest, time traces, pairing, E(S) (experimental)
-    spt             20980  single-particle tracking and diffusion coefficients
-    pipeline        22478  *Core()/wrapper orchestration, Run, hotkeys, terminal
-    liveStreaming   23565  Micro-Manager/pycromanager bridge (experimental)
-    table           26755  localizations table, filters, histograms, clustering
-    headless API    27446  window.webSMLM.analyze()/analyzeBatch()
+    params           2788  PARAMS registry, param controls, log/terminal helpers, memory defaults
+    in/out           3822  TIFF/ND2/FITS loading (whole-file or streamed), crop, rotate, FTM
+    simulation       4050  synthetic stack generator ("Simulate movie")
+    validation       7115  ground-truth scoring for simulated data ("Compare to GT")
+    detect           8098  band-pass (wavelet/DoG/box) + local-maxima detection
+    fit              8354  phasor, LSQ and Poisson-MLE fitters; aperture photometry
+    render           9011  super-resolution accumulation, view, colour maps, plots
+    workers         11981  frame-parallel detect/fit worker pool
+    gpu             12655  WebGPU engine: fit, render, FRC, simulation + PSF kernels (experimental)
+    export          15038  ThunderSTORM-compatible CSV, plot/image export
+    3D calibration  15655  astigmatic width-vs-z bead calibration
+    drift           16067  AIM and cross-correlation drift correction
+    locprecision    17967  NeNA and FRC
+    sSMLM           19141  spectral SMLM pairing (distance/angle fit, pairCore())
+    smFRET          19747  sites of interest, time traces, pairing, E(S) (experimental)
+    spt             21855  single-particle tracking and diffusion coefficients
+    pipeline        23353  *Core()/wrapper orchestration, Run, hotkeys, terminal
+    liveStreaming   24440  Micro-Manager/pycromanager bridge (experimental)
+    table           27630  localizations table, filters, histograms, clustering
+    headless API    28321  window.webSMLM.analyze()/analyzeBatch()
   ============================================================================
 -->
 <html lang="en">
@@ -1764,7 +1764,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
 <div id="scrim"></div>
 <header>
   <div class="title-row">
-    <h1>webSMLM <span class="pill">v0.13.6-dev · build 2026-11-18a</span></h1>
+    <h1>webSMLM <span class="pill">v0.13.6-dev · build 2026-11-18b</span></h1>
     <p style="font-size:12px">© 2026 Hohlbein et al. · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener">MIT License</a> · <a href="https://github.com/HohlbeinLab/webSMLM" target="_blank" rel="noopener">GitHub</a> · <a href="https://websmlm.readthedocs.io/en/latest/" target="_blank" rel="noopener">Read the Docs</a></p>
   </div>
   <div class="header-actions">
@@ -1972,6 +1972,7 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
             <option value="aim">AIM</option>
             <option value="correlation">Cross correlation</option>
             <option value="comet">COMET (experimental)</option>
+            <option value="dme">DME (experimental)</option>
           </select></label>
         <label class="row" id="driftCometSegRow" style="display:none;padding-left:40px" title="COMET: frames per time window; it stays stable down to a few tens of localizations per window, so windows can be much shorter than AIM's">Frames per window
           <input type="number" id="driftCometSeg" value="5" min="1" max="2000" step="1" class="num"></label>
@@ -1985,6 +1986,10 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
           <input type="number" id="driftCometSigma" value="" placeholder="auto" min="0" max="50" step="0.5" class="num"></label>
         <label class="row" id="driftCometPairsRow" style="display:none;padding-left:40px" title="COMET: cap on the localization pairs evaluated (8 bytes each on the CPU; twice as many on the GPU); above it a random share of the localizations is used. Each cost evaluation scales with it">Max pairs (millions)
           <input type="number" id="driftCometMaxPairs" value="20" min="1" max="400" step="1" class="num"></label>
+        <label class="row" id="driftDmeModeRow" style="display:none;padding-left:40px" title="DME: Learned temporal prior = per-segment drift measurements smoothed by a small trained network; the segment length (1–192 frames), or plain bins, or (with at least 30 localizations per frame) a drift value per frame without prior, whichever fits best, is chosen from the data by a spatial cross-fit (fit on half the field, score on the other half). Fixed bins = classic DME with one spline knot per Frames per bin">Temporal model
+          <select id="driftDmeMode" class="sel"><option value="learned">Learned temporal prior</option><option value="bins">Fixed bins</option></select></label>
+        <label class="row" id="driftDmeFpbRow" style="display:none;padding-left:40px" title="DME: frames per spline knot for Fixed bins, and the coarser of the two starts tried by the learned prior. Empty (auto) = about 20 000 localizations per bin">Frames per bin
+          <input type="number" id="driftDmeFpb" value="" placeholder="auto" min="0" max="20000" step="1" class="num"></label>
         <label class="row" id="driftRoiRow" style="padding-left:40px" title="AIM: largest shift searched between segments (nm)">Search radius (nm)
           <input type="number" id="driftRoi" value="120" min="10" max="1000" step="10" class="num"></label>
         <label class="row" id="driftZRow" style="display:none;padding-left:40px" title="Also correct drift in z (3D data)">Correct z too (3D)
@@ -2002,12 +2007,13 @@ try{ var _t0=localStorage.getItem('webSMLM_theme'); if(_t0==='light'||_t0==='con
         <button type="button" class="infobtn">more info…</button>
         <div class="hint" hidden id="hint-drift"><span class="pill">module: drift &amp; locprecision</span>
           <p><b>Sampling (AIM &amp; NeNA) %</b> is a shared speed/precision trade for AIM's own shift search and NeNA — each deterministically subsamples once via its own independent random stream (100% = no change, the default; an already-small segment or dataset is never subsampled further) — useful on a large dataset where either is slow. It does <b>not</b> affect FRC: FRC's own resolution number is fundamentally a function of localization density, not just noisier with fewer points, so subsampling it would silently report the (much worse) resolution of a sparser dataset rather than a faster measurement of the real one — FRC always runs on the full loc set regardless of this setting.</p>
-          <p>Three drift-estimation methods, picked by <b>Drift correction method</b> (<b>COMET</b>, below, is the third). <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
+          <p>Four drift-estimation methods, picked by <b>Drift correction method</b> (<b>COMET</b> and <b>DME</b>, below, are the third and fourth). <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
           <ul>
           <li><b>Average # of frames</b> is shared by AIM and Cross correlation — smaller segments track faster drift more closely but are noisier to estimate.</li>
           <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only).</li>
           <li><b>Cross correlation</b> has no additional settings of its own — no search radius (the whole frame is searched via FFT) and no z (a raw camera frame has no separate z channel to correlate against).</li>
           <li><b>COMET</b> (experimental; Reinkensmeier et al., bioRxiv 2026) maximises the overlap of all localizations over time windows of <b>Frames per window</b>, in x, y and z at once, and stays stable with only a few tens of localizations per window, where AIM does not. <b>Max drift (nm)</b> must exceed the total drift of the whole acquisition, peak to peak (not AIM's per-segment search radius — too small a value gives a poor, noisy result and the log warns); <b>Min localizations per window</b> merges short windows until each holds that many (about 250 or more keeps the curve smooth); <b>Smoothing (windows)</b> averages the drift over that many neighbouring windows (1 = off; smooth drift gains a lot, fast drift is blurred); <b>Final length scale (nm)</b> should match the localization precision (empty, "auto", = estimated from it); <b>Max pairs (millions)</b> caps the work and memory (a random share of the localizations is used above it). Slower than AIM on the CPU (seconds rather than a fraction of a second); the GPU brings it close.</li>
+          <li><b>DME</b> (experimental; Cnossen et al., <i>Opt. Express</i> 2021) maximises a bound on the entropy of all drift-corrected localizations (2D). <b>Temporal model</b>: <b>Learned temporal prior</b> (default) measures the drift of short segments and smooths them with a small trained network; the segment length (1–192 frames), plain bins, or (with at least 30 localizations per frame) a drift value per frame without prior, whichever fits best, is chosen from the data by fitting one half of the field and scoring the other half, so it adapts to fast drift (vibration, steps) when the data support it and falls back to bins when they do not. <b>Fixed bins</b> is the classic DME (one spline knot per <b>Frames per bin</b>; empty = about 20 000 localizations per bin). Uses the localization precision as kernel width; much faster with <b>Use GPU acceleration</b> (without it, at most 300 000 localizations are used).</li>
           <li>Each run re-estimates from scratch, so settings can be swept and compared, and any method can be tried on the same result.</li>
           <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
           </ul>
@@ -2949,8 +2955,8 @@ const PARAMS = {
   // driftSeg: frames per segment (AIM: localizations binned by frame; cross
   // correlation: raw frames averaged per segment).
   driftSeg: { type:'number', id:'driftSeg', label:'Average # of frames', min:5, max:2000, step:5, default:100, int:true },
-  // driftMethod: AIM (needs localizations) or cross correlation (raw movie).
-  driftMethod: { type:'enum', id:'driftMethod', label:'Drift correction method', options:['aim','correlation','comet'], default:'aim' },
+  // driftMethod: AIM, COMET or DME (need localizations) or cross correlation (raw movie).
+  driftMethod: { type:'enum', id:'driftMethod', label:'Drift correction method', options:['aim','correlation','comet','dme'], default:'aim' },
   // COMET (driftMethod 'comet'): own window length (it works down to a few tens of localizations per window,
   // where AIM does not), the final Gaussian length scale of the overlap cost, and a cap on the pair list.
   driftCometSeg: { type:'number', id:'driftCometSeg', label:'Frames per window', min:1, max:2000, step:1, default:5, int:true },
@@ -2959,6 +2965,8 @@ const PARAMS = {
   driftCometSmooth: { type:'number', id:'driftCometSmooth', label:'Smoothing (windows)', min:1, max:99, step:2, default:5, int:true },   // moving average over this many windows after each length scale; 1 = off
   driftCometSigma: { type:'number', id:'driftCometSigma', label:'Final length scale (nm)', min:0, max:50, step:0.5, default:0, int:false, blankAtDefault:true },   // empty or 0 = from the localization precision (the field shows "auto")
   driftCometMaxPairs: { type:'number', id:'driftCometMaxPairs', label:'Max pairs (millions)', min:1, max:400, step:1, default:20, int:true },
+  driftDmeMode: { type:'enum', id:'driftDmeMode', label:'Temporal model', options:['learned','bins'], default:'learned' },   // DME: learned temporal prior (cross-fit chooses the segment length) or fixed spline bins
+  driftDmeFpb: { type:'number', id:'driftDmeFpb', label:'Frames per bin', min:0, max:20000, step:1, default:0, int:true, blankAtDefault:true },   // empty or 0 = ~20 000 localizations per bin
   // driftRoi = "region of interest", the AIM intersection-search radius in nm
   driftRoi: { type:'number', id:'driftRoi', label:'Drift search radius (nm)', min:10, max:1000, step:10, default:120, int:false },
   // driftZ = also run the 1-D z-drift correction alongside the 2-D x/y correction
@@ -16712,6 +16720,863 @@ async function cometDrift(locs, nFrames, px, cfg, frame0, onProgress, shouldStop
 }
 
 /* ===========================================================================
+   DME drift (driftMethod 'dme'; Cnossen et al., Opt. Express 29, 27961 (2021), with the learned temporal prior of
+   github.com/qnano/drift-estimation, dme/dme_prior.py). Maximises the pairwise-KL bound on the entropy of the
+   drift-corrected localizations,
+     score = mean_i log Z_i,  Z_i = 1 + sum_{j: other frame, |u_i - u_j| < 3} exp(-|u_i - u_j|^2 / 2),  u = (x - drift[frame]) / sigma
+   (sigma = localization precision x kernel scale). Two modes (driftDmeMode):
+   - 'bins': drift = Catmull-Rom spline, one knot every driftDmeFpb frames (0 = ~20 000 localizations per bin); multi-start
+     (AIM and zero drift through the coarsest kernel, the higher score is continued), kernel 4 -> 2 -> 1 x precision with
+     4/2/1 x coarser knots, L-BFGS at each level.
+   - 'learned' (default): per-segment Newton measurements of the drift (gradient and 2x2 curvature of the score for
+     shifting one segment) smoothed by a small 1D convolutional network (dmeSmoother*: 32 channels, 20 residual blocks
+     in two dilation cycles that share their weights; int8 weights in the generated block below), 5 passes at kernel 4, 2, 1, 1, 1 x precision. The candidate (see dmeLearned(): a drift value per frame, bins
+     at the rule fpb or a tenth of it, or the learned prior from those bins with 1..192-frame segments) is chosen without
+     ground truth by a spatial cross-fit: drift from one half of an 8x8-tile checkerboard is scored on the other half's
+     localizations, and vice versa. As dme_prior_estimate() of the Python release (dme/dme_prior.py), 2D, without RCC.
+   Score/gradient/curvature: dmeEvaluator() (CPU) or the WGSL_DME_* kernels (GPU, same pair set, ~1e-5 relative).
+   Neighbours: a static cell grid (cell = 3 + 1 sigma) built at the drift of the last rebuild (on the GPU: count, prefix
+   scan, scatter and a per-cell sort, from localizations uploaded once per run); the kernels shift every
+   localization by its frame's drift change since then and the grid is rebuilt once any frame moved more than 0.5 sigma,
+   so the pair set is exact at every evaluation (no pair list, no atomics). 2D only.
+   =========================================================================== */
+const DME_CUTOFF=3, DME_SKIN=1;                    // pair cutoff and grid margin, in kernel sigma
+const DME_BIN_SCALES=[4,2,1], DME_LEARNED_SCALES=[4,2,1,1,1], DME_LEARNED_LFRAMES=[1,2,3,6,12,24,48,96,192];
+const DME_TRUST=1.5;                               // largest Newton step of one segment measurement, in kernel sigma
+const DME_MIN_LOCS_PER_SEG=30, DME_LEVEL_MAX_ITER=200;
+const DME_CPU_MAX_LOCS=300000;                     // CPU path: above, a deterministic share of the localizations is used
+function dmeRuleFpb(N,F){ return Math.min(2000,Math.max(10,Math.round(20000*F/N))); }
+
+// Catmull-Rom spline basis: drift[f] = sum_{j<4} w[4f+j] * knot[idx[4f+j]], one knot every fpb frames.
+function dmeSplineBasis(F,fpb){
+  const K=Math.max(1,Math.ceil(F/fpb)), idx=new Int32Array(4*F), w=new Float64Array(4*F);
+  for(let f=0;f<F;f++){ const t0=f/fpb, b=Math.floor(t0), t=t0-b, t2=t*t, t3=t2*t;
+    const ww=[0.5*(-t3+2*t2-t),0.5*(3*t3-5*t2+2),0.5*(-3*t3+4*t2+t),0.5*(t3-t2)];
+    for(let j=0;j<4;j++){ idx[4*f+j]=Math.min(K-1,Math.max(0,b+j-1)); w[4*f+j]=ww[j]; } }
+  return {K,idx,w,F,fpb};
+}
+function dmeKnotsToFrames(B,knots){ const out=new Float64Array(2*B.F);
+  for(let f=0;f<B.F;f++) for(let j=0;j<4;j++){ const k=B.idx[4*f+j], w=B.w[4*f+j]; out[2*f]+=w*knots[2*k]; out[2*f+1]+=w*knots[2*k+1]; }
+  return out; }
+function dmeFrameGradToKnots(B,gf){ const g=new Float64Array(2*B.K);
+  for(let f=0;f<B.F;f++) for(let j=0;j<4;j++){ const k=B.idx[4*f+j], w=B.w[4*f+j]; g[2*k]+=w*gf[2*f]; g[2*k+1]+=w*gf[2*f+1]; }
+  return g; }
+// Initial knots = mean of the per-frame drift over each knot's bin.
+function dmeFramesToKnots(B,d){ const knots=new Float64Array(2*B.K);
+  for(let k=0;k<B.K;k++){ const st=Math.min(B.F-1,Math.max(0,k*B.fpb-(B.fpb>>1))), en=Math.min(B.F,st+B.fpb);
+    for(let a=0;a<2;a++){ let s=0; for(let f=st;f<en;f++) s+=d[2*f+a]; knots[2*k+a]=s/(en-st); } }
+  return knots; }
+function dmeZeroMean(d){ const F=d.length/2; let mx=0,my=0; for(let f=0;f<F;f++){ mx+=d[2*f]; my+=d[2*f+1]; } mx/=F; my/=F;
+  for(let f=0;f<F;f++){ d[2*f]-=mx; d[2*f+1]-=my; } return d; }
+
+// Grid over the normalized positions at drift dBuild (cell = cutoff + skin), counting sort; arrays in CELL order.
+function dmeBuildGrid(X,Y,frame,n,sigmaS,dBuild){
+  const cell=DME_CUTOFF+DME_SKIN, ux=new Float64Array(n), uy=new Float64Array(n);
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  for(let i=0;i<n;i++){ const f=frame[i]; ux[i]=(X[i]-dBuild[2*f])/sigmaS; uy[i]=(Y[i]-dBuild[2*f+1])/sigmaS;
+    if(ux[i]<x0)x0=ux[i]; if(ux[i]>x1)x1=ux[i]; if(uy[i]<y0)y0=uy[i]; if(uy[i]>y1)y1=uy[i]; }
+  const nx=Math.floor((x1-x0)/cell)+1, ny=Math.floor((y1-y0)/cell)+1, nc=nx*ny;
+  if(!(nc<=(1<<26))) throw new Error(`DME: ${nc.toExponential(1)} grid cells — the field of view is too large for this localization precision`);
+  const cellOf=new Int32Array(n), start=new Uint32Array(nc+1), order=new Int32Array(n);
+  for(let i=0;i<n;i++){ const c=Math.floor((ux[i]-x0)/cell)+nx*Math.floor((uy[i]-y0)/cell); cellOf[i]=c; start[c+1]++; }
+  for(let c=0;c<nc;c++) start[c+1]+=start[c];
+  const fill=start.slice(0,nc); for(let i=0;i<n;i++) order[fill[cellOf[i]]++]=i;
+  const qx=new Float64Array(n), qy=new Float64Array(n), qf=new Int32Array(n), qc=new Uint32Array(n);
+  for(let q=0;q<n;q++){ const i=order[q]; qx[q]=ux[i]-x0; qy[q]=uy[i]-y0; qf[q]=frame[i]; qc[q]=cellOf[i]; }
+  return {nx,ny,nc,start,qx,qy,qf,qc};
+}
+
+// Score, per-frame gradient d score / d drift_f (px^-1) and per-frame curvature blocks (xx, xy, yy; px^-2: twice the
+// "own end" term sum_i [Hk_i/Z_i - gk_i gk_i^T/Z_i^2] / N, Hk_i = sum_j (d d^T - I) K_ij, gk_i = -sum_j d K_ij).
+// eng = GPU engine or null. Returns {evaluate(d Float64Array 2F, needHess), onGpu, destroy()}.
+// cache: optional Map (ctx.gpuData) of GPU-resident localization sets shared by the evaluators of one dmeDrift() run.
+// onLog: dmeDrift()'s hook (ctx.onLog), so headless runs see the GPU fallback message too.
+async function dmeEvaluator(X,Y,frame,F,sigmaS,eng,cache=null,onLog=log){
+  const n=X.length; let G=null, dBuild=null, gpu=null;
+  const rebuild=d=>{ if(dBuild){ let mx=0; for(let k=0;k<d.length;k++) mx=Math.max(mx,Math.abs(d[k]-dBuild[k])); if(mx/sigmaS<=DME_SKIN/2) return false; }
+    dBuild=Float64Array.from(d); G=null; return true; };            // the grid itself is built by the GPU or, lazily, the CPU
+  if(eng){ try{ gpu=await dmeGpuSetup(eng,X,Y,frame,F,sigmaS,cache); }catch(_){ gpu=null; } }
+  const cpu=async(d,needHess)=>{
+    if(!G) G=dmeBuildGrid(X,Y,frame,n,sigmaS,dBuild);
+    const {nx,ny,start,qx,qy,qf,qc}=G, r2=DME_CUTOFF*DME_CUTOFF;
+    const ux=new Float64Array(n), uy=new Float64Array(n);
+    for(let q=0;q<n;q++){ const f=qf[q]; ux[q]=qx[q]-(d[2*f]-dBuild[2*f])/sigmaS; uy[q]=qy[q]-(d[2*f+1]-dBuild[2*f+1])/sigmaS; }
+    const Z=new Float64Array(n), gkx=new Float64Array(n), gky=new Float64Array(n), hxx=new Float64Array(n), hxy=new Float64Array(n), hyy=new Float64Array(n);
+    let score=0; const grad=new Float64Array(2*F), hess=needHess?new Float64Array(3*F):null; let last=performance.now();
+    for(let pass=0;pass<2;pass++) for(let i=0;i<n;i++){
+      const c=qc[i], cx=c%nx, cy=(c/nx)|0, fi=qf[i], xi=ux[i], yi=uy[i], ni=pass?1/Z[i]:0;
+      let z=1, ax=0, ay=0, ha=0, hb=0, hc=0, gx=0, gy=0;
+      const y0=cy>0?cy-1:0, y1=cy<ny-1?cy+1:ny-1, x0=cx>0?cx-1:0, x1=cx<nx-1?cx+1:nx-1;
+      for(let yy=y0;yy<=y1;yy++){ const j1=start[x1+1+nx*yy];        // cells x0..x1 of one grid row are contiguous
+        for(let j=start[x0+nx*yy];j<j1;j++){ if(qf[j]===fi) continue;
+          const dx=xi-ux[j], dy=yi-uy[j], dd=dx*dx+dy*dy; if(dd>=r2) continue;
+          const k=Math.exp(-0.5*dd);
+          if(pass===0){ z+=k; ax-=dx*k; ay-=dy*k; ha+=(dx*dx-1)*k; hb+=dx*dy*k; hc+=(dy*dy-1)*k; }
+          else { const w=(ni+1/Z[j])*k; gx+=dx*w; gy+=dy*w; } } }
+      if(pass===0){ Z[i]=z; gkx[i]=ax; gky[i]=ay; hxx[i]=ha; hxy[i]=hb; hyy[i]=hc; }
+      else { const f=qf[i]; grad[2*f]+=gx; grad[2*f+1]+=gy; score+=Math.log(Z[i]);
+        if(hess){ hess[3*f]+=2*(hxx[i]*ni-gkx[i]*gkx[i]*ni*ni); hess[3*f+1]+=2*(hxy[i]*ni-gkx[i]*gky[i]*ni*ni); hess[3*f+2]+=2*(hyy[i]*ni-gky[i]*gky[i]*ni*ni); } }
+      if((i&2047)===0 && performance.now()-last>40){ await tick(); last=performance.now(); }
+    }
+    for(let k=0;k<2*F;k++) grad[k]/=n*sigmaS;
+    if(hess) for(let k=0;k<3*F;k++) hess[k]/=n*sigmaS*sigmaS;
+    return {score:score/n,grad,hess};
+  };
+  return {
+    get onGpu(){ return !!gpu; },
+    async evaluate(d,needHess){
+      const rebuilt=rebuild(d);
+      if(gpu){ try{ return await gpu.evaluate(dBuild,d,rebuilt); }
+        catch(err){ onLog(`!!! DME GPU failed (${String(err.message).slice(0,120)}) — continuing on the CPU.`); gpu.destroy(); gpu=null; } }
+      return cpu(d,needHess);
+    },
+    destroy(){ if(gpu) gpu.destroy(); }
+  };
+}
+
+// GPU score kernels (see dmeEvaluator()). Pass 1: per localization (cell order) Z, gk, Hk. Pass 2: gradient (needs 1/Z of
+// the partners), the own curvature term and log Z. Pass 3: per-frame sums through a frame-grouped index list.
+const WGSL_DME_PASS1=`
+struct P { n:u32, nx:u32, ny:u32, pad:u32, r2:f32, pad1:f32, pad2:f32, pad3:f32 };
+@group(0) @binding(0) var<uniform> p: P;
+@group(0) @binding(1) var<storage, read> cellOfQ: array<u32>;
+@group(0) @binding(2) var<storage, read> cellStart: array<u32>;
+@group(0) @binding(3) var<storage, read> cpts: array<vec4f>;
+@group(0) @binding(4) var<storage, read> shift: array<vec2f>;
+@group(0) @binding(5) var<storage, read_write> o1: array<vec4f>;
+@group(0) @binding(6) var<storage, read_write> o2: array<vec4f>;
+override WG: u32 = 64u;
+@compute @workgroup_size(WG)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(num_workgroups) nwg: vec3u) {
+  let i = gid.y * (nwg.x * WG) + gid.x;
+  if (i >= p.n) { return; }
+  let a = cpts[i]; let fi = bitcast<u32>(a.z); let ui = a.xy - shift[fi];
+  let c = cellOfQ[i]; let cx = c % p.nx; let cy = c / p.nx;
+  var z = 1.0; var gk = vec2f(0.0); var h = vec3f(0.0);
+  for (var ay = max(cy, 1u) - 1u; ay <= min(cy + 1u, p.ny - 1u); ay = ay + 1u) {
+    for (var ax = max(cx, 1u) - 1u; ax <= min(cx + 1u, p.nx - 1u); ax = ax + 1u) {
+      let cc = ax + p.nx * ay;
+      for (var q = cellStart[cc]; q < cellStart[cc + 1u]; q = q + 1u) {
+        let b = cpts[q]; let fj = bitcast<u32>(b.z);
+        if (fj == fi) { continue; }
+        let d = ui - (b.xy - shift[fj]); let dd = dot(d, d);
+        if (dd >= p.r2) { continue; }
+        let k = exp(-0.5 * dd);
+        z = z + k; gk = gk - d * k; h = h + vec3f(d.x * d.x - 1.0, d.x * d.y, d.y * d.y - 1.0) * k;
+      }
+    }
+  }
+  o1[i] = vec4f(z, gk, 0.0); o2[i] = vec4f(h, 0.0);
+}`;
+const WGSL_DME_PASS2=`
+struct P { n:u32, nx:u32, ny:u32, pad:u32, r2:f32, pad1:f32, pad2:f32, pad3:f32 };
+@group(0) @binding(0) var<uniform> p: P;
+@group(0) @binding(1) var<storage, read> cellOfQ: array<u32>;
+@group(0) @binding(2) var<storage, read> cellStart: array<u32>;
+@group(0) @binding(3) var<storage, read> cpts: array<vec4f>;
+@group(0) @binding(4) var<storage, read> shift: array<vec2f>;
+@group(0) @binding(5) var<storage, read> o1: array<vec4f>;
+@group(0) @binding(6) var<storage, read_write> o2: array<vec4f>;
+@group(0) @binding(7) var<storage, read_write> per: array<vec4f>;
+override WG: u32 = 64u;
+@compute @workgroup_size(WG)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(num_workgroups) nwg: vec3u) {
+  let i = gid.y * (nwg.x * WG) + gid.x;
+  if (i >= p.n) { return; }
+  let a = cpts[i]; let fi = bitcast<u32>(a.z); let ui = a.xy - shift[fi];
+  let c = cellOfQ[i]; let cx = c % p.nx; let cy = c / p.nx;
+  let me = o1[i]; let ni = 1.0 / me.x;
+  var g = vec2f(0.0);
+  for (var ay = max(cy, 1u) - 1u; ay <= min(cy + 1u, p.ny - 1u); ay = ay + 1u) {
+    for (var ax = max(cx, 1u) - 1u; ax <= min(cx + 1u, p.nx - 1u); ax = ax + 1u) {
+      let cc = ax + p.nx * ay;
+      for (var q = cellStart[cc]; q < cellStart[cc + 1u]; q = q + 1u) {
+        let b = cpts[q]; let fj = bitcast<u32>(b.z);
+        if (fj == fi) { continue; }
+        let d = ui - (b.xy - shift[fj]); let dd = dot(d, d);
+        if (dd >= p.r2) { continue; }
+        g = g + d * ((ni + 1.0 / o1[q].x) * exp(-0.5 * dd));
+      }
+    }
+  }
+  let hk = o2[i].xyz; let gk = me.yz;
+  let hh = 2.0 * (hk * ni - vec3f(gk.x * gk.x, gk.x * gk.y, gk.y * gk.y) * (ni * ni));
+  per[i] = vec4f(g, log(me.x), hh.x);
+  o2[i] = vec4f(hh.y, hh.z, 0.0, 0.0);
+}`;
+const WGSL_DME_FRAMES=`
+@group(0) @binding(0) var<storage, read> per: array<vec4f>;
+@group(0) @binding(1) var<storage, read> per2: array<vec4f>;
+@group(0) @binding(2) var<storage, read> idx: array<u32>;
+@group(0) @binding(3) var<storage, read> fstart: array<u32>;
+@group(0) @binding(4) var<storage, read_write> outf: array<vec4f>;
+var<workgroup> s0: array<vec4f, 64>;
+var<workgroup> s1: array<vec4f, 64>;
+@compute @workgroup_size(64)
+fn main(@builtin(workgroup_id) w: vec3u, @builtin(num_workgroups) nwg: vec3u, @builtin(local_invocation_index) t: u32) {
+  let f = w.y * nwg.x + w.x;
+  let nf = arrayLength(&fstart) - 1u;
+  var a0 = vec4f(0.0); var a1 = vec4f(0.0);
+  if (f < nf) {
+    for (var k = fstart[f] + t; k < fstart[f + 1u]; k = k + 64u) { let q = idx[k]; a0 = a0 + per[q]; a1 = a1 + per2[q]; }
+  }
+  s0[t] = a0; s1[t] = a1;
+  workgroupBarrier();
+  var st = 32u;
+  loop {
+    if (st == 0u) { break; }
+    if (t < st) { s0[t] = s0[t] + s0[t + st]; s1[t] = s1[t] + s1[t + st]; }
+    workgroupBarrier();
+    st = st / 2u;
+  }
+  if (t == 0u && f < nf) { outf[2u * f] = s0[0]; outf[2u * f + 1u] = s1[0]; }
+}`;
+// GPU cell grid (see dmeEvaluator()), rebuilt on the GPU from the GPU-resident localizations (dmeGpuData()):
+// count per cell (atomics) -> exclusive prefix scan (multi-level) -> scatter to cell order -> per-cell insertion sort by
+// frame-order position (deterministic order, like the CPU's counting sort), which also writes the frame-grouped index.
+const WGSL_DME_GRID_HEAD=`
+struct GP { n:u32, nx:u32, ny:u32, nc:u32, invS:f32, cell:f32, pad0:f32, pad1:f32 };
+@group(0) @binding(0) var<uniform> g: GP;
+@group(0) @binding(1) var<storage, read> raw: array<vec4u>;     // x, y (f32 bits, minus their minimum), frame, frame-order position
+@group(0) @binding(2) var<storage, read> off: array<vec2f>;     // per frame: (min - drift at build) / sigma - grid origin
+fn dmeU(r: vec4u) -> vec2f { return vec2f(bitcast<f32>(r.x), bitcast<f32>(r.y)) * g.invS + off[r.z]; }
+fn dmeCellOf(u: vec2f) -> u32 {
+  let cx = min(u32(max(floor(u.x / g.cell), 0.0)), g.nx - 1u); let cy = min(u32(max(floor(u.y / g.cell), 0.0)), g.ny - 1u);
+  return cx + g.nx * cy;
+}`;
+const WGSL_DME_GRID_COUNT=WGSL_DME_GRID_HEAD+`
+@group(0) @binding(3) var<storage, read_write> cnt: array<atomic<u32>>;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(num_workgroups) nwg: vec3u) {
+  let i = gid.y * (nwg.x * 64u) + gid.x;
+  if (i >= g.n) { return; }
+  atomicAdd(&cnt[dmeCellOf(dmeU(raw[i]))], 1u);
+}`;
+const WGSL_DME_GRID_SCATTER=WGSL_DME_GRID_HEAD+`
+@group(0) @binding(3) var<storage, read> cellStart: array<u32>;
+@group(0) @binding(4) var<storage, read_write> fill: array<atomic<u32>>;
+@group(0) @binding(5) var<storage, read_write> cpts: array<vec4u>;
+@group(0) @binding(6) var<storage, read_write> cellOfQ: array<u32>;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(num_workgroups) nwg: vec3u) {
+  let i = gid.y * (nwg.x * 64u) + gid.x;
+  if (i >= g.n) { return; }
+  let r = raw[i]; let u = dmeU(r); let c = dmeCellOf(u);
+  let q = cellStart[c] + atomicAdd(&fill[c], 1u);
+  cpts[q] = vec4u(bitcast<u32>(u.x), bitcast<u32>(u.y), r.z, r.w); cellOfQ[q] = c;
+}`;
+const WGSL_DME_GRID_SORT=`
+struct GP { n:u32, nx:u32, ny:u32, nc:u32, invS:f32, cell:f32, pad0:f32, pad1:f32 };
+@group(0) @binding(0) var<uniform> g: GP;
+@group(0) @binding(1) var<storage, read> cellStart: array<u32>;
+@group(0) @binding(2) var<storage, read_write> cpts: array<vec4u>;
+@group(0) @binding(3) var<storage, read_write> idx: array<u32>;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(num_workgroups) nwg: vec3u) {
+  let c = gid.y * (nwg.x * 64u) + gid.x;
+  if (c >= g.nc) { return; }
+  let s0 = cellStart[c]; let s1 = cellStart[c + 1u];
+  for (var q = s0 + 1u; q < s1; q = q + 1u) {
+    let v = cpts[q]; var j = q;
+    loop { if (j <= s0) { break; } let pv = cpts[j - 1u]; if (pv.w <= v.w) { break; } cpts[j] = pv; j = j - 1u; }
+    cpts[j] = v;
+  }
+  for (var q = s0; q < s1; q = q + 1u) { idx[cpts[q].w] = q; }
+}`;
+// Exclusive scan of a[0..m) in blocks of 256 (block totals to sums), and the add-back of the scanned block totals.
+const WGSL_DME_SCAN_HEAD=`
+struct SP { m:u32, p0:u32, p1:u32, p2:u32 };
+@group(0) @binding(0) var<uniform> s: SP;
+@group(0) @binding(1) var<storage, read_write> a: array<u32>;
+@group(0) @binding(2) var<storage, read_write> sums: array<u32>;`;
+const WGSL_DME_SCAN=WGSL_DME_SCAN_HEAD+`
+var<workgroup> sh: array<u32, 256>;
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) w: vec3u, @builtin(num_workgroups) nwg: vec3u, @builtin(local_invocation_index) t: u32) {
+  let b = w.y * nwg.x + w.x; let i = b * 256u + t;
+  var v = 0u; if (i < s.m) { v = a[i]; }
+  sh[t] = v; workgroupBarrier();
+  for (var o = 1u; o < 256u; o = o * 2u) {
+    var x = 0u; if (t >= o) { x = sh[t - o]; }
+    workgroupBarrier(); sh[t] = sh[t] + x; workgroupBarrier();
+  }
+  if (i < s.m) { a[i] = sh[t] - v; }
+  if (t == 255u && b * 256u < s.m) { sums[b] = sh[255]; }
+}`;
+const WGSL_DME_SCAN_ADD=WGSL_DME_SCAN_HEAD+`
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) w: vec3u, @builtin(num_workgroups) nwg: vec3u, @builtin(local_invocation_index) t: u32) {
+  let b = w.y * nwg.x + w.x; let i = b * 256u + t;
+  if (i < s.m) { a[i] = a[i] + sums[b]; }
+}`;
+
+// Largest localization count one GPU evaluator takes (16 B per localization per buffer).
+function dmeGpuMaxLocs(eng){ const lim=eng.device.limits; return Math.floor(Math.min(lim.maxStorageBufferBindingSize,lim.maxBufferSize)/16); }
+// One localization set on the GPU, uploaded once per dmeDrift() run (cache = ctx.gpuData, keyed by the X array; without a
+// cache the evaluator owns it): positions minus their minimum (f32), frame, position in frame order; frame starts; and
+// per-frame min/max (CPU) for the exact grid bounds at any drift in O(F).
+function dmeGpuData(eng,X,Y,frame,F,cache){
+  const hit=cache&&cache.get(X); if(hit) return hit;
+  const n=X.length, U=GPUBufferUsage; let xm=Infinity, ym=Infinity;
+  for(let i=0;i<n;i++){ if(X[i]<xm) xm=X[i]; if(Y[i]<ym) ym=Y[i]; }
+  const fx0=new Float64Array(F).fill(Infinity), fx1=new Float64Array(F).fill(-Infinity), fy0=new Float64Array(F).fill(Infinity), fy1=new Float64Array(F).fill(-Infinity);
+  const fs=new Uint32Array(F+1); for(let i=0;i<n;i++) fs[frame[i]+1]++;
+  for(let f=0;f<F;f++) fs[f+1]+=fs[f];
+  const at=fs.slice(0,F), raw=new Float32Array(4*n), rawU=new Uint32Array(raw.buffer);
+  for(let i=0;i<n;i++){ const f=frame[i], x=X[i], y=Y[i];
+    raw[4*i]=x-xm; raw[4*i+1]=y-ym; rawU[4*i+2]=f; rawU[4*i+3]=at[f]++;
+    if(x<fx0[f]) fx0[f]=x; if(x>fx1[f]) fx1[f]=x; if(y<fy0[f]) fy0[f]=y; if(y>fy1[f]) fy1[f]=y; }
+  const bRaw=eng.mkBuf(Math.max(16,16*n),U.STORAGE|U.COPY_DST,'dme:raw'), bFs=eng.mkBuf(4*(F+1),U.STORAGE|U.COPY_DST,'dme:fstart');
+  eng.device.queue.writeBuffer(bRaw,0,raw); eng.device.queue.writeBuffer(bFs,0,fs);
+  const D={n,xm,ym,fx0,fx1,fy0,fy1,bRaw,bFs,destroy(){ for(const b of [bRaw,bFs]){ try{ b.destroy(); }catch(_){} } }};
+  if(cache) cache.set(X,D);
+  return D;
+}
+async function dmeGpuSetup(eng,X,Y,frame,F,sigmaS,cache){
+  const device=eng.device, U=GPUBufferUsage, n=X.length, bufs=[], mk=(size,usage,label)=>{ const b=eng.mkBuf(Math.max(16,size),usage,label); bufs.push(b); return b; };
+  if(n>dmeGpuMaxLocs(eng)) throw new Error('too many localizations for one GPU buffer');
+  const C=(k,code,c)=>eng.compilePipeline(k,code,'main',c);
+  const p1=await C('dme-pass1',WGSL_DME_PASS1,{WG:64}), p2=await C('dme-pass2',WGSL_DME_PASS2,{WG:64}), pf=await C('dme-frames',WGSL_DME_FRAMES);
+  const pCount=await C('dme-grid-count',WGSL_DME_GRID_COUNT), pScat=await C('dme-grid-scatter',WGSL_DME_GRID_SCATTER), pSort=await C('dme-grid-sort',WGSL_DME_GRID_SORT);
+  const pScan=await C('dme-scan',WGSL_DME_SCAN), pAdd=await C('dme-scan-add',WGSL_DME_SCAN_ADD);
+  const D=dmeGpuData(eng,X,Y,frame,F,cache);
+  const bPar=mk(32,U.UNIFORM|U.COPY_DST,'dme:params'), bGP=mk(32,U.UNIFORM|U.COPY_DST,'dme:gridParams'), bCell=mk(4*n,U.STORAGE,'dme:cell'), bPts=mk(16*n,U.STORAGE,'dme:pts');
+  const bShift=mk(8*F,U.STORAGE|U.COPY_DST,'dme:shift'), bOff=mk(8*F,U.STORAGE|U.COPY_DST,'dme:off'), bO1=mk(16*n,U.STORAGE,'dme:o1'), bO2=mk(16*n,U.STORAGE,'dme:o2'), bPer=mk(16*n,U.STORAGE,'dme:per');
+  const bIdx=mk(4*n,U.STORAGE,'dme:idx'), bOut=mk(32*F,U.STORAGE|U.COPY_SRC,'dme:out'), bStage=mk(32*F,U.MAP_READ|U.COPY_DST,'dme:stage');
+  const maxWG=device.limits.maxComputeWorkgroupsPerDimension, lim=Math.min(device.limits.maxStorageBufferBindingSize,device.limits.maxBufferSize);
+  const disp=(enc,pipe,bind,nwg)=>{ const ps=enc.beginComputePass(); ps.setPipeline(pipe); ps.setBindGroup(0,bind); ps.dispatchWorkgroups(Math.min(nwg,maxWG),Math.ceil(nwg/maxWG)); ps.end(); };
+  const bg=(pipe,list)=>device.createBindGroup({layout:pipe.getBindGroupLayout(0),entries:list.map((buffer,binding)=>({binding,resource:{buffer}}))});
+  const bindF=bg(pf,[bPer,bO2,bIdx,D.bFs,bOut]);
+  // cell-count-sized buffers grow with the grid: cellStart (+ scan levels) and the scatter counters
+  let cap=0, grid=[], bStart=null, bFill=null, levels=[], bind1=null, bind2=null, bindCount=null, bindScat=null, bindSort=null, built=false;
+  const freeGrid=()=>{ for(const b of grid){ try{ b.destroy(); }catch(_){} } grid=[]; };
+  const ensure=m=>{
+    if(m<=cap) return;
+    if(4*m>lim) throw new Error(`DME: ${m.toExponential(1)} grid cells — over this GPU's buffer limit`);
+    freeGrid(); cap=Math.min(Math.ceil(m*1.25),Math.floor(lim/4));
+    const g=(size,usage,label)=>{ const b=eng.mkBuf(Math.max(16,size),usage,label); grid.push(b); return b; };
+    bStart=g(4*cap,U.STORAGE|U.COPY_DST,'dme:cellStart'); bFill=g(4*cap,U.STORAGE|U.COPY_DST,'dme:fill');
+    levels=[]; let arr=bStart, len=cap;
+    for(;;){ const nb=Math.ceil(len/256), sums=g(4*Math.max(1,nb),U.STORAGE,'dme:scanSums'), uni=g(16,U.UNIFORM|U.COPY_DST,'dme:scanParams');
+      levels.push({arr,sums,uni,scan:bg(pScan,[uni,arr,sums]),add:bg(pAdd,[uni,arr,sums])});
+      if(nb<=1) break; arr=sums; len=nb; }
+    bind1=bg(p1,[bPar,bCell,bStart,bPts,bShift,bO1,bO2]); bind2=bg(p2,[bPar,bCell,bStart,bPts,bShift,bO1,bO2,bPer]);
+    bindCount=bg(pCount,[bGP,D.bRaw,bOff,bStart]); bindScat=bg(pScat,[bGP,D.bRaw,bOff,bStart,bFill,bPts,bCell]); bindSort=bg(pSort,[bGP,bStart,bPts,bIdx]);
+  };
+  // grid at drift dB: bounds from the per-frame min/max (exactly the CPU grid's), then the GPU build, encoded into enc
+  const encodeBuild=(enc,dB)=>{
+    const cell=DME_CUTOFF+DME_SKIN; let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    for(let f=0;f<F;f++){ if(!(D.fx0[f]<=D.fx1[f])) continue;
+      const a=(D.fx0[f]-dB[2*f])/sigmaS, b=(D.fx1[f]-dB[2*f])/sigmaS, c=(D.fy0[f]-dB[2*f+1])/sigmaS, e=(D.fy1[f]-dB[2*f+1])/sigmaS;
+      if(a<x0)x0=a; if(b>x1)x1=b; if(c<y0)y0=c; if(e>y1)y1=e; }
+    const nx=Math.floor((x1-x0)/cell)+1, ny=Math.floor((y1-y0)/cell)+1, nc=nx*ny;
+    if(!(nc<=(1<<26))) throw new Error(`DME: ${nc.toExponential(1)} grid cells — the field of view is too large for this localization precision`);
+    ensure(nc+1);
+    const off=new Float32Array(2*F); for(let f=0;f<F;f++){ off[2*f]=(D.xm-dB[2*f])/sigmaS-x0; off[2*f+1]=(D.ym-dB[2*f+1])/sigmaS-y0; }
+    device.queue.writeBuffer(bOff,0,off);
+    const gp=new ArrayBuffer(32), gu=new Uint32Array(gp), gf=new Float32Array(gp);
+    gu[0]=n; gu[1]=nx; gu[2]=ny; gu[3]=nc; gf[4]=1/sigmaS; gf[5]=cell; device.queue.writeBuffer(bGP,0,gp);
+    const par=new ArrayBuffer(32), pu=new Uint32Array(par), pfl=new Float32Array(par);
+    pu[0]=n; pu[1]=nx; pu[2]=ny; pfl[4]=DME_CUTOFF*DME_CUTOFF; device.queue.writeBuffer(bPar,0,par);
+    enc.clearBuffer(bStart,0,4*(nc+1)); enc.clearBuffer(bFill,0,4*(nc+1));
+    const nWG=Math.ceil(n/64);
+    disp(enc,pCount,bindCount,nWG);
+    const ms=[]; let m=nc+1;                                          // scan cellStart[0..nc] in place: up the levels, then add back
+    for(const L of levels){ ms.push(m); device.queue.writeBuffer(L.uni,0,new Uint32Array([m,0,0,0])); const nb=Math.ceil(m/256);
+      disp(enc,pScan,L.scan,nb); if(nb<=1) break; m=nb; }
+    for(let k=ms.length-2;k>=0;k--) disp(enc,pAdd,levels[k].add,Math.ceil(ms[k]/256));
+    disp(enc,pScat,bindScat,nWG);
+    disp(enc,pSort,bindSort,Math.ceil(nc/64));
+    built=true;
+  };
+  return {
+    evaluate:(dB,d,rebuilt)=>runGpuExclusive(()=>withGpuErrorScopes(device,'GPU DME',async()=>{
+      const enc=device.createCommandEncoder({label:'dme:eval'});
+      if(rebuilt||!built) encodeBuild(enc,dB);
+      const sh=new Float32Array(2*F); for(let k=0;k<2*F;k++) sh[k]=(d[k]-dB[k])/sigmaS;
+      device.queue.writeBuffer(bShift,0,sh);
+      const nWG=Math.ceil(n/64);
+      disp(enc,p1,bind1,nWG); disp(enc,p2,bind2,nWG); disp(enc,pf,bindF,F);
+      enc.copyBufferToBuffer(bOut,0,bStage,0,32*F); eng.submit([enc.finish()]);
+      await bStage.mapAsync(GPUMapMode.READ);
+      const o=new Float32Array(bStage.getMappedRange().slice(0)); bStage.unmap();
+      if(!eng.available) throw new Error('GPU device lost');
+      let score=0; const grad=new Float64Array(2*F), hess=new Float64Array(3*F), s1=n*sigmaS, s2=n*sigmaS*sigmaS;
+      for(let f=0;f<F;f++){ score+=o[8*f+2]; grad[2*f]=o[8*f]/s1; grad[2*f+1]=o[8*f+1]/s1; hess[3*f]=o[8*f+3]/s2; hess[3*f+1]=o[8*f+4]/s2; hess[3*f+2]=o[8*f+5]/s2; }
+      return {score:score/n,grad,hess};
+    })),
+    destroy(){ for(const b of bufs){ try{ b.destroy(); }catch(_){} } freeGrid(); if(!cache) D.destroy(); }
+  };
+}
+
+// One spline level: maximize the score over knots fpb frames apart at kernel sigmaS, from per-frame drift d0 (px).
+async function dmeLevel(X,Y,frame,F,sigmaS,fpb,d0,ctx){
+  const B=dmeSplineBasis(F,fpb), ev=await dmeEvaluator(X,Y,frame,F,sigmaS,ctx.eng,ctx.gpuData,ctx.onLog);
+  ctx.onGpu=ctx.onGpu||ev.onGpu;
+  const knots=dmeFramesToKnots(B,d0);
+  const fg=async k=>{ ctx.evals++; const r=await ev.evaluate(dmeKnotsToFrames(B,k),false), g=dmeFrameGradToKnots(B,r.grad);
+    for(let i=0;i<g.length;i++) g[i]=-g[i]; return {f:-r.score,g}; };
+  try{
+    await cometLbfgs(knots,fg,DME_LEVEL_MAX_ITER,1e6,0.1*sigmaS,ctx.shouldStop,null);
+    if(ctx.shouldStop()) throw new DmeStopped();
+    const d=dmeKnotsToFrames(B,knots);
+    return {d,score:(await ev.evaluate(d,false)).score};
+  }finally{ ev.destroy(); }
+}
+class DmeStopped extends Error { constructor(){ super('stopped'); } }
+
+// Fixed-bin DME (dme_grid_estimate): from per-frame drift d0 (px) through every level, or, without d0, a multi-start
+// (AIM and zero drift through the coarsest level, the higher score is continued) and then the finer levels. fpb 1 = a
+// drift value per frame at every level (no coarser knots at the coarse kernels).
+async function dmeBins(X,Y,frame,F,sigma,fpb,ctx,d0=null){
+  const levels=DME_BIN_SCALES.map(s=>({s,fpb:fpb>1?fpb*s:1}));
+  let d=d0, start='previous fit';
+  if(!d){
+    const starts=[['zero',new Float64Array(2*F)]];
+    if(ctx.aimInit){ try{ const a=await ctx.aimInit(X,Y,frame,F,fpb,sigma); if(a) starts.unshift(['AIM',a]); }catch(_){} }
+    let best=null;
+    for(const [name,s0] of starts){ const r=await dmeLevel(X,Y,frame,F,sigma*levels[0].s,levels[0].fpb,s0,ctx); if(!best||r.score>best.score) best={...r,name}; }
+    d=best.d; start=best.name; levels.shift();
+  }
+  for(const L of levels) d=(await dmeLevel(X,Y,frame,F,sigma*L.s,L.fpb,d,ctx)).d;
+  return {d:dmeZeroMean(d),start};
+}
+
+// Per-segment (L frames) Newton measurements of the drift at kernel sigmaS around per-frame drift d: z [2T] (px) and
+// per-axis variances (J^-1)_dd [2T] (NaN = no measurement: curvature not negative definite).
+async function dmeSegmentMeasurements(X,Y,frame,F,sigmaS,d,L,ctx){
+  const ev=await dmeEvaluator(X,Y,frame,F,sigmaS,ctx.eng,ctx.gpuData,ctx.onLog); let r;
+  try{ ctx.evals++; r=await ev.evaluate(d,true); }finally{ ev.destroy(); }
+  const N=X.length, T=Math.ceil(F/L), gs=new Float64Array(2*T), Hs=new Float64Array(3*T), dc=new Float64Array(2*T), cnt=new Float64Array(T);
+  for(let f=0;f<F;f++){ const t=(f/L)|0; gs[2*t]+=r.grad[2*f]; gs[2*t+1]+=r.grad[2*f+1]; for(let a=0;a<3;a++) Hs[3*t+a]+=r.hess[3*f+a];
+    dc[2*t]+=d[2*f]; dc[2*t+1]+=d[2*f+1]; cnt[t]++; }
+  const z=new Float64Array(2*T), v=new Float64Array(2*T);
+  for(let t=0;t<T;t++){
+    const a=-Hs[3*t]*N, b=-Hs[3*t+1]*N, c=-Hs[3*t+2]*N;                    // J = -N H (px^-2)
+    const m=0.5*(a+c), rr=Math.sqrt(0.25*(a-c)*(a-c)+b*b), lo=m-rr, hi=m+rr;
+    const reg=Math.max(m,1e-9)*1e-3+1e-9, ar=a+reg, cr=c+reg, det=ar*cr-b*b, gx=gs[2*t]*N, gy=gs[2*t+1]*N;
+    let sx=(cr*gx-b*gy)/det, sy=(ar*gy-b*gx)/det;                           // Newton step J^-1 (N g), px
+    const nrm=Math.hypot(sx,sy)/sigmaS; if(nrm>DME_TRUST){ sx*=DME_TRUST/nrm; sy*=DME_TRUST/nrm; }
+    z[2*t]=dc[2*t]/cnt[t]+sx; z[2*t+1]=dc[2*t+1]/cnt[t]+sy;
+    const ok=lo>1e-6*Math.max(hi,1e-30), dj=a*c-b*b;
+    v[2*t]=ok&&dj>0?c/dj:NaN; v[2*t+1]=ok&&dj>0?a/dj:NaN;
+  }
+  return {z,v,T};
+}
+// Segment-centre values -> per-frame drift, linear and held flat outside (numpy.interp semantics).
+function dmeSegToFrames(xs,L,F){
+  const T=xs.length/2, out=new Float64Array(2*F);
+  for(let f=0;f<F;f++){ const u=(f+0.5)/L-0.5; let t0=Math.floor(u), w=u-t0;
+    if(t0<0){ t0=0; w=0; } if(t0>=T-1){ t0=T-1; w=0; } const t1=Math.min(T-1,t0+1);
+    for(let a=0;a<2;a++) out[2*f+a]=xs[2*t0+a]*(1-w)+xs[2*t1+a]*w; }
+  return out;
+}
+// Learned-prior refinement: measure, smooth with the network (both axes), interpolate, at kernel 4, 2, 1, 1, 1 x sigma.
+async function dmeRefine(X,Y,frame,F,sigma,d,L,ctx){
+  if(Math.ceil(F/L)<24) return d;
+  for(const sc of DME_LEARNED_SCALES){
+    if(ctx.shouldStop()) throw new DmeStopped();
+    const {z,v,T}=await dmeSegmentMeasurements(X,Y,frame,F,sigma*sc,d,L,ctx);
+    const zs=[], ss=[], vs=[], offs=[];
+    for(let a=0;a<2;a++){
+      const za=new Float64Array(T), ok=new Uint8Array(T); let vmax=0, off=0, no=0;
+      for(let t=0;t<T;t++){ za[t]=z[2*t+a]; ok[t]=isFinite(v[2*t+a])&&v[2*t+a]>0?1:0; if(ok[t]){ vmax=Math.max(vmax,v[2*t+a]); off+=za[t]; no++; } }
+      off=no?off/no:0; const sa=new Float64Array(T);
+      for(let t=0;t<T;t++){ sa[t]=Math.sqrt(ok[t]?v[2*t+a]:(vmax||1)); za[t]-=off; }
+      zs.push(za); ss.push(sa); vs.push(ok); offs.push(off);
+    }
+    const xs2=await dmeSmootherRun(ctx,zs,ss,vs), xs=new Float64Array(2*T);
+    for(let a=0;a<2;a++) for(let t=0;t<T;t++) xs[2*t+a]=xs2[a][t]+offs[a];
+    d=dmeZeroMean(dmeSegToFrames(xs,L,F));
+  }
+  return d;
+}
+async function dmeSmootherRun(ctx,zs,ss,vs){
+  if(!_dmeSmootherW) _dmeSmootherW=dmeSmootherDecode(DME_SMOOTHER_B64,DME_SMOOTHER_MANIFEST);
+  if(ctx.eng && ctx.smootherGpu!==false){
+    try{ return await runGpuExclusive(()=>withGpuErrorScopes(ctx.eng.device,'GPU DME smoother',()=>dmeSmootherForwardGpu2(ctx.eng.device,_dmeSmootherW,zs,ss,vs))); }
+    catch(err){ ctx.smootherGpu=false; ctx.onLog(`(DME: the network could not run on the GPU — ${String(err.message).slice(0,120)}; using the CPU.)`); }
+  }
+  const out=[]; for(let a=0;a<zs.length;a++){ out.push(dmeSmootherForwardCpu(_dmeSmootherW,zs[a],ss[a],vs[a])); await tick(); }
+  return out;
+}
+let _dmeSmootherW=null;
+
+// Balanced spatial checkerboard split (tile count / offset changed until both halves hold >= 30%).
+function dmeCheckerboard(X,Y,ntiles=8,minFrac=0.3){
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  for(let i=0;i<X.length;i++){ if(X[i]<x0)x0=X[i]; if(X[i]>x1)x1=X[i]; if(Y[i]<y0)y0=Y[i]; if(Y[i]>y1)y1=Y[i]; }
+  let best=null;
+  for(const nt of [ntiles,ntiles+1,ntiles-1,ntiles+3]) for(const off of [0,0.5,0.25]){
+    const ts=Math.max(x1-x0,y1-y0)/Math.max(nt,2), A=new Uint8Array(X.length); let na=0;
+    for(let i=0;i<X.length;i++){ A[i]=((Math.floor((X[i]-x0)/ts+off)+Math.floor((Y[i]-y0)/ts+off))&1)===0?1:0; na+=A[i]; }
+    const frac=Math.min(na,X.length-na)/X.length;
+    if(frac>=minFrac) return A;
+    if(!best||frac>best[0]) best=[frac,A];
+  }
+  return best[1];
+}
+function dmeSubset(X,Y,frame,mask,want){
+  let n=0; for(let i=0;i<mask.length;i++) if(mask[i]===want) n++;
+  const x=new Float64Array(n), y=new Float64Array(n), f=new Int32Array(n);
+  for(let i=0,k=0;i<mask.length;i++) if(mask[i]===want){ x[k]=X[i]; y[k]=Y[i]; f[k++]=frame[i]; }
+  return [x,y,f];
+}
+async function dmeScoreOf(X,Y,frame,F,sigma,d,ctx){ const ev=await dmeEvaluator(X,Y,frame,F,sigma,ctx.eng,ctx.gpuData,ctx.onLog);
+  try{ ctx.evals++; return (await ev.evaluate(d,false)).score; }finally{ ev.destroy(); } }
+
+// Learned mode (dme_prior_estimate, 2D): candidates, each estimated on one checkerboard half and scored on the other (and
+// vice versa), in this order: with >= DME_MIN_LOCS_PER_SEG localizations per frame a drift value per frame without prior
+// (bins at fpb 1); for fpb = rule, rule/10: bins, then the learned prior from them at each eligible DME_LEARNED_LFRAMES.
+// The multi-start runs only for the first bins fit on each half; every later one starts from that half's previous fit.
+// The best (first on ties) is refit on all localizations from the mean of the halves' fits at its fpb, smoothed if learned.
+async function dmeLearned(X,Y,frame,F,sigma,fpbRule,ctx){
+  const N=X.length, fpbs=[...new Set([fpbRule,Math.max(10,Math.floor(fpbRule/10))])].sort((a,b)=>b-a);
+  if(N/F>=DME_MIN_LOCS_PER_SEG && !fpbs.includes(1)) fpbs.unshift(1);
+  const Ls=DME_LEARNED_LFRAMES.filter(L=>L*N/F>=DME_MIN_LOCS_PER_SEG && Math.ceil(F/L)>=24);
+  const A=dmeCheckerboard(X,Y), H=[dmeSubset(X,Y,frame,A,1),dmeSubset(X,Y,frame,A,0)];
+  const cross=async(dA,dB)=>(await dmeScoreOf(...H[1],F,sigma,dA,ctx))+(await dmeScoreOf(...H[0],F,sigma,dB,ctx));
+  const cv=[], fits=new Map(), nCand=fpbs.length+fpbs.filter(f=>f!==1).length*Ls.length; let done=0, prev=[null,null];
+  for(const fpb of fpbs){
+    const d0=[(await dmeBins(...H[0],F,sigma,fpb,ctx,prev[0])).d,(await dmeBins(...H[1],F,sigma,fpb,ctx,prev[1])).d];
+    fits.set(fpb,d0); prev=d0;
+    cv.push({kind:'bins',fpb,L:0,score:await cross(d0[0],d0[1])}); ctx.onProgress(0.8*(++done)/nCand);
+    if(fpb===1) continue;                  // the per-frame candidate has no learned-prior variants
+    for(const L of Ls){
+      const dh=[await dmeRefine(...H[0],F,sigma,d0[0],L,ctx),await dmeRefine(...H[1],F,sigma,d0[1],L,ctx)];
+      cv.push({kind:'learned',fpb,L,score:await cross(dh[0],dh[1])}); ctx.onProgress(0.8*(++done)/nCand);
+    }
+  }
+  const best=cv.reduce((a,b)=>b.score>a.score?b:a), [h0,h1]=fits.get(best.fpb), dm=new Float64Array(2*F);
+  for(let k=0;k<2*F;k++) dm[k]=0.5*(h0[k]+h1[k]);
+  let d=(await dmeBins(X,Y,frame,F,sigma,best.fpb,ctx,dm)).d; ctx.onProgress(0.9);
+  if(best.kind==='learned') d=await dmeRefine(X,Y,frame,F,sigma,d,best.L,ctx);
+  return {d,best,cv};
+}
+
+// cfg: {mode:'learned'|'bins', fpb (0 = ~20 000 localizations per bin), sigmaNm, useGpu}. Returns driftCore()'s per-frame
+// correction to ADD (fdx/fdy, camera px) with segment/knot values for the plot; dmeStopped = discarded run; dmeChoice =
+// learned mode's {best, candidates: [{kind:'bins'|'learned', fpb, L, score}]} (fpb 1 = a drift value per frame).
+async function dmeDrift(locs,nFrames,px,cfg,frame0,onProgress,shouldStop=()=>false,onLog=()=>{}){
+  const t0=performance.now(), F=nFrames;
+  let eng=null;
+  if(cfg.useGpu){ try{ const e=await getGpuEngine(); if(e&&e.available) eng=e; }catch(_){} }
+  // localizations used: all, or a deterministic share above the GPU buffer / CPU limits
+  const cap=eng?dmeGpuMaxLocs(eng):DME_CPU_MAX_LOCS, keepP=Math.min(1,cap/Math.max(1,locs.length));
+  let n=0; const use=new Uint8Array(locs.length);
+  for(let i=0;i<locs.length;i++){ use[i]=keepP>=1||(mix32(i)>>>0)/4294967296<keepP?1:0; n+=use[i]; }
+  const X=new Float64Array(n), Y=new Float64Array(n), fr=new Int32Array(n);
+  for(let i=0,k=0;i<locs.length;i++) if(use[i]){ const L=locs[i]; X[k]=L.x; Y[k]=L.y; fr[k++]=Math.min(F-1,Math.max(0,(L.frame-frame0)|0)); }
+  if(n<100) throw new Error(`DME needs at least 100 localizations (${n})`);
+  const sigma=cfg.sigmaNm/px, fpbRule=cfg.fpb>0?cfg.fpb:dmeRuleFpb(n,F);
+  if(keepP<1) onLog(`DME: using ${n.toLocaleString()} of ${locs.length.toLocaleString()} localizations (${eng?'GPU buffer limit':'CPU limit of '+DME_CPU_MAX_LOCS.toLocaleString()+'; enable "Use GPU acceleration" for more'}).`);
+  const ctx={eng,gpuData:eng?new Map():null,evals:0,onGpu:false,shouldStop,onLog,onProgress:p=>onProgress(Math.min(1,p)),
+    aimInit:async(Xh,Yh,fh,Fh,fpb,sig)=>{   // AIM start (Ma et al.), on {x,y,frame} objects; returns drift (px) = -correction
+      const sub=new Array(Xh.length); for(let i=0;i<Xh.length;i++) sub[i]={x:Xh[i],y:Yh[i],frame:fh[i]};
+      const seg=Math.min(Math.max(fpb,Math.floor(Fh/8)),Math.max(fpb,Math.round(5000*Fh/Xh.length)));
+      const a=await aimDrift2D(sub,Fh,px,seg,2*sig*px,PARAMS.driftRoi.default,100,0,()=>{},shouldStop,()=>{});
+      if(a.stopped) return null; const d=new Float64Array(2*Fh); for(let f=0;f<Fh;f++){ d[2*f]=-a.fdx[f]; d[2*f+1]=-a.fdy[f]; } return d; }};
+  let d=null, info='', stopped=false, choice=null;
+  try{
+    if(cfg.mode==='bins'){ const r=await dmeBins(X,Y,fr,F,sigma,fpbRule,ctx); d=r.d; info=`${fpbRule} frames per bin, ${r.start} start`; }
+    else { const r=await dmeLearned(X,Y,fr,F,sigma,fpbRule,ctx); d=r.d; choice={best:r.best,candidates:r.cv};
+      info=r.best.kind==='learned'?`learned temporal prior, ${r.best.L}-frame segments (start: ${r.best.fpb} frames per bin)`:
+        r.best.fpb===1?'cross-fit chose a drift value per frame, no temporal prior (enough localizations per frame)':`cross-fit chose plain bins, ${r.best.fpb} frames per bin`; }
+  }catch(err){ if(!(err instanceof DmeStopped)) throw err; stopped=true; }
+  finally{ if(ctx.gpuData){ await runGpuExclusive(()=>{}); for(const D of ctx.gpuData.values()) D.destroy(); } }
+  if(!d) d=new Float64Array(2*F);
+  const fdx=new Float64Array(F), fdy=new Float64Array(F);
+  for(let f=0;f<F;f++){ fdx[f]=-d[2*f]; fdy[f]=-d[2*f+1]; }
+  const step=Math.max(1,Math.round(F/200)), centers=[], sdx=[], sdy=[];
+  for(let f=0;f<F;f+=step){ centers.push(f); sdx.push(fdx[f]); sdy.push(fdy[f]); }
+  onLog(`DME: ${stopped?'stopped':info} · ${ctx.evals} score evaluations on the ${ctx.onGpu?'GPU':'CPU'}, kernel sigma ${cfg.sigmaNm.toFixed(1)} nm, ${((performance.now()-t0)/1000).toFixed(1)} s.`);
+  onProgress(1);
+  return {fdx,fdy,fdz:null,segCenters:centers,segdx:Float64Array.from(sdx),segdy:Float64Array.from(sdy),nSeg:centers.length,nSegRequested:centers.length,
+    stopped,dmeStopped:stopped,stoppedAtFrame:null,evals:ctx.evals,dmeChoice:choice};
+}
+
+// ---- learned temporal smoother (network inference; CPU and WebGPU) ----
+function dmeSmootherDecode(b64, manifest) {
+  const bin = atob(b64), flat = new Float32Array(manifest.count);
+  const dv = new DataView(new ArrayBuffer(bin.length)), u8 = new Uint8Array(dv.buffer);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  for (const {shape, dtype, offset, byteOffset, scaleByteOffset} of manifest.tensors) {
+    const n = shape.reduce((a, b) => a * b, 1), per = n / shape[0];
+    if (dtype === 'float32') for (let i = 0; i < n; i++) flat[offset + i] = dv.getFloat32(byteOffset + 4 * i, true);
+    else for (let i = 0; i < n; i++) // int8 with a float32 scale per output channel (row of `per` values)
+      flat[offset + i] = dv.getInt8(byteOffset + i) * dv.getFloat32(scaleByteOffset + 4 * Math.floor(i / per), true);
+  }
+  const off = {}, t = name => { const r = off[name]; return flat.subarray(r.offset, r.offset + r.size); };
+  for (const x of manifest.tensors) off[x.name] = {offset: x.offset, size: x.shape.reduce((a, b) => a * b, 1)};
+  const blocks = manifest.dils.map((dil, i) => { // blockMap: shared weights, the same stored block at several positions
+    const p = 'blocks.' + manifest.blockMap[i] + '.';
+    return {dil, p, gw: t(p + 'n.weight'), gb: t(p + 'n.bias'), c1w: t(p + 'c1.weight'), c1b: t(p + 'c1.bias'),
+            c2w: t(p + 'c2.weight'), c2b: t(p + 'c2.bias')};
+  });
+  return {flat, off, C: manifest.C, lags: manifest.lags, blocks,
+          inpW: t('inp.weight'), inpB: t('inp.bias'), outW: t('out.weight'), outB: t('out.bias')};
+}
+
+// ---- features (exact port of Smoother3.features + noise_feats) ----
+function dmeLowerMedian(a) { // torch.median: lower of the two middle values for even counts
+  const b = Float64Array.from(a).sort();
+  return b[(b.length - 1) >> 1];
+}
+
+function dmeSmootherFeatures(z, s, valid, lags = [1, 2, 4, 8]) {
+  const T = z.length, v = new Uint8Array(T), sv = [];
+  for (let t = 0; t < T; t++) if (valid[t]) sv.push(s[t]);
+  const smed = dmeLowerMedian(sv.length ? sv : s), lim = Math.fround(10 * smed);
+  let nv = 0;
+  for (let t = 0; t < T; t++) nv += v[t] = valid[t] && s[t] < lim ? 1 : 0;
+  // z over invalid frames: linear interpolation between valid neighbours, constant beyond the ends (numpy.interp)
+  const zf = Float64Array.from(z);
+  if (nv >= 2 && nv < T) {
+    let prev = -1;
+    for (let t = 0; t <= T; t++) {
+      if (t < T && !v[t]) continue;
+      for (let u = prev + 1; u < t; u++)
+        zf[u] = prev < 0 ? z[t] : t === T ? z[prev] : z[prev] + (z[t] - z[prev]) * (u - prev) / (t - prev);
+      prev = t;
+    }
+  }
+  const sUsed = new Float64Array(T);
+  for (let t = 0; t < T; t++) sUsed[t] = v[t] ? s[t] : 30 * smed;
+  // global log noise scale from second differences at each lag, relative to the stated s
+  const nf = [];
+  for (const m of lags) {
+    if (T <= 2 * m) { nf.push(nf.length ? nf[nf.length - 1] : 0); continue; }
+    const r = new Float64Array(T - 2 * m);
+    for (let t = m; t < T - m; t++) {
+      const d = zf[t] - 0.5 * (zf[t - m] + zf[t + m]);
+      r[t - m] = d * d / (1.5 * sUsed[t] * sUsed[t]);
+    }
+    nf.push(Math.log(Math.min(1e4, Math.max(1e-3, dmeLowerMedian(r) / 0.4549))));
+  }
+  const f = new Float32Array((3 + lags.length) * T);
+  for (let t = 0; t < T; t++) {
+    f[t] = Math.asinh((t ? zf[t] - zf[t - 1] : 0) / smed);
+    f[T + t] = Math.log(sUsed[t] / smed);
+    f[2 * T + t] = v[t];
+  }
+  nf.forEach((x, k) => f.fill(x, (3 + k) * T, (4 + k) * T));
+  return {f, zf, sUsed};
+}
+
+// ---- CPU forward ----
+function dmeErf(x) { // Abramowitz & Stegun 7.1.26, |err| < 1.5e-7 (same formula in the WGSL kernels)
+  const a = Math.abs(x), k = 1 / (1 + 0.3275911 * a);
+  const y = 1 - ((((1.061405429 * k - 1.453152027) * k + 1.421413741) * k - 0.284496736) * k + 0.254829592) * k * Math.exp(-a * a);
+  return x < 0 ? -y : y;
+}
+function dmeGelu(x) { return 0.5 * x * (1 + dmeErf(x * Math.SQRT1_2)); }
+
+// dst[o,t] (+)= b[o] + sum_{i,k} w[o,i,k] src[i, t + (k - (K-1)/2) dil], zero padding. Tiled over t for cache reuse;
+// four output rows per pass over src when cout % 4 == 0 (about 2x faster in V8).
+function dmeSmConv(src, cin, dst, cout, T, w, b, K, dil, add) {
+  const TL = 512, half = (K - 1) >> 1, ob = cout % 4 ? 1 : 4, ck = cin * K;
+  for (let t0 = 0; t0 < T; t0 += TL) {
+    const t1 = Math.min(T, t0 + TL);
+    for (let o = 0; o < cout; o += ob) {
+      for (let q = o; q < o + ob; q++) for (let t = t0; t < t1; t++) dst[q * T + t] = (add ? dst[q * T + t] : 0) + b[q];
+      for (let i = 0; i < cin; i++) for (let k = 0; k < K; k++) {
+        const sh = (k - half) * dil, sb = i * T + sh, lo = Math.max(t0, -sh), hi = Math.min(t1, T - sh), wi = o * ck + i * K + k;
+        const d0 = o * T, w0 = w[wi];
+        if (ob === 1) { for (let t = lo; t < hi; t++) dst[d0 + t] += w0 * src[sb + t]; continue; }
+        const d1 = d0 + T, d2 = d1 + T, d3 = d2 + T, w1 = w[wi + ck], w2 = w[wi + 2 * ck], w3 = w[wi + 3 * ck];
+        for (let t = lo; t < hi; t++) {
+          const v = src[sb + t];
+          dst[d0 + t] += w0 * v; dst[d1 + t] += w1 * v; dst[d2 + t] += w2 * v; dst[d3 + t] += w3 * v;
+        }
+      }
+    }
+  }
+}
+
+function dmeSmootherForwardCpu(W, z, s, valid) {
+  const T = z.length, C = W.C, {f, zf, sUsed} = dmeSmootherFeatures(z, s, valid, W.lags);
+  const x = new Float64Array(C * T), h = new Float64Array(C * T), h1 = new Float64Array(C * T), e = new Float64Array(T);
+  dmeSmConv(f, 3 + W.lags.length, x, C, T, W.inpW, W.inpB, 1, 1, false);
+  const gs = C / 8, n = gs * T;
+  for (const bl of W.blocks) {
+    for (let g = 0; g < 8; g++) { // GroupNorm(8, C), eps 1e-5, then GELU
+      const lo = g * n, hi = lo + n;
+      let m = 0, q = 0;
+      for (let j = lo; j < hi; j++) m += x[j];
+      m /= n;
+      for (let j = lo; j < hi; j++) q += (x[j] - m) ** 2;
+      const r = 1 / Math.sqrt(q / n + 1e-5);
+      for (let c = g * gs; c < (g + 1) * gs; c++) {
+        const a = r * bl.gw[c], b = bl.gb[c] - m * a;
+        for (let j = c * T; j < (c + 1) * T; j++) h[j] = dmeGelu(x[j] * a + b);
+      }
+    }
+    dmeSmConv(h, C, h1, C, T, bl.c1w, bl.c1b, 3, bl.dil, false);
+    for (let j = 0; j < C * T; j++) h1[j] = dmeGelu(h1[j]);
+    dmeSmConv(h1, C, x, C, T, bl.c2w, bl.c2b, 1, 1, true);
+  }
+  dmeSmConv(x, C, e, 1, T, W.outW, W.outB, 1, 1, false);
+  for (let t = 0; t < T; t++) e[t] = zf[t] - e[t] * sUsed[t];
+  return e;
+}
+
+// ---- WebGPU forward ----
+// Activations live as [B][C][T] f32 (C a multiple of 16, passed as p.cout). Conv kernels: one workgroup = 64
+// consecutive frames x OC output channels, its weight slice cached in workgroup memory; dispatch x = ceil(T/64), so
+// T <= 64 * maxWorkgroupsPerDim. GroupNorm(8, C): one 256-thread workgroup per (group of C/8 channels, sequence)
+// computes mean and 1/std (two passes), then an
+// elementwise kernel applies the affine norm and GELU. Features and the final x = zf - e*sUsed are done on the CPU.
+const DME_SM_WGSL_HEAD = `
+struct P { T: u32, dil: u32, wOff: u32, bOff: u32, cout: u32, pad0: u32, pad1: u32, pad2: u32 }
+@group(0) @binding(0) var<uniform> p: P;
+@group(0) @binding(1) var<storage, read> w: array<f32>;
+fn erf_(x: f32) -> f32 { // Abramowitz and Stegun 7.1.26, abs error below 1.5e-7
+  let a = abs(x); let k = 1.0 / (1.0 + 0.3275911 * a);
+  let y = 1.0 - ((((1.061405429 * k - 1.453152027) * k + 1.421413741) * k - 0.284496736) * k + 0.254829592) * k * exp(-a * a);
+  return select(y, -y, x < 0.0);
+}
+fn gelu(x: f32) -> f32 { return 0.5 * x * (1.0 + erf_(x * 0.70710678118654752)); }
+`;
+// post: 0 = store, 1 = store gelu(.), 2 = add to dst (residual)
+const dmeSmWgslConv = (CIN, OC, K, post) => DME_SM_WGSL_HEAD + `
+@group(0) @binding(2) var<storage, read> src: array<f32>;
+@group(0) @binding(3) var<storage, read_write> dst: array<f32>;
+const CIN = ${CIN}u; const OC = ${OC}u; const K = ${K}u;
+var<workgroup> ws: array<f32, ${OC * CIN * K}>;
+@compute @workgroup_size(64)
+fn main(@builtin(workgroup_id) wg: vec3u, @builtin(local_invocation_index) li: u32) {
+  let o0 = wg.y * OC; let b = wg.z; let t = wg.x * 64u + li;
+  for (var j = li; j < OC * CIN * K; j += 64u) { ws[j] = w[p.wOff + o0 * CIN * K + j]; }
+  workgroupBarrier();
+  if (t >= p.T) { return; }
+  var acc: array<f32, OC>;
+  for (var o = 0u; o < OC; o++) { acc[o] = w[p.bOff + o0 + o]; }
+  let sb = b * CIN * p.T;
+  for (var i = 0u; i < CIN; i++) {
+    for (var k = 0u; k < K; k++) {
+      let tt = i32(t) + (i32(k) - i32(K / 2u)) * i32(p.dil);
+      if (tt < 0 || tt >= i32(p.T)) { continue; }
+      let v = src[sb + i * p.T + u32(tt)];
+      for (var o = 0u; o < OC; o++) { acc[o] += ws[(o * CIN + i) * K + k] * v; }
+    }
+  }
+  for (var o = 0u; o < OC; o++) {
+    let d = (b * p.cout + o0 + o) * p.T + t;
+    ${['dst[d] = acc[o];', 'dst[d] = gelu(acc[o]);', 'dst[d] += acc[o];'][post]}
+  }
+}`;
+const DME_SM_WGSL_STATS = DME_SM_WGSL_HEAD + `
+@group(0) @binding(2) var<storage, read> src: array<f32>;
+@group(0) @binding(3) var<storage, read_write> st: array<f32>;
+var<workgroup> red: array<f32, 256>;
+fn wsum(v: f32, li: u32) -> f32 {
+  red[li] = v; workgroupBarrier();
+  for (var s = 128u; s > 0u; s >>= 1u) { if (li < s) { red[li] += red[li + s]; } workgroupBarrier(); }
+  let r = red[0]; workgroupBarrier(); return r;
+}
+@compute @workgroup_size(256)
+fn main(@builtin(workgroup_id) wg: vec3u, @builtin(local_invocation_index) li: u32) {
+  let g = wg.z * 8u + wg.x; let n = (p.cout / 8u) * p.T; let base = g * n;
+  var a = 0.0;
+  for (var j = li; j < n; j += 256u) { a += src[base + j]; }
+  let m = wsum(a, li) / f32(n);
+  var q = 0.0;
+  for (var j = li; j < n; j += 256u) { let d = src[base + j] - m; q += d * d; }
+  let v = wsum(q, li) / f32(n);
+  if (li == 0u) { st[2u * g] = m; st[2u * g + 1u] = inverseSqrt(v + 1e-5); }
+}`;
+const DME_SM_WGSL_ACT = DME_SM_WGSL_HEAD + `
+@group(0) @binding(2) var<storage, read> src: array<f32>;
+@group(0) @binding(3) var<storage, read_write> dst: array<f32>;
+@group(0) @binding(4) var<storage, read> st: array<f32>;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  let t = gid.x; let c = gid.y; let b = gid.z;
+  if (t >= p.T) { return; }
+  let g = b * 8u + c / (p.cout / 8u); let j = (b * p.cout + c) * p.T + t;
+  dst[j] = gelu((src[j] - st[2u * g]) * st[2u * g + 1u] * w[p.wOff + c] + w[p.bOff + c]);
+}`;
+
+const dmeSmGpuCache = new WeakMap(); // device -> {pipes, wBufs, cap, bufs}
+function dmeSmPipe(device, st, key, code) {
+  let pl = st.pipes.get(key);
+  if (!pl) st.pipes.set(key, pl = device.createComputePipeline({layout: 'auto',
+    compute: {module: device.createShaderModule({code}), entryPoint: 'main'}}));
+  return pl;
+}
+
+async function dmeSmootherForwardGpu2(device, W, zs, ss, vs) {
+  const B = zs.length, T = zs[0].length, C = W.C, NF = 3 + W.lags.length, lim = device.limits, U = GPUBufferUsage;
+  if (C % 16 || W.blocks.length === 0) throw new Error('smoother GPU: kernels assume C a multiple of 16');
+  if (zs.some(z => z.length !== T)) throw new Error('smoother GPU: all sequences must have the same length');
+  if (!T) return zs.map(() => new Float32Array(0));
+  const nx = Math.ceil(T / 64);
+  if (nx > lim.maxComputeWorkgroupsPerDimension || B * C * T * 4 > Math.min(lim.maxStorageBufferBindingSize, lim.maxBufferSize))
+    throw new Error(`smoother GPU: ${B} x ${T} frames exceed this GPU's buffer/dispatch limits`);
+  let st = dmeSmGpuCache.get(device);
+  if (!st) dmeSmGpuCache.set(device, st = {pipes: new Map(), wBufs: new WeakMap(), cap: 0, bufs: null});
+  let wBuf = st.wBufs.get(W);
+  if (!wBuf) {
+    st.wBufs.set(W, wBuf = device.createBuffer({size: W.flat.byteLength, usage: U.STORAGE | U.COPY_DST}));
+    device.queue.writeBuffer(wBuf, 0, W.flat);
+  }
+  if (st.cap < B * T) { // activation buffers grow to the largest B*T seen on this device
+    if (st.bufs) Object.values(st.bufs).forEach(b => b.destroy());
+    const mk = (n, u = 0) => device.createBuffer({size: Math.max(16, n * 4), usage: U.STORAGE | u});
+    st.cap = B * T;
+    st.bufs = {X: mk(C * B * T), H: mk(C * B * T), H1: mk(C * B * T), F: mk(NF * B * T, U.COPY_DST),
+               E: mk(B * T, U.COPY_SRC), S: mk(16 * B)};
+  }
+  const {X, H, H1, F, E, S} = st.bufs;
+  const feats = zs.map((z, b) => dmeSmootherFeatures(z, ss[b], vs[b], W.lags)), fAll = new Float32Array(NF * B * T);
+  feats.forEach((ft, b) => fAll.set(ft.f, b * NF * T));
+  device.queue.writeBuffer(F, 0, fAll);
+
+  // dispatch list: [pipeline, uniforms [dil, wOff, bOff, cout], buffers by binding (1..), grid y, grid z]
+  const o = n => W.off[n].offset, conv = (cin, oc, k, post) => dmeSmPipe(device, st, `c${cin}.${oc}.${k}.${post}`, dmeSmWgslConv(cin, oc, k, post));
+  const ops = [[conv(NF, 16, 1, 0), [1, o('inp.weight'), o('inp.bias'), C], [wBuf, F, X], [nx, C / 16, B]]];
+  W.blocks.forEach(bl => ops.push(
+    [dmeSmPipe(device, st, 'stats', DME_SM_WGSL_STATS), [1, 0, 0, C], [null, X, S], [8, 1, B]],
+    [dmeSmPipe(device, st, 'act', DME_SM_WGSL_ACT), [1, o(bl.p + 'n.weight'), o(bl.p + 'n.bias'), C], [wBuf, X, H, S], [nx, C, B]],
+    [conv(C, 16, 3, 1), [bl.dil, o(bl.p + 'c1.weight'), o(bl.p + 'c1.bias'), C], [wBuf, H, H1], [nx, C / 16, B]],
+    [conv(C, 16, 1, 2), [1, o(bl.p + 'c2.weight'), o(bl.p + 'c2.bias'), C], [wBuf, H1, X], [nx, C / 16, B]]));
+  ops.push([conv(C, 1, 1, 0), [1, o('out.weight'), o('out.bias'), 1], [wBuf, X, E], [nx, 1, B]]);
+
+  const uni = device.createBuffer({size: 256 * ops.length, usage: U.UNIFORM | U.COPY_DST});
+  const ud = new Uint32Array(64 * ops.length);
+  ops.forEach(([, u], i) => ud.set([T, ...u], 64 * i));
+  device.queue.writeBuffer(uni, 0, ud);
+  const rb = device.createBuffer({size: B * T * 4, usage: U.MAP_READ | U.COPY_DST});
+  const enc = device.createCommandEncoder(), pass = enc.beginComputePass();
+  ops.forEach(([pl, , bufs, grid], i) => {
+    const entries = [{binding: 0, resource: {buffer: uni, offset: 256 * i, size: 32}}];
+    bufs.forEach((buffer, j) => buffer && entries.push({binding: j + 1, resource: {buffer}}));
+    pass.setPipeline(pl);
+    pass.setBindGroup(0, device.createBindGroup({layout: pl.getBindGroupLayout(0), entries}));
+    pass.dispatchWorkgroups(...grid);
+  });
+  pass.end();
+  enc.copyBufferToBuffer(E, 0, rb, 0, B * T * 4);
+  device.queue.submit([enc.finish()]);
+  await rb.mapAsync(GPUMapMode.READ);
+  const e = new Float32Array(rb.getMappedRange().slice(0));
+  rb.destroy(); uni.destroy();
+  return feats.map(({zf, sUsed}, b) => Float32Array.from(zf, (zt, t) => zt - e[b * T + t] * sUsed[t]));
+}
+
+function dmeSmootherForwardGpu(device, W, z, s, valid) {
+  return dmeSmootherForwardGpu2(device, W, [z], [s], [valid]).then(r => r[0]);
+}
+
+
+// ==== BEGIN DME smoother weights block ====
+// Generated by tools/dme/export_smoother_weights.py from dme/weights/temporal_prior_small.pt of github.com/qnano/drift-estimation:
+// conv weights int8 with a float32 scale per output channel, the rest float32, little-endian, base64. Do not edit.
+const DME_SMOOTHER_MANIFEST={"model":"temporal_prior_small","count":42529,"C":32,"lags":[1,2,4,8],"dils":[1,2,4,8,16,32,64,128,256,512,1,2,4,8,16,32,64,128,256,512],"blockMap":[0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9],"tensors":[{"name":"inp.weight","shape":[32,7,1],"offset":0,"byteOffset":0,"dtype":"int8","scaleByteOffset":224},{"name":"inp.bias","shape":[32],"offset":224,"byteOffset":352,"dtype":"float32"},{"name":"blocks.0.n.weight","shape":[32],"offset":256,"byteOffset":480,"dtype":"float32"},{"name":"blocks.0.n.bias","shape":[32],"offset":288,"byteOffset":608,"dtype":"float32"},{"name":"blocks.0.c1.weight","shape":[32,32,3],"offset":320,"byteOffset":736,"dtype":"int8","scaleByteOffset":3808},{"name":"blocks.0.c1.bias","shape":[32],"offset":3392,"byteOffset":3936,"dtype":"float32"},{"name":"blocks.0.c2.weight","shape":[32,32,1],"offset":3424,"byteOffset":4064,"dtype":"int8","scaleByteOffset":5088},{"name":"blocks.0.c2.bias","shape":[32],"offset":4448,"byteOffset":5216,"dtype":"float32"},{"name":"blocks.1.n.weight","shape":[32],"offset":4480,"byteOffset":5344,"dtype":"float32"},{"name":"blocks.1.n.bias","shape":[32],"offset":4512,"byteOffset":5472,"dtype":"float32"},{"name":"blocks.1.c1.weight","shape":[32,32,3],"offset":4544,"byteOffset":5600,"dtype":"int8","scaleByteOffset":8672},{"name":"blocks.1.c1.bias","shape":[32],"offset":7616,"byteOffset":8800,"dtype":"float32"},{"name":"blocks.1.c2.weight","shape":[32,32,1],"offset":7648,"byteOffset":8928,"dtype":"int8","scaleByteOffset":9952},{"name":"blocks.1.c2.bias","shape":[32],"offset":8672,"byteOffset":10080,"dtype":"float32"},{"name":"blocks.2.n.weight","shape":[32],"offset":8704,"byteOffset":10208,"dtype":"float32"},{"name":"blocks.2.n.bias","shape":[32],"offset":8736,"byteOffset":10336,"dtype":"float32"},{"name":"blocks.2.c1.weight","shape":[32,32,3],"offset":8768,"byteOffset":10464,"dtype":"int8","scaleByteOffset":13536},{"name":"blocks.2.c1.bias","shape":[32],"offset":11840,"byteOffset":13664,"dtype":"float32"},{"name":"blocks.2.c2.weight","shape":[32,32,1],"offset":11872,"byteOffset":13792,"dtype":"int8","scaleByteOffset":14816},{"name":"blocks.2.c2.bias","shape":[32],"offset":12896,"byteOffset":14944,"dtype":"float32"},{"name":"blocks.3.n.weight","shape":[32],"offset":12928,"byteOffset":15072,"dtype":"float32"},{"name":"blocks.3.n.bias","shape":[32],"offset":12960,"byteOffset":15200,"dtype":"float32"},{"name":"blocks.3.c1.weight","shape":[32,32,3],"offset":12992,"byteOffset":15328,"dtype":"int8","scaleByteOffset":18400},{"name":"blocks.3.c1.bias","shape":[32],"offset":16064,"byteOffset":18528,"dtype":"float32"},{"name":"blocks.3.c2.weight","shape":[32,32,1],"offset":16096,"byteOffset":18656,"dtype":"int8","scaleByteOffset":19680},{"name":"blocks.3.c2.bias","shape":[32],"offset":17120,"byteOffset":19808,"dtype":"float32"},{"name":"blocks.4.n.weight","shape":[32],"offset":17152,"byteOffset":19936,"dtype":"float32"},{"name":"blocks.4.n.bias","shape":[32],"offset":17184,"byteOffset":20064,"dtype":"float32"},{"name":"blocks.4.c1.weight","shape":[32,32,3],"offset":17216,"byteOffset":20192,"dtype":"int8","scaleByteOffset":23264},{"name":"blocks.4.c1.bias","shape":[32],"offset":20288,"byteOffset":23392,"dtype":"float32"},{"name":"blocks.4.c2.weight","shape":[32,32,1],"offset":20320,"byteOffset":23520,"dtype":"int8","scaleByteOffset":24544},{"name":"blocks.4.c2.bias","shape":[32],"offset":21344,"byteOffset":24672,"dtype":"float32"},{"name":"blocks.5.n.weight","shape":[32],"offset":21376,"byteOffset":24800,"dtype":"float32"},{"name":"blocks.5.n.bias","shape":[32],"offset":21408,"byteOffset":24928,"dtype":"float32"},{"name":"blocks.5.c1.weight","shape":[32,32,3],"offset":21440,"byteOffset":25056,"dtype":"int8","scaleByteOffset":28128},{"name":"blocks.5.c1.bias","shape":[32],"offset":24512,"byteOffset":28256,"dtype":"float32"},{"name":"blocks.5.c2.weight","shape":[32,32,1],"offset":24544,"byteOffset":28384,"dtype":"int8","scaleByteOffset":29408},{"name":"blocks.5.c2.bias","shape":[32],"offset":25568,"byteOffset":29536,"dtype":"float32"},{"name":"blocks.6.n.weight","shape":[32],"offset":25600,"byteOffset":29664,"dtype":"float32"},{"name":"blocks.6.n.bias","shape":[32],"offset":25632,"byteOffset":29792,"dtype":"float32"},{"name":"blocks.6.c1.weight","shape":[32,32,3],"offset":25664,"byteOffset":29920,"dtype":"int8","scaleByteOffset":32992},{"name":"blocks.6.c1.bias","shape":[32],"offset":28736,"byteOffset":33120,"dtype":"float32"},{"name":"blocks.6.c2.weight","shape":[32,32,1],"offset":28768,"byteOffset":33248,"dtype":"int8","scaleByteOffset":34272},{"name":"blocks.6.c2.bias","shape":[32],"offset":29792,"byteOffset":34400,"dtype":"float32"},{"name":"blocks.7.n.weight","shape":[32],"offset":29824,"byteOffset":34528,"dtype":"float32"},{"name":"blocks.7.n.bias","shape":[32],"offset":29856,"byteOffset":34656,"dtype":"float32"},{"name":"blocks.7.c1.weight","shape":[32,32,3],"offset":29888,"byteOffset":34784,"dtype":"int8","scaleByteOffset":37856},{"name":"blocks.7.c1.bias","shape":[32],"offset":32960,"byteOffset":37984,"dtype":"float32"},{"name":"blocks.7.c2.weight","shape":[32,32,1],"offset":32992,"byteOffset":38112,"dtype":"int8","scaleByteOffset":39136},{"name":"blocks.7.c2.bias","shape":[32],"offset":34016,"byteOffset":39264,"dtype":"float32"},{"name":"blocks.8.n.weight","shape":[32],"offset":34048,"byteOffset":39392,"dtype":"float32"},{"name":"blocks.8.n.bias","shape":[32],"offset":34080,"byteOffset":39520,"dtype":"float32"},{"name":"blocks.8.c1.weight","shape":[32,32,3],"offset":34112,"byteOffset":39648,"dtype":"int8","scaleByteOffset":42720},{"name":"blocks.8.c1.bias","shape":[32],"offset":37184,"byteOffset":42848,"dtype":"float32"},{"name":"blocks.8.c2.weight","shape":[32,32,1],"offset":37216,"byteOffset":42976,"dtype":"int8","scaleByteOffset":44000},{"name":"blocks.8.c2.bias","shape":[32],"offset":38240,"byteOffset":44128,"dtype":"float32"},{"name":"blocks.9.n.weight","shape":[32],"offset":38272,"byteOffset":44256,"dtype":"float32"},{"name":"blocks.9.n.bias","shape":[32],"offset":38304,"byteOffset":44384,"dtype":"float32"},{"name":"blocks.9.c1.weight","shape":[32,32,3],"offset":38336,"byteOffset":44512,"dtype":"int8","scaleByteOffset":47584},{"name":"blocks.9.c1.bias","shape":[32],"offset":41408,"byteOffset":47712,"dtype":"float32"},{"name":"blocks.9.c2.weight","shape":[32,32,1],"offset":41440,"byteOffset":47840,"dtype":"int8","scaleByteOffset":48864},{"name":"blocks.9.c2.bias","shape":[32],"offset":42464,"byteOffset":48992,"dtype":"float32"},{"name":"out.weight","shape":[1,32,1],"offset":42496,"byteOffset":49120,"dtype":"int8","scaleByteOffset":49152},{"name":"out.bias","shape":[1],"offset":42528,"byteOffset":49156,"dtype":"float32"}]};
+const DME_SMOOTHER_B64="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";
+// ==== END DME smoother weights block ====
+
+/* ===========================================================================
    Cross-correlation drift: the image-based `driftMethod` (AIM is point-based).
    Works on the raw movie, so no Localize is needed (smFRET's drift option uses
    this). Averages each segment of segFrames raw frames into one image (the
@@ -16847,6 +17712,12 @@ async function driftCore(locs, px, config, hooks={}){
     const radiusNm=pick('driftCometRadius');
     onLog(`\nDrift correction (COMET): ${W}-frame windows (at least ${pick('driftCometMinLocs')} localizations), max drift ${radiusNm} nm, final length scale ${sigmaNm.toFixed(1)} nm${sigmaNote}`+(frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+`…`);
     d=await cometDrift(locs,nFrames,px,{radiusNm,minLocs:pick('driftCometMinLocs'),framesPerWindow:W,sigmaNm,maxPairs,use3d:has3dAll,useGpu:!!config.useGpu,smooth:pick('driftCometSmooth')},frame0,p=>onProgress(100*p),shouldStop,onLog);
+  }else if(config.driftMethod==='dme'){
+    const dp=PARAMS, pick=(k)=>config[k]==null?dp[k].default:config[k];
+    const m=modeUncertaintyNm(locs,px), sigmaNm=m?Math.max(1,Math.min(50,m)):10, mode=pick('driftDmeMode');
+    onLog(`\nDrift correction (DME, ${mode==='bins'?'fixed bins':'learned temporal prior'}): kernel ${sigmaNm.toFixed(1)} nm${m?' (from the localization precision)':' (default: no precision estimate)'}`+(frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+`…`);
+    if(locs.some(L=>isFinite(L.z))) onLog('DME corrects x and y only: the localizations have z, and z drift is left uncorrected.');
+    d=await dmeDrift(locs,nFrames,px,{mode,fpb:pick('driftDmeFpb'),sigmaNm,useGpu:!!config.useGpu},frame0,p=>onProgress(100*p),shouldStop,onLog);
   }else{
     onLog(`\nDrift correction (AIM): ${segF}-frame segments, ±${roiNm} nm search`+
           (frame0>0?` (frames ${frame0+1}–${maxFrame+1})`:'')+
@@ -16864,8 +17735,8 @@ async function driftCore(locs, px, config, hooks={}){
   }
   // A stop in either pass: nothing is applied.
   const stopped = d.stopped || (dz && dz.stopped);
-  if(stopped && d.cometStopped){
-    onLog(`Stopped during the COMET optimisation — the current, unconverged drift is shown; NOT applied — the reconstruction/CSV export still use the ORIGINAL, uncorrected coordinates. Run to completion to correct the data.`);
+  if(stopped && (d.cometStopped||d.dmeStopped)){
+    onLog(`Stopped during the ${d.dmeStopped?'DME':'COMET'} optimisation — the current, unconverged drift is shown; NOT applied — the reconstruction/CSV export still use the ORIGINAL, uncorrected coordinates. Run to completion to correct the data.`);
     return { drift:d, nFrames, frame0, stopped:true, ms:Math.round(performance.now()-t0) };
   }
   if(stopped){
@@ -16906,13 +17777,14 @@ async function driftCore(locs, px, config, hooks={}){
   return { drift:d, nFrames, frame0, ms:Math.round(performance.now()-t0) };
 }
 
-// Shows each method's own settings: AIM (search radius, z), COMET (radius, window, length scale, pair cap, z). The shared
+// Shows each method's own settings: AIM (search radius, z), COMET (radius, window, length scale, pair cap, z), DME (temporal model, frames per bin; 2D). The shared
 // Sampling % control stays visible (NeNA uses it). hasZ: passed by rerender(),
 // else derived from lastResult.
 function refreshDriftMethodUI(hasZ){
-  const method = paramValue('driftMethod'), isAim = method==='aim', isComet = method==='comet';
+  const method = paramValue('driftMethod'), isAim = method==='aim', isComet = method==='comet', isDme = method==='dme';
   $('driftRoiRow').style.display = isAim ? '' : 'none';
-  $('driftSegRow').style.display = isComet ? 'none' : '';
+  $('driftSegRow').style.display = (isComet||isDme) ? 'none' : '';
+  for(const id of ['driftDmeModeRow','driftDmeFpbRow']) $(id).style.display = isDme ? '' : 'none';
   for(const id of ['driftCometSegRow','driftCometRadiusRow','driftCometMinLocsRow','driftCometSmoothRow','driftCometSigmaRow','driftCometPairsRow']) $(id).style.display = isComet ? '' : 'none';
   if(hasZ===undefined) hasZ = !!(lastResult && lastResult.locs && lastResult.locs.some(L=>isFinite(L.z)));
   $('driftZRow').style.display = ((isAim||isComet) && hasZ) ? 'flex' : 'none';
@@ -16935,10 +17807,12 @@ async function correctDrift(){
   try{
     const driftMethod=paramValue('driftMethod');
     const config={driftSeg:paramValue('driftSeg'), driftMethod, driftRoi:paramValue('driftRoi'), driftZ:paramValue('driftZ'), samplePct:paramValue('samplePct'), stack,
-      driftCometSeg:paramValue('driftCometSeg'), driftCometSigma:paramValue('driftCometSigma'), driftCometMaxPairs:paramValue('driftCometMaxPairs'), memBudgetGB:paramValue('memBudgetGB'), useGpu:paramValue('useGpu'), driftCometRadius:paramValue('driftCometRadius'), driftCometMinLocs:paramValue('driftCometMinLocs'), driftCometSmooth:paramValue('driftCometSmooth')};
+      driftCometSeg:paramValue('driftCometSeg'), driftCometSigma:paramValue('driftCometSigma'), driftCometMaxPairs:paramValue('driftCometMaxPairs'), memBudgetGB:paramValue('memBudgetGB'), useGpu:paramValue('useGpu'), driftCometRadius:paramValue('driftCometRadius'), driftCometMinLocs:paramValue('driftCometMinLocs'), driftCometSmooth:paramValue('driftCometSmooth'), driftDmeMode:paramValue('driftDmeMode'), driftDmeFpb:paramValue('driftDmeFpb')};
     // Logged before driftCore(), as correctDrift() (corrects the existing
     // result; the analyze() form would Localize first).
-    const cmdCfg=driftMethod==='comet'
+    const cmdCfg=driftMethod==='dme'
+      ? {correctDrift:true, driftMethod, driftDmeMode:config.driftDmeMode, driftDmeFpb:config.driftDmeFpb}
+      : driftMethod==='comet'
       ? {correctDrift:true, driftMethod, driftZ:config.driftZ, driftCometRadius:config.driftCometRadius, driftCometMinLocs:config.driftCometMinLocs, driftCometSmooth:config.driftCometSmooth, driftCometSeg:config.driftCometSeg, driftCometSigma:config.driftCometSigma, driftCometMaxPairs:config.driftCometMaxPairs}
       : {correctDrift:true, driftSeg:config.driftSeg, driftMethod, driftRoi:config.driftRoi, driftZ:config.driftZ, samplePct:config.samplePct};
     logCmd(cmdCfg, overrideWithFields(cmdCfg, 'correctDrift()'));
@@ -19678,7 +20552,7 @@ function smfretWidthValue(width,useElliptical,bearing){
 async function smfretComputeDrift(){
   if(!stack) return null;
   const method=paramValue('driftMethod'), segF=paramValue('driftSeg');
-  if(method==='comet') log('(smFRET: Apply drift correction uses AIM or cross correlation; COMET is not used here.)');
+  if(method==='comet'||method==='dme') log(`(smFRET: Apply drift correction uses AIM or cross correlation; ${method==='dme'?'DME':'COMET'} is not used here.)`);
   // ALEX: donor- and acceptor-excitation frames can image at different
   // sensor positions (grating/prism), so AIM treats the channels separately.
   const alex=paramValue('alexEnabled');
@@ -26658,7 +27532,7 @@ function applyTheme(name){
 }
 // Version banner as a log() entry (so it gets a comment marker). Update this
 // string on every build-letter bump.
-log(`webSMLM v0.13.6-dev · build 2026-11-18a — point-cloud reconstruction display (Render as; Bitmap stays the default), live during a Run.`);
+log(`webSMLM v0.13.6-dev · build 2026-11-18b — merge webSMLM_local (point-cloud display) into DME drift: smaller learned prior (32 channels, shared weights, int8; 66 KB instead of 904 KB), DME marked experimental again, z note for 3D data.`);
 
 $('compatNoticeClose').addEventListener('click', dismissCapabilityNotice);
 $('themeLightBtn').addEventListener('click', ()=>applyTheme('light'));

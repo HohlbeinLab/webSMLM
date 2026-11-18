@@ -258,3 +258,11 @@ appear automatically, with a generic table when no specialized summary exists.
 
 See [GPU testing](gpu/README.md) and
 [Picasso cross-validation](validation/README.md) for harness-specific details.
+
+`WEBSMLM_BROWSER_ARGS` (space-separated) passes extra flags to the Chrome/Chromium `tests/lib/launch.mjs` starts (not to Firefox or WebKit) — e.g. on a headless
+Linux machine without a display, `--enable-unsafe-webgpu --enable-features=Vulkan` gives WebGPU through SwiftShader (correctness
+checks only, not GPU speed).
+
+On Windows laptops with two GPUs, Chrome's WebGPU adapter follows the Windows per-app graphics setting (Settings → Display →
+Graphics, or `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`), not `powerPreference` or command-line flags; the
+benchmarks print the adapter they got.

@@ -1300,6 +1300,46 @@ cap is twice as high; it matches the CPU result to well below a nanometre and is
 (about 1.4 s against 23 s for 40 million pairs; each cost evaluation scales with the pair count, a run needs roughly 40–150 of them, and the log reports the time of the first); otherwise the main thread does the work, yielding to the UI. The
 progress bar covers the pair search and each length scale. Test: `tests/gpu/test-comet-drift.mjs`.
 
+**DME** (`dmeDrift()`, **experimental**, 2D), drift estimation by entropy minimization (Cnossen et al., *Opt. Express* 29, 27961
+(2021)) with a learned temporal prior. It maximises `mean_i log(1 + Σ_j exp(−|uᵢ−uⱼ|²/2))` over all pairs in different frames
+closer than 3 kernel widths (`u` = drift-corrected position / kernel width; the kernel width is the mode of the per-localization
+precision), a bound on the entropy of the corrected localizations. **Temporal model** (`driftDmeMode`): **Fixed bins** is the
+classic DME: a Catmull-Rom spline with one knot per **Frames per bin** (`driftDmeFpb`; empty = about 20 000 localizations per
+bin), started from AIM and from zero drift (the start with the higher score at the coarsest kernel is continued), kernel 4 → 2 → 1
+× the precision with 4/2/1× coarser knots, L-BFGS at each level. **Learned temporal prior** (default) adds, on top, per-segment
+Newton measurements of the drift (gradient and 2×2 curvature of the score for shifting one segment) that a small 1D
+convolutional network (333 k parameters, trained on simulated measurement sequences; weights in the generated *DME smoother
+weights* block, `tools/dme/export_smoother_weights.py`) turns into a drift curve, in 5 passes at kernel 4, 2, 1, 1, 1×. As in the
+released Python DME v2 (`dme_prior_estimate()`, 2D), the result is chosen without ground truth by a spatial cross-fit (the drift
+estimated on one half of an 8×8-tile checkerboard is scored on the other half's localizations and vice versa) among: a drift
+value per frame without a temporal prior (only with at least 30 localizations per frame), bins at the automatic frames per bin
+and a tenth of it, and the learned prior started from those bins with segments of 1, 2, 3, 6, 12, 24, 48, 96 or 192 frames
+(those with at least 30 localizations per segment and at least 24 segments). The AIM + zero multi-start runs only for the first
+fit on each half; every later fit on that half starts from the previous fit, and the final fit on all localizations starts from
+the mean of the two halves' fits at the chosen frames per bin. On dense or very precise localizations (DECODE, SIMFLUX) it tracks drift on scales of hundreds of frames that fixed bins
+average out; on sparse ones the cross-fit falls back to bins. Score kernels: a static cell grid (cell = 4 kernel widths) rebuilt
+once any frame's drift moved by more than half a kernel width, one GPU thread per localization in cell order (no pair list, no
+atomics), equal to the CPU to ~1e-5. On the GPU the grid is built on the GPU too (count per cell, prefix scan, scatter, and a
+per-cell sort that makes the order deterministic), from localizations uploaded once per run; the network runs on the GPU too. Without the GPU, at most 300 000 localizations are used
+(a deterministic share). Stop discards the run. Test: `tests/gpu/test-dme-drift.mjs`.
+
+DME runtime in Chrome (`tests/gpu/bench-dme-drift.mjs`, simulated, 10 000 frames; RTX 4060 laptop GPU / Radeon 780M
+integrated GPU):
+
+| localizations | Fixed bins | Learned temporal prior |
+|---|---|---|
+| 100 k | 0.7 / 0.7 s | 4.9 / 5.6 s |
+| 300 k | 1.4 / 1.7 s | 7.7 / 8.8 s |
+| 1 M | 6.2 / 5.5 s | 21 / 22 s |
+| 3 M | 20 / 19 s | 55 / 62 s |
+
+On the CPU, 100 k localizations take 39 s (bins) and 336 s (learned). With the grid built in JavaScript (build 2026-11-08a),
+1 M took 8 s and 37–46 s. One score evaluation of 1 M localizations now takes 16 ms (RTX 4060) or 30 ms (Radeon 780M). The
+AIM start (`aimDrift2D()`, CPU) is about half of a fixed-bins run; the learned prior runs it twice (once per checkerboard
+half). Since build 2026-11-14a the learned prior also tries the per-frame candidate and 1–3-frame segments when there are
+enough localizations; that work takes about the time saved by the single multi-start per half (Radeon 780M: 5.6 s at 100 k,
+23 s at 1 M, against 5.6 s and 22 s in the table).
+
 ### Ground-truth scoring (`validation`) {#validation}
 
 Compares the localizations against the simulator's own ground truth — the
@@ -3473,13 +3513,15 @@ the corrected result's own precision/resolution).
 |---|---|---|---|---|---|---|
 | `samplePct` | Sampling (AIM & NeNA) % | number (int) | 5 | 100 | 5 | 100 |
 | `driftSeg` | Average # of frames | number (int) | 5 | 2000 | 5 | 100 |
-| `driftMethod` | Drift correction method | enum (`aim`, `correlation`, `comet`) | — | — | — | `aim` |
+| `driftMethod` | Drift correction method | enum (`aim`, `correlation`, `comet`, `dme`) | — | — | — | `aim` |
 | `driftCometSeg` | Frames per window | number (int) | 1 | 2000 | 1 | 5 |
 | `driftCometRadius` | Max drift (nm) | number | 20 | 5000 | 10 | 400 |
 | `driftCometMinLocs` | Min localizations per window | number (int) | 0 | 100000 | 50 | 250 |
 | `driftCometSmooth` | Smoothing (windows) | number (int) | 1 | 99 | 2 | 5 |
 | `driftCometSigma` | Final length scale (nm) | number | 0 | 50 | 0.5 | empty = auto (from the localization precision; 0 means the same) |
 | `driftCometMaxPairs` | Max pairs (millions) | number (int) | 1 | 400 | 1 | 20 |
+| `driftDmeMode` | Temporal model | enum (`learned`, `bins`) | — | — | — | `learned` |
+| `driftDmeFpb` | Frames per bin | number (int) | 0 | 20000 | 1 | empty = auto (about 20 000 localizations per bin; 0 means the same) |
 | `driftRoi` | Drift search radius (nm) | number | 10 | 1000 | 10 | 120 |
 | `driftZ` | Correct z too (3D) | bool | — | — | — | true |
 | `frc3d` | 3D shells (FSC) | bool | — | — | — | false (not yet implemented — UI placeholder) |
@@ -3490,12 +3532,13 @@ the corrected result's own precision/resolution).
 
 <!-- HINT:drift -->
 <p><b>Sampling (AIM &amp; NeNA) %</b> is a shared speed/precision trade for AIM's own shift search and NeNA — each deterministically subsamples once via its own independent random stream (100% = no change, the default; an already-small segment or dataset is never subsampled further) — useful on a large dataset where either is slow. It does <b>not</b> affect FRC: FRC's own resolution number is fundamentally a function of localization density, not just noisier with fewer points, so subsampling it would silently report the (much worse) resolution of a sparser dataset rather than a faster measurement of the real one — FRC always runs on the full loc set regardless of this setting.</p>
-<p>Three drift-estimation methods, picked by <b>Drift correction method</b> (<b>COMET</b>, below, is the third). <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
+<p>Four drift-estimation methods, picked by <b>Drift correction method</b> (<b>COMET</b> and <b>DME</b>, below, are the third and fourth). <b>AIM</b> (adaptive intersection maximization; Ma et al., <i>Sci. Adv.</i> 2024, after <code>picasso/aim.py</code>; see <a href="https://websmlm.readthedocs.io/en/latest/content/09-references-further-reading.html" target="_blank" rel="noopener">References &amp; further reading</a>) is point-based — it needs real localizations to already exist, so <b>Localize first, then Correct drift.</b> <b>Cross correlation</b> is image-based instead: it works directly off the raw movie (no Localize needed to ESTIMATE the drift — Correct drift itself still needs existing localizations to apply the correction TO), averaging <b>Average # of frames</b> raw frames into one representative image per segment and finding each segment's own shift relative to the first by FFT cross-correlation. Both still apply the same way once estimated: corrected coordinates are used by the render and CSV, the raw coordinates are kept.</p>
 <ul>
   <li><b>Average # of frames</b> is shared by AIM and Cross correlation — smaller segments track faster drift more closely but are noisier to estimate.</li>
   <li><b>AIM</b>'s own settings, shown only when it's selected: <b>Search radius (nm)</b> must exceed the drift increment per segment — shrink the segment for faster drift; <b>Correct z too (3D)</b> additionally runs a 1-D z-drift correction (3D results only).</li>
   <li><b>Cross correlation</b> has no additional settings of its own — no search radius (the whole frame is searched via FFT) and no z (a raw camera frame has no separate z channel to correlate against).</li>
   <li><b>COMET</b> (experimental; Reinkensmeier et al., bioRxiv 2026) maximises the overlap of all localizations over time windows of <b>Frames per window</b>, in x, y and z at once, and stays stable with only a few tens of localizations per window, where AIM does not. <b>Max drift (nm)</b> must exceed the total drift of the whole acquisition, peak to peak (not AIM's per-segment search radius — too small a value gives a poor, noisy result and the log warns); <b>Min localizations per window</b> merges short windows until each holds that many (about 250 or more keeps the curve smooth); <b>Smoothing (windows)</b> averages the drift over that many neighbouring windows (1 = off; smooth drift gains a lot, fast drift is blurred); <b>Final length scale (nm)</b> should match the localization precision (empty, "auto", = estimated from it); <b>Max pairs (millions)</b> caps the work and memory (a random share of the localizations is used above it). Slower than AIM on the CPU (seconds rather than a fraction of a second); the GPU brings it close.</li>
+  <li><b>DME</b> (experimental; Cnossen et al., <i>Opt. Express</i> 2021) maximises a bound on the entropy of all drift-corrected localizations (2D). <b>Temporal model</b>: <b>Learned temporal prior</b> (default) measures the drift of short segments and smooths them with a small trained network; the segment length (1–192 frames), plain bins, or (with at least 30 localizations per frame) a drift value per frame without prior, whichever fits best, is chosen from the data by fitting one half of the field and scoring the other half, so it adapts to fast drift (vibration, steps) when the data support it and falls back to bins when they do not. <b>Fixed bins</b> is the classic DME (one spline knot per <b>Frames per bin</b>; empty = about 20 000 localizations per bin). Uses the localization precision as kernel width; much faster with <b>Use GPU acceleration</b> (without it, at most 300 000 localizations are used).</li>
   <li>Each run re-estimates from scratch, so settings can be swept and compared, and any method can be tried on the same result.</li>
   <li><b>Show drift</b> plots drift vs. frame by default; a small toggle in the raw panel's own title bar ("Show x/y path") switches to a single x/y trajectory instead, coloured by frame (time) using the current reconstruction colour map.</li>
 </ul>

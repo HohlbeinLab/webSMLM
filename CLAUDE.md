@@ -441,6 +441,30 @@ what makes GUI and command-line use interchangeable.
     one thread per loc in cell order over a static cell grid, no pair list, no atomics; `WGSL_COMET_WINDOWS` sums each window's run of
     threads), 6–17× the CPU at 3–290 M pairs and equal to it to the sub-nm; the pair cap is ×2 there (default `driftCometMaxPairs` 20 M); the pair count is estimated from a budget of candidate checks (`cometEstimatePairs()`, `COMET_ESTIMATE_BUDGET`; a full count of millions of dense locs took minutes) and counted exactly only for the CPU's pair list; any GPU error continues
     on the CPU. Progress: grid/pair search 0–12 %, then per length scale. Test: `tests/gpu/test-comet-drift.mjs`.
+  - **DME** (`driftMethod 'dme'`, `dmeDrift()`; Cnossen et al. 2021 plus a learned temporal prior, ported from
+    github.com/qnano/drift-estimation, `dme/dme_prior.py`): 2D, kernel width = `modeUncertaintyNm()`. `driftDmeMode 'bins'`:
+    spline knots every `driftDmeFpb` frames (0 = `dmeRuleFpb()`, ~20 k locs/bin), AIM and zero starts through the coarsest kernel
+    (`aimDrift2D()` on the localizations; the higher score wins), kernel 4→2→1×, `cometLbfgs()` per level. `'learned'` (default):
+    `dmeSegmentMeasurements()` (Newton step + 2×2 curvature per segment, trust region 1.5 kernel widths, non-negative-definite
+    curvature = no measurement) → `dmeSmootherForwardGpu2()`/`dmeSmootherForwardCpu()` (Conv1d network, 32 channels, 20 blocks in
+    two dilation cycles sharing weights (`manifest.blockMap`), int8 weights in the generated `DME smoother weights` block:
+    regenerate with `tools/dme/export_smoother_weights.py`, never edit) in 5 passes. `dmeLearned()`
+    mirrors the release's `dme_prior_estimate()` (github.com/qnano/drift-estimation, `dme/dme_prior.py`; 2D only, no RCC start): a spatial
+    cross-fit on `dmeCheckerboard()` halves (balanced: a split aligned with an outer split of the same grid would empty a half)
+    picks among a drift value per frame without prior (`dmeBins()` at fpb 1, only with ≥ `DME_MIN_LOCS_PER_SEG` locs/frame), bins
+    at the rule fpb and a tenth of it, and the learned prior from those bins on each `DME_LEARNED_LFRAMES` length (1–192 frames)
+    with ≥ 30 locs/segment and ≥ 24 segments. The AIM + zero multi-start runs once per half (its first fit); each later fit on a
+    half starts from the previous one (`dmeBins()`'s `d0`), and the all-data fit from the mean of the halves' fits at the chosen
+    fpb. Score kernels `WGSL_DME_PASS1/PASS2/FRAMES` (static grid, cell 4σ, rebuilt when a
+    frame moved > σ/2, so exact; 16 B/loc per buffer). GPU grid build `WGSL_DME_GRID_COUNT/SCATTER/SORT` + `WGSL_DME_SCAN(_ADD)`
+    (atomic count, multi-level exclusive scan, scatter, per-cell insertion sort by frame-order position = deterministic), bounds
+    from per-frame min/max in O(F); localization sets live on the GPU once per run (`dmeGpuData()`, `ctx.gpuData` keyed by
+    the X array, destroyed at the end of `dmeDrift()`); `dmeBuildGrid()` is only the CPU path; `dmeEvaluator()` falls back to its CPU loop on any GPU error. CPU-only runs
+    keep at most `DME_CPU_MAX_LOCS` localizations (deterministic `mix32` share). Stop → `DmeStopped`, `d.dmeStopped`, nothing applied.
+    Learned mode returns its cross-fit table as `d.dmeChoice` ({best, candidates}).
+    Test: `tests/gpu/test-dme-drift.mjs` (GPU half skipped without an adapter; ~9 min on a laptop CPU). Bench:
+    `tests/gpu/bench-dme-drift.mjs` (1 M locs: ~6 s bins, ~21–23 s learned; one score evaluation 16 ms on an RTX 4060; the CPU
+    AIM start is ~half of a bins run — see docs/DOCUMENTATION.md, DME).
   - `drawDriftCurve()`'s green/magenta/blue palette is the app's reference pairing for two-curve plots.
 
 - **locprecision** — NeNA (Endesfelder fit, `nenaPrecision()`) and FRC (`prepareFrc()`,

@@ -23,6 +23,9 @@ export const htmlUrl = pathToFileURL(join(repoRoot, 'webSMLM.html')).href;
 const requireFromTools = createRequire(pathToFileURL(join(repoRoot, 'tools', 'package.json')));
 const { chromium, firefox, webkit } = requireFromTools('playwright');
 
+// WEBSMLM_BROWSER_ARGS: extra Chromium flags (chrome only), space-separated — e.g. on a headless Linux machine without a display,
+// '--enable-unsafe-webgpu --enable-features=Vulkan' gives WebGPU through SwiftShader (correctness only, not speed).
+const extraArgs = (process.env.WEBSMLM_BROWSER_ARGS || '').split(' ').filter(Boolean);
 export async function launchPage({ headless = false } = {}) {
   const selected = process.env.WEBSMLM_BROWSER || 'chrome';
   if (!['chrome', 'firefox', 'webkit'].includes(selected)) {
@@ -33,10 +36,10 @@ export async function launchPage({ headless = false } = {}) {
     browser = await (selected === 'firefox' ? firefox : webkit).launch({ headless });
   } else {
     try {
-      browser = await chromium.launch({ headless, channel: 'chrome' });
+      browser = await chromium.launch({ headless, channel: 'chrome', args: extraArgs });
     } catch (err) {
       console.error(`(couldn't launch system Chrome (${err.message}) — trying Playwright's own Chromium. If that also fails: cd tools && npm install)`);
-      browser = await chromium.launch({ headless });
+      browser = await chromium.launch({ headless, args: extraArgs });
     }
   }
   // Explicit desktop-sized viewport: Playwright's own default (1280x720) has
