@@ -276,6 +276,17 @@ dark to match the rest of the UI.
   never keeps showing the range sampled from the frame size that was active
   before the crop.
 
+  **Play** (`rawPlayBtn`, the triangle just left of `rawCropBtn`, enabled
+  whenever the crop tool is) plays the movie in real time at **Frame time
+  (s)**: each screen refresh shows the frame that is due by the clock, so
+  frames are skipped when drawing (with **Real-time update** on, re-detecting
+  and re-fitting every frame) is slower than the movie. It starts from the
+  current frame (from the first one when at the last), stops at the last
+  frame, and pauses on a second click, when you scrub (slider, frame number,
+  wheel) or when a plot, the PSF preview or a segmentation image takes the
+  panel. Editing Frame time while playing changes the speed at once.
+  Terminal: `toggleMoviePlayback()`, `playMovie()`, `stopMovie()`.
+
   **Contrast** (below the Frame scrubber, Picasso-style) is a fixed
   [black,white] ADU display range — two overlapping range-slider handles
   (`#rawBlack`/`#rawWhite`) — applied identically to every frame, rather
@@ -430,6 +441,7 @@ A representative sample (module order matches [§2](#2-module-reference)):
 | **Localize** | `run()` | no args — reads the current sidebar settings live |
 | **Stop** | `requestStop()` | ends a live-streaming session, else asks a running Localize/drift correction/3D calibration to stop |
 | Raw-panel crop tool | `applyCropToRaw(x0,y0,x1,y1)` / `uncropRaw()` | native-pixel bounds; does NOT localize |
+| Raw-panel Play | `toggleMoviePlayback()` / `playMovie()` / `stopMovie()` | real time at Frame time (s), skipping frames the display can't keep up with |
 | Rotate movie | `applyMovieRotation()` | reads `#rotateMovie`; re-wraps the loaded movie and clears all results |
 | Reconstruction-panel crop tool | `commitSrCrop(x0,y0,x1,y1)` | **nm** bounds (not px) — a `_tableFilters` clause, not a stack crop |
 | **Calibrate** | `runCalibration()` | |

@@ -125,6 +125,11 @@ what makes GUI and command-line use interchangeable.
   - `makeCroppedStack()` (raw-panel crop) replaces `stack` with a sliced wrapper (original kept in
     `originalStack`), so nothing downstream needs offsets; crop bounds ride on the stack for logged
     commands (`cropCmdFields()`).
+  - **Play** (`rawPlayBtn`, left of the raw crop tool; `toggleMoviePlayback()`/`playMovie()`/`stopMovie()`):
+    a rAF loop shows the frame due at **Frame time (s)** (frames skipped when `showFrame()` is slower), stops at
+    the last frame or on scrubbing. Its enabled state mirrors `rawCropBtn`'s (a MutationObserver). Every panel
+    claim (`setRawPlot(true)`, PSF preview, segmentation view) bumps `_rawPanelClaim` and stops playback;
+    `showFrame()` drops a frame whose read finished after a claim, so it never draws over the plot.
   - **FTM** (temporal median; controls in Localisation): scrub preview per frame
     (`ftmFrame()`/`ftmFrameParallel()`); Localize via `makeFtmStack()` (serial) or `runCore()`'s
     barrier-phased worker loop (FTM phase over the whole pool, then detect/fit, never both on the pool
